@@ -1,0 +1,58 @@
+export const menLevelTwo = [
+  {
+    name: "Topwear",
+    categoryId: "men_topwear",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Bottomwear",
+    categoryId: "men_bottomwear",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Innerwear & Sleepwear",
+    categoryId: "men_innerwear_and_sleepwear",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Footwear",
+    categoryId: "men_footwear",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Personal Care And Grooming",
+    categoryId: "men_personal_care_and_grooming",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Men Fashion Accessories",
+    categoryId: "men_fashion_accessories",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Gadgets",
+    categoryId: "men_gadgets",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+  {
+    name: "Bags And Backpacks",
+    categoryId: "men_bags_and_backpacks",
+    parentCategoryName: "Men",
+    parentCategoryId: "men",
+    level: 2,
+  },
+];

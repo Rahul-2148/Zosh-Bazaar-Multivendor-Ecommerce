@@ -1,0 +1,79 @@
+[
+  {
+    "sellerName": "Sujay Sahis",
+    "mobile": "8101517647",
+    "GSTIN": "29ABCDE1234F2Z5",
+    "businessDetails":
+      {
+        "businessName": "Sahis Hardware",
+        "businessPan": "ABCDE1234F",
+        "businessLogo": "http://example.com/logo1.png",
+        "banner": "http://example.com/banner1.png",
+      },
+    "bankDetails":
+      {
+        "accountNumber": "123456789012",
+        "accountHolderName": "Sujay Sahis",
+        "bankName": "State Bank Of India",
+        "ifscCode": "SBIN0001234",
+        "accountBranch": "Saltora",
+        "accountHolderEmail": "sujaysahis73@gmail.com",
+      },
+    "pickupAddress":
+      {
+        "name": "Anjali Mandal",
+        "locality": "City center",
+        "pincode": "713212",
+        "address": "222, city center saltora",
+        "city": "Saltora",
+        "state": "West Bengal",
+        "mobile": "1234567890",
+        "email": "sujaysahis73@gmail.com",
+        "country": "India",
+      },
+    "email": "sujaysahis73@gmail.com",
+    "password": "hashed_password_1",
+    "role": "ROLE_SELLER",
+    "accountStatus": "ACTIVE",
+    "isEmailVerified": true,
+  },
+
+  {
+    "sellerName": "Rahul Raj",
+    "mobile": "9973162148",
+    "GSTIN": "29ABCDE1234F2Z5",
+    "businessDetails":
+      {
+        "businessName": "Modi Electronics",
+        "businessPan": "ABCDE1234F",
+        "businessLogo": "http://example.com/logo1.png",
+        "banner": "http://example.com/banner1.png",
+      },
+    "bankDetails":
+      {
+        "accountNumber": "123456789012",
+        "accountHolderName": "Rahul Raj",
+        "bankName": "Punjab National Bank",
+        "ifscCode": "PNB0001234",
+        "accountBranch": "Koderma",
+        "accountHolderEmail": "rajvlogs752@gmail.com",
+      },
+    "pickupAddress":
+      {
+        "name": "Shrishti Sinha",
+        "locality": "City center",
+        "pincode": "713212",
+        "address": "123, city center Durgapur",
+        "city": "Durgapur",
+        "state": "West Bengal",
+        "mobile": "1234567890",
+        "email": "shristasinha.21@nshm.edu.in",
+        "country": "India",
+      },
+    "email": "rajvlogs752@gmail.com",
+    "password": "hashed_password_1",
+    "role": "ROLE_SELLER",
+    "accountStatus": "ACTIVE",
+    "isEmailVerified": true,
+  },
+]

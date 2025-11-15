@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+.logo {
+  font-family: "Pacifico", cursive;
+  font-weight: 400;
+  font-style: normal;
+  color: teal;
+}
+
+.footer-logo {
+  font-family: "Pacifico", cursive;
+  font-weight: 400;
+  font-style: normal;
+  color: white;
+}
+
+.no-arrow_updown_spinner input[type="number"]::-webkit-outer-spin-button,
+.no-arrow_updown_spinner input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox ke liye */
+.no-arrow_updown_spinner input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
