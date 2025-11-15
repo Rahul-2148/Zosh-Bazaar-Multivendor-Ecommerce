@@ -1,0 +1,433 @@
+export const electronicsLevelThree = [
+  // Mobiles
+  {
+    name: "Smartphones",
+    categoryId: "smartphones",
+    parentCategoryName: "Mobiles",
+    parentCategoryId: "mobiles",
+    level: 3,
+  },
+  {
+    name: "Feature Phones",
+    categoryId: "feature_phones",
+    parentCategoryName: "Mobiles",
+    parentCategoryId: "mobiles",
+    level: 3,
+  },
+  {
+    name: "Refurbished Phones",
+    categoryId: "refurbished_phones",
+    parentCategoryName: "Mobiles",
+    parentCategoryId: "mobiles",
+    level: 3,
+  },
+  {
+    name: "Mobile Bundles",
+    categoryId: "mobile_bundles",
+    parentCategoryName: "Mobiles",
+    parentCategoryId: "mobiles",
+    level: 3,
+  },
+
+  // Mobile Accessories
+  {
+    name: "Cases & Covers",
+    categoryId: "cases_and_covers",
+    parentCategoryName: "Mobile Accessories",
+    parentCategoryId: "mobile_accessories",
+    level: 3,
+  },
+  {
+    name: "Screen Protectors",
+    categoryId: "screen_protectors",
+    parentCategoryName: "Mobile Accessories",
+    parentCategoryId: "mobile_accessories",
+    level: 3,
+  },
+  {
+    name: "Power Banks",
+    categoryId: "power_banks",
+    parentCategoryName: "Mobile Accessories",
+    parentCategoryId: "mobile_accessories",
+    level: 3,
+  },
+  {
+    name: "Chargers & Adapters",
+    categoryId: "chargers_and_adapters",
+    parentCategoryName: "Mobile Accessories",
+    parentCategoryId: "mobile_accessories",
+    level: 3,
+  },
+  {
+    name: "Bluetooth Headsets & Earphones",
+    categoryId: "bluetooth_headsets_and_earphones",
+    parentCategoryName: "Mobile Accessories",
+    parentCategoryId: "mobile_accessories",
+    level: 3,
+  },
+  {
+    name: "Memory Cards & Pendrives",
+    categoryId: "memory_cards_and_pendrives",
+    parentCategoryName: "Mobile Accessories",
+    parentCategoryId: "mobile_accessories",
+    level: 3,
+  },
+
+  // Smart Wearable Tech
+  {
+    name: "Smart Watches",
+    categoryId: "smart_watches",
+    parentCategoryName: "Smart Wearable Tech",
+    parentCategoryId: "smart_wearable_tech",
+    level: 3,
+  },
+  {
+    name: "Fitness Bands",
+    categoryId: "fitness_bands",
+    parentCategoryName: "Smart Wearable Tech",
+    parentCategoryId: "smart_wearable_tech",
+    level: 3,
+  },
+  {
+    name: "Smart Glasses",
+    categoryId: "smart_glasses",
+    parentCategoryName: "Smart Wearable Tech",
+    parentCategoryId: "smart_wearable_tech",
+    level: 3,
+  },
+  {
+    name: "Wearable Accessories",
+    categoryId: "wearable_accessories",
+    parentCategoryName: "Smart Wearable Tech",
+    parentCategoryId: "smart_wearable_tech",
+    level: 3,
+  },
+
+  // Laptops
+  {
+    name: "Gaming Laptops",
+    categoryId: "gaming_laptops",
+    parentCategoryName: "Laptops",
+    parentCategoryId: "laptops",
+    level: 3,
+  },
+  {
+    name: "Ultrabooks",
+    categoryId: "ultrabooks",
+    parentCategoryName: "Laptops",
+    parentCategoryId: "laptops",
+    level: 3,
+  },
+  {
+    name: "2-in-1 Laptops",
+    categoryId: "2_in_1_laptops",
+    parentCategoryName: "Laptops",
+    parentCategoryId: "laptops",
+    level: 3,
+  },
+  {
+    name: "MacBooks",
+    categoryId: "macbooks",
+    parentCategoryName: "Laptops",
+    parentCategoryId: "laptops",
+    level: 3,
+  },
+  {
+    name: "Laptop Accessories",
+    categoryId: "laptop_accessories",
+    parentCategoryName: "Laptops",
+    parentCategoryId: "laptops",
+    level: 3,
+  },
+
+  // Tablets
+  {
+    name: "Android Tablets",
+    categoryId: "android_tablets",
+    parentCategoryName: "Tablets",
+    parentCategoryId: "tablets",
+    level: 3,
+  },
+  {
+    name: "iPads",
+    categoryId: "ipads",
+    parentCategoryName: "Tablets",
+    parentCategoryId: "tablets",
+    level: 3,
+  },
+  {
+    name: "Tablet Accessories",
+    categoryId: "tablet_accessories",
+    parentCategoryName: "Tablets",
+    parentCategoryId: "tablets",
+    level: 3,
+  },
+
+  // Televisions
+  {
+    name: "Smart TVs",
+    categoryId: "smart_tvs",
+    parentCategoryName: "Televisions",
+    parentCategoryId: "televisions",
+    level: 3,
+  },
+  {
+    name: "LED TVs",
+    categoryId: "led_tvs",
+    parentCategoryName: "Televisions",
+    parentCategoryId: "televisions",
+    level: 3,
+  },
+  {
+    name: "OLED TVs",
+    categoryId: "oled_tvs",
+    parentCategoryName: "Televisions",
+    parentCategoryId: "televisions",
+    level: 3,
+  },
+  {
+    name: "QLED TVs",
+    categoryId: "qled_tvs",
+    parentCategoryName: "Televisions",
+    parentCategoryId: "televisions",
+    level: 3,
+  },
+  {
+    name: "TV Accessories",
+    categoryId: "tv_accessories",
+    parentCategoryName: "Televisions",
+    parentCategoryId: "televisions",
+    level: 3,
+  },
+
+  // Speakers
+  {
+    name: "Bluetooth Speakers",
+    categoryId: "bluetooth_speakers",
+    parentCategoryName: "Speakers",
+    parentCategoryId: "speakers",
+    level: 3,
+  },
+  {
+    name: "Home Theater Systems",
+    categoryId: "home_theater_systems",
+    parentCategoryName: "Speakers",
+    parentCategoryId: "speakers",
+    level: 3,
+  },
+  {
+    name: "Soundbars",
+    categoryId: "soundbars",
+    parentCategoryName: "Speakers",
+    parentCategoryId: "speakers",
+    level: 3,
+  },
+  {
+    name: "Smart Speakers",
+    categoryId: "smart_speakers",
+    parentCategoryName: "Speakers",
+    parentCategoryId: "speakers",
+    level: 3,
+  },
+
+  // Cameras
+  {
+    name: "DSLR Cameras",
+    categoryId: "dslr_cameras",
+    parentCategoryName: "Cameras",
+    parentCategoryId: "cameras",
+    level: 3,
+  },
+  {
+    name: "Mirrorless Cameras",
+    categoryId: "mirrorless_cameras",
+    parentCategoryName: "Cameras",
+    parentCategoryId: "cameras",
+    level: 3,
+  },
+  {
+    name: "Point & Shoot Cameras",
+    categoryId: "point_and_shoot_cameras",
+    parentCategoryName: "Cameras",
+    parentCategoryId: "cameras",
+    level: 3,
+  },
+  {
+    name: "Action Cameras",
+    categoryId: "action_cameras",
+    parentCategoryName: "Cameras",
+    parentCategoryId: "cameras",
+    level: 3,
+  },
+  {
+    name: "Camera Accessories",
+    categoryId: "camera_accessories",
+    parentCategoryName: "Cameras",
+    parentCategoryId: "cameras",
+    level: 3,
+  },
+
+  // Printers
+  {
+    name: "Inkjet Printers",
+    categoryId: "inkjet_printers",
+    parentCategoryName: "Printers",
+    parentCategoryId: "printers",
+    level: 3,
+  },
+  {
+    name: "Laser Printers",
+    categoryId: "laser_printers",
+    parentCategoryName: "Printers",
+    parentCategoryId: "printers",
+    level: 3,
+  },
+  {
+    name: "All-in-One Printers",
+    categoryId: "all_in_one_printers",
+    parentCategoryName: "Printers",
+    parentCategoryId: "printers",
+    level: 3,
+  },
+  {
+    name: "Printer Accessories",
+    categoryId: "printer_accessories",
+    parentCategoryName: "Printers",
+    parentCategoryId: "printers",
+    level: 3,
+  },
+
+  // Health Care Appliances
+  {
+    name: "Blood Pressure Monitors",
+    categoryId: "blood_pressure_monitors",
+    parentCategoryName: "Health Care Appliances",
+    parentCategoryId: "health_care_appliances",
+    level: 3,
+  },
+  {
+    name: "Thermometers",
+    categoryId: "thermometers",
+    parentCategoryName: "Health Care Appliances",
+    parentCategoryId: "health_care_appliances",
+    level: 3,
+  },
+  {
+    name: "Glucometers",
+    categoryId: "glucometers",
+    parentCategoryName: "Health Care Appliances",
+    parentCategoryId: "health_care_appliances",
+    level: 3,
+  },
+  {
+    name: "Massagers",
+    categoryId: "massagers",
+    parentCategoryName: "Health Care Appliances",
+    parentCategoryId: "health_care_appliances",
+    level: 3,
+  },
+  {
+    name: "Air Purifiers",
+    categoryId: "air_purifiers",
+    parentCategoryName: "Health Care Appliances",
+    parentCategoryId: "health_care_appliances",
+    level: 3,
+  },
+
+  // Smart Home Automation
+  {
+    name: "Security Cameras",
+    categoryId: "security_cameras",
+    parentCategoryName: "Smart Home Automation",
+    parentCategoryId: "smart_home_automation",
+    level: 3,
+  },
+  {
+    name: "Smart Lights",
+    categoryId: "smart_lights",
+    parentCategoryName: "Smart Home Automation",
+    parentCategoryId: "smart_home_automation",
+    level: 3,
+  },
+  {
+    name: "Smart Door Locks",
+    categoryId: "smart_door_locks",
+    parentCategoryName: "Smart Home Automation",
+    parentCategoryId: "smart_home_automation",
+    level: 3,
+  },
+  {
+    name: "Smart Plugs & Switches",
+    categoryId: "smart_plugs_and_switches",
+    parentCategoryName: "Smart Home Automation",
+    parentCategoryId: "smart_home_automation",
+    level: 3,
+  },
+  {
+    name: "Home Automation Hubs",
+    categoryId: "home_automation_hubs",
+    parentCategoryName: "Smart Home Automation",
+    parentCategoryId: "smart_home_automation",
+    level: 3,
+  },
+
+  // Network Components
+  {
+    name: "Wi-Fi Routers",
+    categoryId: "wifi_routers",
+    parentCategoryName: "Network Components",
+    parentCategoryId: "network_components",
+    level: 3,
+  },
+  {
+    name: "Range Extenders",
+    categoryId: "range_extenders",
+    parentCategoryName: "Network Components",
+    parentCategoryId: "network_components",
+    level: 3,
+  },
+  {
+    name: "Modems",
+    categoryId: "modems",
+    parentCategoryName: "Network Components",
+    parentCategoryId: "network_components",
+    level: 3,
+  },
+  {
+    name: "Network Cables & Accessories",
+    categoryId: "network_cables_and_accessories",
+    parentCategoryName: "Network Components",
+    parentCategoryId: "network_components",
+    level: 3,
+  },
+
+  // Featured
+  {
+    name: "Best Sellers",
+    categoryId: "best_sellers",
+    parentCategoryName: "Featured",
+    parentCategoryId: "featured",
+    level: 3,
+  },
+  {
+    name: "New Arrivals",
+    categoryId: "new_arrivals",
+    parentCategoryName: "Featured",
+    parentCategoryId: "featured",
+    level: 3,
+  },
+  {
+    name: "Deals of the Day",
+    categoryId: "deals_of_the_day",
+    parentCategoryName: "Featured",
+    parentCategoryId: "featured",
+    level: 3,
+  },
+  {
+    name: "Trending Products",
+    categoryId: "trending_products",
+    parentCategoryName: "Featured",
+    parentCategoryId: "featured",
+    level: 3,
+  },
+];

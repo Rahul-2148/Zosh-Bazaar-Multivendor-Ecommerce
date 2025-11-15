@@ -1,0 +1,230 @@
+import { createTheme } from "@mui/material";
+
+const getCustomTheme = (mode) =>
+  createTheme({
+    palette: {
+      mode, // "light" ya "dark" dynamic hoga
+      primary: {
+        main: "#00927c",
+      },
+      secondary: {
+        main: "#EAF0F1",
+      },
+      ...(mode === "dark" && {
+        background: {
+          default: "#121212",
+          paper: "#1e1e1e",
+        },
+        text: {
+          primary: "#ffffff",
+          secondary: "#cccccc",
+        },
+      }),
+    },
+  });
+
+export default getCustomTheme;
+
+use:
+<ThemeProvider theme={getCustomTheme("light")}>...</ThemeProvider>
+
+----------------------------------------------------------------------------------
+
+# App.tsx
+
+import { ThemeProvider } from "@mui/material";
+import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import customTheme from "./Theme/customTheme";
+
+import { customerRoutes } from "./routes/customerRoutes";
+import { sellerRoutes } from "./routes/SellerRoutes";
+import BecomeSeller from "./Auth/Become Seller/BecomeSeller";
+import AdminDashboard from "./admin/Dashboard/AdminDashboard";
+
+// Merge all routes
+const appRoutes = createBrowserRouter([
+  ...customerRoutes,
+  ...sellerRoutes,
+  {
+    path: "/become-seller",
+    element: <BecomeSeller />,
+  },
+  {
+    path: "/admin/*",
+    element: <AdminDashboard />,
+  },
+  {
+    path: "*",
+    element: <h2 className="text-center mt-20">404 - Page Not Found</h2>,
+  },
+]);
+
+function App() {
+  return (
+    <ThemeProvider theme={customTheme}>
+      <RouterProvider router={appRoutes} />
+    </ThemeProvider>
+  );
+}
+
+export default App;
+
+---------------------------------------------------------------------------------
+
+# CustomerRoutes.tsx file
+
+import Layout from "../customer/components/Layout/Layout";
+import ProtectedRoute from "../customer/components/RouteGuards/ProtectedRoute";
+import PublicRoute from "../customer/components/RouteGuards/PublicRoute";
+
+// Pages
+import Home from "../customer/pages/Home/Home";
+import Products from "../customer/pages/Product/Products";
+import ProductDetails from "../customer/pages/Product/ProductDetails/ProductDetails";
+import Cart from "../customer/pages/Cart/Cart";
+import Checkout from "../customer/pages/Checkout/Checkout";
+import Profile from "../customer/pages/Account/UserDetails";
+import Auth from "../Auth/Auth";
+
+export const customerRoutes = [
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      {
+        index: true,
+        element: <Home />,
+      },
+      {
+        path: "products/:categoryId",
+        element: <Products />,
+      },
+      {
+        path: "product-details/:categoryId/:name/:productId",
+        element: <ProductDetails />,
+      },
+      {
+        path: "cart",
+        element: <Cart />,
+      },
+
+      // Protected
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: "checkout/address",
+            element: <Checkout />,
+          },
+          {
+            path: "account/*",
+            element: <Profile />,
+          },
+        ],
+      },
+
+      // Public
+      {
+        element: <PublicRoute />,
+        children: [
+          {
+            path: "login",
+            element: <Auth />,
+          },
+        ],
+      },
+    ],
+  },
+];
+
+----------------------------------------------------------------------------------
+
+SellerRoutes.tsx file
+
+// import HomePage from "../seller/HomePage/HomePage";
+import Products from "../seller/Products/Products";
+import AddProduct from "../seller/Products/AddProduct";
+import Orders from "../seller/Orders/Orders";
+import Account from "../seller/Account/Account";
+import Payment from "../seller/Payment/Payment";
+import Transactions from "../seller/Transactions/Transactions";
+import SellerDashboard from "../seller/SellerDashboard/SellerDashboard";
+
+export const sellerRoutes = [
+  {
+    path: "/seller",
+    children: [
+      {
+        index: true,
+        element: <SellerDashboard />,
+      },
+      {
+        path: "products",
+        element: <Products />,
+      },
+      {
+        path: "add-product",
+        element: <AddProduct />,
+      },
+      {
+        path: "orders",
+        element: <Orders />,
+      },
+      {
+        path: "account",
+        element: <Account />,
+      },
+      {
+        path: "payment",
+        element: <Payment />,
+      },
+      {
+        path: "transactions",
+        element: <Transactions />,
+      },
+    ],
+  },
+];
+
+----------------------------------------------------------------------------------
+
+AdminRoutes.tsx file
+
+
+const AdminRoutes = () => {
+  return (
+    <div>adminRoutes</div>
+  )
+}
+
+export default AdminRoutes;
+
+----------------------------------------------------------------------------------
+
+# SellerDashboard.tsx file
+
+import { Outlet } from "react-router-dom";
+import Navbar from "../../common/Navbar";
+import SellerDrawerList from "../Sidebar/SellerDrawerList";
+
+const SellerDashboard = () => {
+  return (
+    <div className="min-h-screen">
+      <Navbar DrawerList={SellerDrawerList} />
+
+      <section className="lg:flex lg:h-[100vh]"> {/* lg:h-[90vh] tha pahle*/}
+        <div className="hidden lg:block h-full">
+            <SellerDrawerList />
+        </div>
+
+        <div className="p-10 w-full lg:w-[80%] overflow-y-auto">
+        <Outlet /> {/* Yaha nested pages load honge pahle sellerRoute imported tha*/}
+      </div>
+      </section>
+    </div>
+  );
+};
+
+export default SellerDashboard;
+
+----------------------------------------------------------------
