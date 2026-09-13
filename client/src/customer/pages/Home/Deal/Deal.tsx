@@ -1,38 +1,26 @@
 import DealCard from "./DealCard";
-import Slider from "react-slick";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
+import { useAppSelector } from "../../../../Redux Toolkit/Store";
 
 const Deal = () => {
-  const settings = {
-    dots: false,
-    infinite: true,
-    slidesToShow: 6,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: 0, // no pause
-    speed: 3000, // smooth long scroll
-    cssEase: "linear", // continuous flow
-    arrows: false,
-    pauseOnHover: true,
-  };
+  const { homeCategory } = useAppSelector((store) => store);
+
+  const dealsData =
+    (homeCategory?.marketplaceFeed?.deals && homeCategory.marketplaceFeed.deals.length > 0)
+      ? homeCategory.marketplaceFeed.deals
+      : (homeCategory?.homeCategories?.deals && homeCategory.homeCategories.deals.length > 0)
+      ? homeCategory.homeCategories.deals
+      : [];
+
+  if (!dealsData || dealsData.length === 0) {
+    return null;
+  }
 
   return (
-    <div className="py-5 lg:px-20">
-      <div className="slide-container">
-        <Slider {...settings}>
-          {[...Array(12)].map((_, index) => (
-            <div key={index} className="px-2">
-              <DealCard
-                deal={{
-                  image:
-                    "https://m.media-amazon.com/images/I/71-uT-Mj0aL._SX679_.jpg",
-                  discount: "10",
-                }}
-              />
-            </div>
-          ))}
-        </Slider>
+    <div className="mx-3 sm:mx-6 lg:mx-16 xl:mx-20 py-2 sm:py-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
+        {dealsData.map((deal: any, index: number) => (
+          <DealCard key={deal._id || index} deal={deal} />
+        ))}
       </div>
     </div>
   );

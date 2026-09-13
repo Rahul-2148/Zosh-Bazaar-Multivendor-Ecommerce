@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="sellerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#sellerGrad)"/>
+  <path d="M14 26L18 18H46L50 26V30C50 32.2 48.2 34 46 34C43.8 34 42 32.2 42 30C42 32.2 40.2 34 38 34C35.8 34 34 32.2 34 30C34 32.2 32.2 34 30 34C27.8 34 26 32.2 26 30C26 32.2 24.2 34 22 34C19.8 34 18 32.2 18 30C18 32.2 16.2 34 14 34V26Z" fill="#FFFFFF"/>
+  <path d="M18 34V48H46V34" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="27" y="38" width="10" height="10" rx="2" fill="#34D399"/>
+</svg>

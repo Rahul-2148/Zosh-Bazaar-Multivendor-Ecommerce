@@ -1,10 +1,252 @@
 @import "tailwindcss";
 
+@theme {
+  /* Core Surfaces */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+
+  /* Brand */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-border: var(--primary-border);
+
+  /* Neutral Tiers */
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Semantic Status */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+
+  /* Borders */
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Overlay */
+  --color-overlay: var(--overlay);
+}
+
+:root {
+  color-scheme: light;
+
+  /* =========================================================
+     LIGHT THEME — Layered Luminance Surface System
+     Background (#f1f5f9) → Surface (#f8fafc) → Card (#fff) → Elevated (#fff)
+     ========================================================= */
+
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+
+  --surface: #f8fafc;
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --surface-muted: #f8fafc;
+  --surface-elevated: #ffffff;
+
+  /* Brand Primary: Deep Professional Teal */
+  --primary: #0d9488;
+  --primary-foreground: #ffffff;
+  --primary-soft: #f0fdfa;
+  --primary-border: #99f6e4;
+
+  /* Secondary & Neutral Tiers */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  /* Accent: subtle teal-tinted surface */
+  --accent: #eef6f5;
+  --accent-foreground: #0f172a;
+
+  /* Semantic Status Colors */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fef2f2;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --success-soft: #ecfdf5;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --warning-soft: #fffbeb;
+  --info: #3b82f6;
+  --info-foreground: #ffffff;
+  --info-soft: #eff6ff;
+
+  /* Border hierarchy */
+  --border: #e2e8f0;
+  --border-subtle: #f0f0f4;
+  --border-strong: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #0d9488;
+
+  /* Overlay */
+  --overlay: rgba(15, 23, 42, 0.5);
+
+  /* Elevation Shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+
+  --card-shadow: var(--shadow-sm);
+  --shadow-elevated: var(--shadow-lg);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* =========================================================
+     DARK THEME — Layered Obsidian & Slate Surface System
+     Background (#06090f) → Surface (#0d1322) → Card (#141c30) → Elevated (#1c2740)
+     ========================================================= */
+
+  --background: #06090f;
+  --foreground: #f1f5f9;
+
+  --card: #141c30;
+  --card-foreground: #f1f5f9;
+
+  --popover: #1c2740;
+  --popover-foreground: #f1f5f9;
+
+  --surface: #0d1322;
+  --surface-hover: #1a2540;
+  --surface-active: #243050;
+  --surface-muted: #0a0f1a;
+  --surface-elevated: #1c2740;
+
+  /* Brand Primary: Luminous Electric Teal */
+  --primary: #14b8a6;
+  --primary-foreground: #042f2e;
+  --primary-soft: rgba(20, 184, 166, 0.12);
+  --primary-border: rgba(20, 184, 166, 0.3);
+
+  /* Secondary & Neutral Tiers */
+  --secondary: #1a2540;
+  --secondary-foreground: #f1f5f9;
+  --muted: #162033;
+  --muted-foreground: #a1afc4;
+
+  /* Accent */
+  --accent: #162033;
+  --accent-foreground: #f1f5f9;
+
+  /* Semantic Status Colors */
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: rgba(248, 113, 113, 0.12);
+  --success: #34d399;
+  --success-foreground: #ffffff;
+  --success-soft: rgba(52, 211, 153, 0.12);
+  --warning: #fbbf24;
+  --warning-foreground: #422006;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --info: #60a5fa;
+  --info-foreground: #ffffff;
+  --info-soft: rgba(96, 165, 250, 0.12);
+
+  /* Borders */
+  --border: #1e2d4a;
+  --border-subtle: #162033;
+  --border-strong: #2d4060;
+  --input: #2d3d5e;
+  --ring: #14b8a6;
+
+  /* Overlay */
+  --overlay: rgba(0, 0, 0, 0.65);
+
+  /* Elevation Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.4);
+
+  --card-shadow: var(--shadow-sm);
+  --shadow-elevated: var(--shadow-lg);
+}
+
+/* =========================================================
+   GLOBAL RESET & PREDICTABLE LAYOUT FOUNDATION
+   Ensures bulletproof box-sizing, fluid sizing, and zero scrollbar jumping
+   ========================================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 200ms ease, color 200ms ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
 .logo {
   font-family: "Pacifico", cursive;
   font-weight: 400;
   font-style: normal;
-  color: teal;
+  color: var(--primary);
 }
 
 .footer-logo {
@@ -20,8 +262,87 @@
   margin: 0;
 }
 
-/* Firefox ke liye */
 .no-arrow_updown_spinner input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Custom modern scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* =========================================================
+   HERO BANNER CAROUSEL — Modern Glassmorphism Dots System
+   Eliminates default black bullet dots from slick-theme
+   ========================================================= */
+.hero-banner-slider .slick-dots {
+  bottom: 14px !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  padding: 4px 10px !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  z-index: 20 !important;
+}
+
+.hero-banner-slider .slick-dots li {
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Hide the default black '•' pseudo-element from slick-theme.css */
+.hero-banner-slider .slick-dots li button:before {
+  display: none !important;
+  content: "" !important;
+}
+
+.hero-banner-slider .slick-dots li button {
+  padding: 0 !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: none !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+
+.hero-banner-slider .slick-dots li button:hover {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Active indicator becomes an elongated white pill with glow */
+.hero-banner-slider .slick-dots li.slick-active button {
+  width: 22px !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+

@@ -18,7 +18,7 @@ const product = {
 
 const SimilarProducts = () => {
   return (
-    <div className="grid lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-2 grid-cols-1 justify-between gap-2 gap-y-8">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
       {Array.from({ length: 6 }).map((item, index) => (
         <ProductCard key={index} item={product} />
       ))}

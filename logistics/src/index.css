@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Core Surfaces */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+
+  /* Logistics Blue / Indigo Primary */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-border: var(--primary-border);
+
+  /* Neutral Tiers */
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Semantic Status */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+
+  /* Borders */
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+
+  /* Overlay */
+  --color-overlay: var(--overlay);
+}
+
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color-scheme: light;
+
+  /* LIGHT THEME — High Readability Control Tower Palette */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --surface-muted: #f8fafc;
+  --surface-elevated: #ffffff;
+
+  /* Logistics Primary: High-contrast Indigo / Cobalt */
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eff6ff;
+  --primary-border: #bfdbfe;
+
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+
+  --accent: #f0f4ff;
+  --accent-foreground: #0f172a;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fef2f2;
+
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --success-soft: #ecfdf5;
+
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --warning-soft: #fffbeb;
+
+  --info: #0284c7;
+  --info-foreground: #ffffff;
+  --info-soft: #f0f9ff;
+
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #2563eb;
+  --sidebar-accent: #eff6ff;
+  --sidebar-border: #e2e8f0;
+
+  --overlay: rgba(15, 23, 42, 0.5);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* DARK THEME — Deep Slate / Obsidian Mission Control */
+  --background: #0b1120;
+  --foreground: #f8fafc;
+
+  --card: #131d33;
+  --card-foreground: #f8fafc;
+
+  --popover: #131d33;
+  --popover-foreground: #f8fafc;
+
+  --surface: #18233e;
+  --surface-hover: #1e2c4a;
+  --surface-active: #283a60;
+  --surface-muted: #0e1628;
+  --surface-elevated: #1f2d4e;
+
+  /* Logistics Primary: Electric Cobalt Blue */
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --primary-soft: rgba(59, 130, 246, 0.15);
+  --primary-border: rgba(59, 130, 246, 0.35);
+
+  --secondary: #1a253c;
+  --secondary-foreground: #e2e8f0;
+  --muted: #151f32;
+  --muted-foreground: #94a3b8;
+
+  --accent: #192542;
+  --accent-foreground: #f8fafc;
+
+  --destructive: #f43f5e;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: rgba(244, 63, 94, 0.15);
+
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --success-soft: rgba(16, 185, 129, 0.15);
+
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --warning-soft: rgba(245, 158, 11, 0.15);
+
+  --info: #38bdf8;
+  --info-foreground: #ffffff;
+  --info-soft: rgba(56, 189, 248, 0.15);
+
+  --border: #1e293b;
+  --border-subtle: #151f32;
+  --border-strong: #334155;
+  --input: #1e293b;
+  --ring: #3b82f6;
+
+  --sidebar: #0e1628;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #3b82f6;
+  --sidebar-accent: #18233e;
+  --sidebar-border: #1e293b;
+
+  --overlay: rgba(0, 0, 0, 0.75);
+}
+
+/* Custom map and control tower styling */
+.leaflet-container {
+  font-family: inherit;
+  width: 100%;
+  height: 100%;
+  background-color: var(--card);
+}
+
+.dark .leaflet-tile {
+  filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
+
+/* Custom scrollbar for high data density */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}

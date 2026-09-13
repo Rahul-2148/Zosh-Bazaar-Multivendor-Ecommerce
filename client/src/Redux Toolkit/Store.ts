@@ -1,5 +1,5 @@
 import { configureStore, combineReducers } from "@reduxjs/toolkit";
-// import { thunk } from "redux-thunk";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import {
   useDispatch,
   useSelector,
@@ -14,53 +14,41 @@ import orderReducer from "./features/customer/OrderSlice";
 import cartReducer from "./features/customer/CartSlice";
 import couponReducer from "./features/customer/CouponSlice";
 import homeCategoryReducer from "./features/customer/HomeCategorySlice";
+import wishlistReducer from "./features/customer/WishlistSlice";
+import categoryReducer from "./features/customer/CategorySlice";
+import reviewReducer from "./features/customer/ReviewSlice";
+import locationReducer from "./features/customer/LocationSlice";
 
-// seller reducers import
-import sellerAuthenticationReducer from "./features/seller/SellerAuthenticationSlice";
-import sellerOrderReducer from "./features/seller/SellerOrderSlice";
-import sellerProductReducer from "./features/seller/SellerProductSlice";
-import sellerReducer from "./features/seller/SellerSlice";
-import sellerTransactionReducer from "./features/seller/SellerTransactionSlice";
-
-// admin reducers import
-import adminReducer from "./features/admin/AdminSlice";
-import adminHomeCategoryReducer from "./features/admin/AdminHomeCategorySlice";
-import adminDealReducer from "./features/admin/AdminDealSlice";
-import adminCouponReducer from "./features/admin/AdminCouponSlice";
+// RTK Query client API
+import { clientApi } from "./api/clientApiSlice";
 
 const rootReducer = combineReducers({
+  [clientApi.reducerPath]: clientApi.reducer,
   auth: authReducer,
   user: userReducer,
   product: productReducer,
+  category: categoryReducer,
+  review: reviewReducer,
   order: orderReducer,
   cart: cartReducer,
   coupon: couponReducer,
   homeCategory: homeCategoryReducer,
-
-  // seller reducers
-  sellerAuth: sellerAuthenticationReducer,
-  sellerOrder: sellerOrderReducer,
-  sellerProduct: sellerProductReducer,
-  seller: sellerReducer,
-  sellerTransaction: sellerTransactionReducer,
-
-  // admin reducers
-  admin: adminReducer,
-  adminHomeCategory: adminHomeCategoryReducer,
-  adminDeal: adminDealReducer,
-  adminCoupon: adminCouponReducer,
+  wishlist: wishlistReducer,
+  location: locationReducer,
 });
 
 const store = configureStore({
   reducer: rootReducer,
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware(), //iski wajah se thunk ki jarurat nhi
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(clientApi.middleware),
 });
+
+setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof rootReducer>;
 export type AppDispatch = typeof store.dispatch;
 
 export const useAppDispatch = () => useDispatch<AppDispatch>();
-
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 export default store;

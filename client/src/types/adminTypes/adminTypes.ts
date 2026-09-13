@@ -1,6 +1,4 @@
-// client/src/types/adminTypes/adminTypes.ts
-
-import type { Seller } from "../sellerTypes/sellerTypes";
+import type { Seller } from "../sellerTypes";
 
 export interface AdminState {
   sellers: Seller[];

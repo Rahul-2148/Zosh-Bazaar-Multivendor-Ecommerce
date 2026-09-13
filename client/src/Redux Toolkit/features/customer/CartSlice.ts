@@ -43,6 +43,8 @@ export const addItemToCart = createAsyncThunk<
   {
     jwt: string;
     productId: string;
+    variantId?: string;
+    selectedVariant?: any;
     size?: string;
     ram?: string;
     weight?: string;

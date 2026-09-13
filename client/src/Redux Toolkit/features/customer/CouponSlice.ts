@@ -1,7 +1,17 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { Api } from "../../../config/Api";
 
-const initialState = {
+export interface CouponState {
+  coupon: any | null;
+  cart: any | null;
+  loading: boolean;
+  error: any;
+  couponCreated: boolean;
+  couponApplied: boolean;
+  message: string | null;
+}
+
+const initialState: CouponState = {
   coupon: null,
   cart: null,
   loading: false,
@@ -16,10 +26,10 @@ const API_URL = "/coupon";
 // Async Thunks
 export const applyCoupon = createAsyncThunk<
   any,
-  { apply: string; code: string; orderValue: number; jwt: string }
+  { apply?: string; code: string; orderValue?: number; jwt: string }
 >(
   "/coupon/applyCoupon",
-  async ({ apply, code, orderValue, jwt }, { rejectWithValue }) => {
+  async ({ code, jwt }, { rejectWithValue }) => {
     try {
       const response = await Api.post(
         `${API_URL}/apply`,

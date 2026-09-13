@@ -34,11 +34,14 @@ const cartSchema = mongoose.Schema(
       default: null,
     },
     couponPrice: {
-      type: String,
+      type: Number,
       default: 0,
     },
   },
   { timestamps: true }
 );
+
+// Fast unique user lookup
+cartSchema.index({ user: 1 }, { unique: true });
 
 export const Cart = mongoose.model("Cart", cartSchema);

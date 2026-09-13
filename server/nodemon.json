@@ -1,0 +1,18 @@
+{
+  "watch": [
+    "src"
+  ],
+  "ext": "js,mjs,json",
+  "ignore": [
+    "uploads/**",
+    "node_modules/**",
+    "*.log",
+    "*.test.*",
+    "*.spec.*",
+    "test_delivery_partner_flow.mjs"
+  ],
+  "delay": 200,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

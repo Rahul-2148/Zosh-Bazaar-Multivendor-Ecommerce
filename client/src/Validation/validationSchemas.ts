@@ -33,9 +33,7 @@ export const productValidationSchema = Yup.object({
   mrpPrice: Yup.number().required("MRP Price is required"),
   sellingPrice: Yup.number().required("Selling Price is required"),
   countInStock: Yup.number().required("Count in Stock is required"),
-  color: Yup.string()
-    .min(3, "Color must be at least 3 characters")
-    .required("Color is required"),
+  color: Yup.string(),
   images: Yup.array().of(Yup.string()),
   category1: Yup.string().required("Category is required"),
   category2: Yup.string().required("Category 2 is required"),
@@ -49,6 +47,7 @@ export const productValidationSchema = Yup.object({
 // login form validation
 export const LoginFormValidationSchema = Yup.object({
   email: Yup.string().email("Invalid email").required("Email is required"),
+  fullName: Yup.string().optional(),
   otp: Yup.string()
     .length(6, "OTP must be exactly 6 characters")
     .required("OTP is required"),

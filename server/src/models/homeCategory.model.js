@@ -24,4 +24,7 @@ const homeCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Fast homepage category lookups by section
+homeCategorySchema.index({ section: 1, categoryId: 1 });
+
 export const HomeCategory = mongoose.model("HomeCategory", homeCategorySchema);

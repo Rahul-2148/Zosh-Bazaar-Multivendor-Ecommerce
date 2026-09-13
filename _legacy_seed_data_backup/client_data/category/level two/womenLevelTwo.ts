@@ -1,0 +1,51 @@
+export const womenLevelTwo = [
+  {
+    name: "Indian & Fusion Wear",
+    categoryId: "women_indian_and_fusion_wear",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+  {
+    name: "Western Wear",
+    categoryId: "women_western_wear",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+  {
+    name: "Footwear",
+    categoryId: "women_footwear",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+  {
+    name: "Sports & Active Wear",
+    categoryId: "women_sports_and_active_wear",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+  {
+    name: "Lingerie & Sleepwear",
+    categoryId: "women_lingerie_and_sleepwear",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+  {
+    name: "Women Jewellery & Accessories",
+    categoryId: "women_jewellery_and_accessories",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+  {
+    name: "Makeup",
+    categoryId: "women_makeup",
+    parentCategoryName: "Women",
+    parentCategoryId: "women",
+    level: 2,
+  },
+];

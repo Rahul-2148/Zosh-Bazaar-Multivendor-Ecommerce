@@ -5,14 +5,15 @@ import type { Address } from "./addressTypes";
 // OrderItem type
 export interface IOrderItem {
   _id: string;
-  product: string;
+  product: any;
   quantity: number;
   mrpPrice: number;
   sellingPrice: number;
-  size: string;
-  ram: string;
-  weight: string;
-  capacity: string;
+  size?: string;
+  ram?: string;
+  weight?: string;
+  capacity?: string;
+  variantId?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -22,8 +23,8 @@ export interface IOrderItem {
 // Order type
 export interface IOrder {
   _id: string;
-  user: string;
-  seller: string;
+  user: any;
+  seller: any;
   orderItems: IOrderItem[];
   shippingAddress: Address;
   totalMrpPrice: number;
@@ -33,7 +34,17 @@ export interface IOrder {
   totalItems: number;
   paymentStatus: string;
   orderDate: Date;
-  deliveryDate: Date;
+  deliveryDate?: Date;
+  statusHistory?: Array<{
+    status: string;
+    timestamp: Date | string;
+    comment?: string;
+  }>;
+  trackingNumber?: string;
+  deliveryPartner?: any;
+  shippingFee?: number;
+  cancelReason?: string;
+  returnReason?: string;
   createdAt: Date;
   updatedAt: Date;
   __v?: number;

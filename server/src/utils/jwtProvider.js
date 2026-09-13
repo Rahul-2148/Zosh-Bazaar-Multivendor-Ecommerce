@@ -11,7 +11,7 @@ class JwtProvider {
     try {
       const secret = process.env.JWT_SECRET_KEY;
       return jwt.verify(token, secret).email;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -20,7 +20,7 @@ class JwtProvider {
     try {
       const secret = process.env.JWT_SECRET_KEY;
       return jwt.verify(token, secret);
-    } catch (error) {
+    } catch {
       throw new Error("Invalid token");
     }
   }

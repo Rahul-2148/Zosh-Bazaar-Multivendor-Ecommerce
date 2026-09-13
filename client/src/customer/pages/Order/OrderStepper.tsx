@@ -1,123 +1,111 @@
 import { CheckCircle, FiberManualRecord } from "@mui/icons-material";
 import { Box } from "@mui/material";
-import { useEffect, useState } from "react";
 
 const steps = [
   {
     name: "Order Placed",
-    description: "on Thu, 2 Sep, 2025",
+    description: "Your order has been placed",
     value: "PLACED",
   },
   {
-    name: "Packed",
-    description: "Item Packed in Dispatch Warehouse",
+    name: "Confirmed",
+    description: "Seller has confirmed your order",
     value: "CONFIRMED",
   },
   {
     name: "Shipped",
-    description: "on Thu, 4 Sep, 2025",
+    description: "Your order has been shipped",
     value: "SHIPPED",
   },
   {
-    name: "Arriving",
-    description: "by 7 sep - 9 sep",
+    name: "Out for Delivery",
+    description: "Your order is out for delivery",
     value: "ARRIVING",
   },
   {
-    name: "Arrived",
-    description: "on Thu, 9 sep, 2025",
+    name: "Delivered",
+    description: "Your order has been delivered",
     value: "DELIVERED",
   },
-  // {
-  //   name: "CANCELLED",
-  //   description: "on Thu, 9 sep, 2025",
-  //   value: "CANCELLED",
-  // },
 ];
 
 const cancelledSteps = [
   {
     name: "Order Placed",
-    description: "on Thu, 2 Sep, 2025",
+    description: "Your order was placed",
     value: "PLACED",
   },
   {
     name: "Order Cancelled",
-    description: "on Thu, 2 sep, 2025",
+    description: "Your order has been cancelled",
     value: "CANCELLED",
   },
 ];
 
-const currentStep = 2; // change this value based on the current step
+const getActiveStep = (orderStatus: string): number => {
+  const statusOrder = ["PENDING", "PLACED", "CONFIRMED", "SHIPPED", "ARRIVING", "DELIVERED"];
+  return statusOrder.indexOf(orderStatus);
+};
 
-const OrderStepper = ({ orderStatus }: any) => {
-  const [statusStep, setStatusStep] = useState(steps);
-
-  useEffect(() => {
-    if (orderStatus === "CANCELLED") {
-      setStatusStep(cancelledSteps);
-    } else {
-      setStatusStep(steps);
-    }
-  }, [orderStatus]);
+const OrderStepper = ({ orderStatus }: { orderStatus?: string }) => {
+  const statusStep = orderStatus === "CANCELLED" ? cancelledSteps : steps;
+  const activeStep = getActiveStep(orderStatus || "PENDING");
 
   return (
-    <Box className="mx-auto my-10">
-      {statusStep.map((step: any, index: number) => (
-        <>
-          <div key={index} className={`flex px-4`}>
-            <div className="flex flex-col items-center">
-              <Box
-                sx={{ zIndex: -1 }}
-                className={`flex items-center justify-center w-8 h-8 rounded-full z-10 ${
-                  index <= currentStep
-                    ? "bg-gray-200 text-teal-500"
-                    : "bg-gray-300 text-gray-600"
-                }`}
-              >
-                {step.value === orderStatus ? (
-                  <CheckCircle color="primary" />
-                ) : (
-                  <FiberManualRecord sx={{ zIndex: -1 }} />
-                )}
-              </Box>
-              {index < statusStep.length - 1 && (
+    <Box className="mx-auto my-5">
+      {statusStep.map((step, index) => {
+        const isCompleted = orderStatus === "CANCELLED"
+          ? step.value === "PLACED"
+          : activeStep >= steps.findIndex((s) => s.value === step.value) + 1;
+        const isCurrent = step.value === orderStatus;
+
+        return (
+          <div key={step.value}>
+            <div className="flex px-4">
+              <div className="flex flex-col items-center">
                 <div
-                  className={`border h-20 w-[2px] ${
-                    index < currentStep
-                      ? "bg-teal-500"
-                      : "bg-gray-300 text-gray-600"
+                  className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                    isCurrent
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : isCompleted
+                      ? "bg-primary/20 text-primary"
+                      : "bg-muted text-muted-foreground"
                   }`}
-                ></div>
-              )}
-            </div>
-            <div className={`ml-2 w-full`}>
-              <div
-                className={`${
-                  step.value === orderStatus
-                    ? "bg-primary p-2 text-white font-medium rounded-md -translate-y-3"
-                    : ""
-                } ${
-                  orderStatus === "CANCELLED" && step.value === orderStatus
-                    ? "bg-red-500"
-                    : ""
-                } w-full`}
-              >
-                <p className={``}>{step.name}</p>
-                <p
-                  className={`${
-                    step.value === orderStatus
-                      ? "text-gray-200"
-                      : "text-gray-500"
-                  } text-xs`}
                 >
-                  {step.description}
+                  {isCompleted || isCurrent ? (
+                    <CheckCircle sx={{ fontSize: 20 }} />
+                  ) : (
+                    <FiberManualRecord sx={{ fontSize: 12 }} />
+                  )}
+                </div>
+                {index < statusStep.length - 1 && (
+                  <div
+                    className={`h-12 w-[2px] ${
+                      isCompleted ? "bg-primary" : "bg-border"
+                    }`}
+                  />
+                )}
+              </div>
+              <div className="ml-3">
+                <p
+                  className={`font-medium text-sm ${
+                    isCurrent
+                      ? orderStatus === "CANCELLED"
+                        ? "text-destructive font-bold"
+                        : "text-primary font-bold"
+                      : isCompleted
+                      ? "text-foreground font-semibold"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {step.name}
                 </p>
+                <p className="text-xs text-muted-foreground">{step.description}</p>
               </div>
             </div>
           </div>
-        </>
-      ))}
+        );
+      })}
     </Box>
   );
 };

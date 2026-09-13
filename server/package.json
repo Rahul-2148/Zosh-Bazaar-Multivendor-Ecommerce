@@ -6,7 +6,14 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/utils/seedData.js",
+    "seed:partner": "node src/seed/logisticsPartner.seed.js",
+    "clean:data": "node src/utils/clean_reset_real_data.js",
+    "mongo:start": "powershell -Command \"Start-Process cmd -ArgumentList '/c net start MongoDB' -Verb RunAs\"",
+    "mongo": "powershell -Command \"Start-Process cmd -ArgumentList '/c net start MongoDB' -Verb RunAs\"",
+    "lint": "oxlint src/"
   },
   "keywords": [
     "multivendor",
@@ -17,16 +24,23 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.17.0",
     "morgan": "^1.10.1",
+    "multer": "^2.3.0",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
     "razorpay": "^2.9.6",
+    "socket.io": "^4.8.3",
     "yup": "^1.7.0"
+  },
+  "devDependencies": {
+    "oxlint": "^1.81.0"
   }
 }

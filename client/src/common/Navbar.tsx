@@ -17,7 +17,7 @@ const Navbar = ({ DrawerList }: any) => {
   };
 
   return (
-    <div className="h-[10vh] flex items-center px-5 border-b border-gray-300 justify-between">
+    <div className="h-[10vh] flex items-center px-5 border-b border-border bg-card justify-between">
       <div className="flex items-center gap-3">
         {isMobile && (
           <IconButton onClick={toggleDrawer(true)}>
@@ -26,13 +26,18 @@ const Navbar = ({ DrawerList }: any) => {
         )}
         <h1
           onClick={() => navigate("/")}
-          className="logo text-xl cursor-pointer"
+          className="logo text-xl cursor-pointer text-foreground font-bold"
         >
           Zosh Bazaar
         </h1>
       </div>
 
-      <Drawer anchor="left" open={open} onClose={toggleDrawer(false)}>
+      <Drawer
+        anchor="left"
+        open={open}
+        onClose={toggleDrawer(false)}
+        PaperProps={{ sx: { bgcolor: "background.paper", color: "text.primary" } }}
+      >
         <DrawerList toggleDrawer={toggleDrawer} />
       </Drawer>
     </div>

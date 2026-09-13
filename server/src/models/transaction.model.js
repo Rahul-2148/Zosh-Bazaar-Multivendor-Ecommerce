@@ -25,6 +25,10 @@ const transactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Fast seller and customer transaction history
+transactionSchema.index({ seller: 1, date: -1 });
+transactionSchema.index({ customer: 1, date: -1 });
+
 const Transaction = mongoose.model("Transaction", transactionSchema);
 
 export default Transaction;

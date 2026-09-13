@@ -8,7 +8,7 @@ const PricingCard = () => {
 
   return (
     <div>
-      <div className="space-y-3 p-5">
+      <div className="flex flex-col gap-3 p-5">
         <div className="flex items-center justify-between">
           <span>SubTotal</span>
           <span>₹{sumCartItemMrpPrice(cartItems)}</span>

@@ -2,13 +2,36 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { Api } from "../../../config/Api";
 
 const initialState = {
-  homeCategories: {} as any, // 👈 object rakha, array nahi
+  homeCategories: {} as any,
+  marketplaceFeed: null as {
+    heroBanners: any[];
+    deals: any[];
+    topRated: any[];
+    newArrivals: any[];
+    flashDeals: any[];
+    categories: any[];
+  } | null,
   loading: false,
   error: null as any,
   message: null as any,
 };
 
 const API_URL = "/homeCategory";
+
+// Fetch complete server-driven marketplace feed
+export const fetchMarketplaceFeed = createAsyncThunk<any, void>(
+  "/homeCategory/fetchMarketplaceFeed",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await Api.get(`${API_URL}/feed`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch marketplace feed"
+      );
+    }
+  }
+);
 
 // Create home categories
 export const createHomeCategories = createAsyncThunk<any, any>(
@@ -128,6 +151,20 @@ const homeCategorySlice = createSlice({
       state.loading = false;
       state.error = action.payload;
       state.message = action.payload;
+    });
+
+    // fetch marketplace feed
+    builder.addCase(fetchMarketplaceFeed.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(fetchMarketplaceFeed.fulfilled, (state, action) => {
+      state.loading = false;
+      state.marketplaceFeed = action.payload?.feed || null;
+    });
+    builder.addCase(fetchMarketplaceFeed.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
     });
   },
 });

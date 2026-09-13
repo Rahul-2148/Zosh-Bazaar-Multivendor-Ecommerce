@@ -136,6 +136,25 @@ export const cancelOrder = createAsyncThunk<
   }
 });
 
+// request return on delivered order
+export const requestOrderReturn = createAsyncThunk<
+  { message: string; order: IOrder },
+  { orderId: string; reason: string }
+>("/order/requestReturn", async ({ orderId, reason }, { rejectWithValue }) => {
+  try {
+    const response = await Api.post(
+      `${API_URL}/${orderId}/return`,
+      { reason },
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem("jwt")}` },
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    return rejectWithValue(error.response?.data || { message: error.message });
+  }
+});
+
 // delete an order
 export const deleteOrder = createAsyncThunk<
   { message: string; order: IOrder }, // 👈 include order
@@ -278,6 +297,23 @@ const orderSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
       state.message = action.payload?.message || "Failed to cancel order";
+    });
+
+    // request order return
+    builder.addCase(requestOrderReturn.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+      state.message = null;
+    });
+    builder.addCase(requestOrderReturn.fulfilled, (state, action) => {
+      state.loading = false;
+      state.currentOrder = action.payload.order;
+      state.message = action.payload.message || "Return requested successfully";
+    });
+    builder.addCase(requestOrderReturn.rejected, (state, action: any) => {
+      state.loading = false;
+      state.error = action.payload;
+      state.message = action.payload?.message || "Failed to submit return request";
     });
 
     // delete an order

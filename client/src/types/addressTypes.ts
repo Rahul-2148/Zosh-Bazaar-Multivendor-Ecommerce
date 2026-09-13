@@ -10,6 +10,18 @@ export interface Address {
   mobile: number | string; 
   email: string; 
   country: string; 
+  isDefault?: boolean;
+  addressType?: "HOME" | "WORK" | "OTHER" | string;
+  house?: string;
+  floor?: string;
+  street?: string;
+  landmark?: string;
+  district?: string;
+  coordinates?: {
+    latitude?: number;
+    longitude?: number;
+  };
+  deliveryInstructions?: string;
   _id?: string;
   __v?: number;
   createdAt?: string;
