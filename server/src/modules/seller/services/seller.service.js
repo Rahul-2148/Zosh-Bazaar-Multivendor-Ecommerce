@@ -5,6 +5,7 @@ import { VerificationCode } from "../../../models/VerificationCode.js";
 import generateOTP from "../../../utils/generateOtp.js";
 import jwtProvider from "../../../utils/jwtProvider.js";
 import sendVerificationEmail from "../../../utils/sendEmail.js";
+import { emailService, EMAIL_TEMPLATES, EmailPriority } from "../../email/index.js";
 
 class SellerService {
   async createSeller(sellerData) {
@@ -94,7 +95,29 @@ class SellerService {
 
     const subject = "Zosh Bazaar Seller Login/Signup OTP";
     const body = `Your OTP is ${otp}. Please enter this code to continue.`;
-    await sendVerificationEmail(email, subject, body);
+
+    try {
+      await emailService.sendTemplate({
+        template:
+          mode === "signup"
+            ? EMAIL_TEMPLATES.SELLER.ONBOARDING_REGISTRATION_RECEIVED
+            : EMAIL_TEMPLATES.SELLER.ONBOARDING_EMAIL_VERIFICATION,
+        recipient: email,
+        data: {
+          sellerName: seller?.sellerName || "Merchant Partner",
+          storeName: seller?.businessDetails?.businessName || "Zosh Bazaar Merchant",
+          otp,
+          expiresInMinutes: 10,
+          validityMinutes: 10,
+          purpose: mode === "signup" ? "Seller Portal Registration" : "Seller Security Verification",
+        },
+        priority: EmailPriority.HIGH,
+        sync: false,
+      });
+    } catch (err) {
+      console.warn("[SellerService] Fallback to direct send:", err.message);
+      await sendVerificationEmail(email, subject, body);
+    }
   }
 
   async getSellerById(id) {
@@ -119,11 +142,43 @@ class SellerService {
   }
 
   async updateSellerStatus(sellerId, status) {
-    return await Seller.findByIdAndUpdate(
+    const updated = await Seller.findByIdAndUpdate(
       sellerId,
       { $set: { accountStatus: status } },
       { new: true }
     );
+
+    if (updated && updated.email) {
+      try {
+        let templateKey = null;
+        if (status === "ACTIVE") {
+          templateKey = EMAIL_TEMPLATES.SELLER.ONBOARDING_APPROVED;
+        } else if (status === "SUSPENDED") {
+          templateKey = EMAIL_TEMPLATES.SELLER.ONBOARDING_SUSPENDED;
+        } else if (status === "REJECTED") {
+          templateKey = EMAIL_TEMPLATES.SELLER.ONBOARDING_REJECTED;
+        }
+
+        if (templateKey) {
+          emailService
+            .sendTemplate({
+              template: templateKey,
+              recipient: updated.email,
+              data: {
+                sellerName: updated.sellerName,
+                storeName: updated.businessDetails?.businessName || "Merchant Store",
+                sellerId: updated._id.toString(),
+                status,
+              },
+            })
+            .catch((e) => console.warn("[SellerService] Status email dispatch error:", e.message));
+        }
+      } catch {
+        /* non-critical */
+      }
+    }
+
+    return updated;
   }
 
   async deleteSeller(sellerId) {

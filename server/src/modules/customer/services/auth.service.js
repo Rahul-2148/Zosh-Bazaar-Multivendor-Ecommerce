@@ -7,6 +7,7 @@ import generateOTP from "../../../utils/generateOtp.js";
 import jwtProvider from "../../../utils/jwtProvider.js";
 import sendVerificationEmail from "../../../utils/sendEmail.js";
 import { redisClient } from "../../../config/redis.service.js";
+import { emailService, EMAIL_TEMPLATES, EmailPriority } from "../../email/index.js";
 
 class AuthService {
   async sendLoginOTP(email, mode = "auto") {
@@ -59,11 +60,33 @@ class AuthService {
 
     console.log(`🔑 [REDIS & DB OTP GENERATED]: ${otp} for ${email} (isNewUser: ${isNewUser})`);
 
-    const subject = isNewUser
-      ? "Zosh Bazaar - Registration Verification Code"
-      : "Zosh Bazaar - Login Security OTP";
-    const body = `Your 6-digit verification code is: ${otp}\n\nThis code is valid for 5 minutes. Do not share this code with anyone.`;
-    await sendVerificationEmail(email, subject, body);
+    // Dispatch rich responsive transactional OTP email
+    try {
+      await emailService.sendTemplate({
+        template: isNewUser
+          ? EMAIL_TEMPLATES.CUSTOMER.AUTH_EMAIL_VERIFICATION
+          : EMAIL_TEMPLATES.CUSTOMER.AUTH_LOGIN_OTP,
+        recipient: email,
+        data: {
+          name: user?.fullName || email.split("@")[0] || "Valued Customer",
+          otp,
+          expiresInMinutes: 5,
+          validityMinutes: 5,
+          purpose: isNewUser ? "Account Registration" : "Account Login Authentication",
+          device: "Web Browser",
+          time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+        },
+        priority: EmailPriority.HIGH,
+        sync: false,
+      });
+    } catch (err) {
+      console.warn("[AuthService] Fallback to direct send:", err.message);
+      const subject = isNewUser
+        ? "Zosh Bazaar - Registration Verification Code"
+        : "Zosh Bazaar - Login Security OTP";
+      const body = `Your 6-digit verification code is: ${otp}\n\nThis code is valid for 5 minutes. Do not share this code with anyone.`;
+      await sendVerificationEmail(email, subject, body);
+    }
 
     return {
       message: isNewUser
@@ -133,6 +156,18 @@ class AuthService {
 
     const cart = new Cart({ user: user._id });
     await cart.save();
+
+    // Trigger rich welcome email asynchronously
+    emailService
+      .sendTemplate({
+        template: EMAIL_TEMPLATES.CUSTOMER.AUTH_WELCOME,
+        recipient: email,
+        data: {
+          name: user.fullName,
+          email: user.email,
+        },
+      })
+      .catch((err) => console.warn("[AuthService] Welcome email error:", err.message));
 
     return jwtProvider.createJwt({ email });
   }

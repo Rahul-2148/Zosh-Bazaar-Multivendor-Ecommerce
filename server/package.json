@@ -13,7 +13,8 @@
     "clean:data": "node src/utils/clean_reset_real_data.js",
     "mongo:start": "powershell -Command \"Start-Process cmd -ArgumentList '/c net start MongoDB' -Verb RunAs\"",
     "mongo": "powershell -Command \"Start-Process cmd -ArgumentList '/c net start MongoDB' -Verb RunAs\"",
-    "lint": "oxlint src/"
+    "lint": "oxlint src/",
+    "test:email": "node src/modules/email/tests/runAllTests.js"
   },
   "keywords": [
     "multivendor",

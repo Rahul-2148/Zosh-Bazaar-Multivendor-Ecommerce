@@ -1,27 +1,26 @@
-import nodemailer from "nodemailer";
+import { emailService } from "../modules/email/core/email.service.js";
 
-async function sendVerificationEmail(to, subject, body) {
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: process.env.EMAIL_ADDRESS,
-            pass: process.env.EMAIL_PASSWORD,
-        },
+/**
+ * Enterprise Legacy Adapter
+ * Preserves full backwards-compatibility for existing call signatures
+ * while delegating dispatches to the new EmailPlatform architecture.
+ *
+ * @param {string} to - Recipient email address
+ * @param {string} subject - Email subject
+ * @param {string} body - HTML or plain text body
+ */
+export async function sendVerificationEmail(to, subject, body) {
+  try {
+    return await emailService.sendDirect({
+      to,
+      subject,
+      html: body,
+      text: body.replace(/<[^>]*>?/gm, ""),
     });
-
-    const mailOptions = {
-        from: process.env.EMAIL_ADDRESS,
-        to,
-        subject,
-        html: body,
-    };
-
-    try {
-        await transporter.sendMail(mailOptions);
-        console.log("Email sent successfully");
-    } catch (error) {
-        console.error("Error sending email:", error);
-    }
+  } catch (error) {
+    console.error("[sendEmail:LegacyAdapter] Error delegating to emailService:", error.message);
+    throw error;
+  }
 }
 
 export default sendVerificationEmail;

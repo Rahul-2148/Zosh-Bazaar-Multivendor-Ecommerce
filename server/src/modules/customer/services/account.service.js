@@ -18,7 +18,7 @@ import eligibilityService from "./eligibility.service.js";
 import notificationService from "./notification.service.js";
 import { redisClient } from "../../../config/redis.service.js";
 import generateOTP from "../../../utils/generateOtp.js";
-import sendVerificationEmail from "../../../utils/sendEmail.js";
+import { emailService, EMAIL_TEMPLATES } from "../../email/index.js";
 
 class AccountService {
   /**
@@ -456,24 +456,17 @@ class AccountService {
 
     // Email notification
     try {
-      await sendVerificationEmail(
-        user.email,
-        "ZoshBazaar — Account Deactivated",
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#1a1a1a;">Account Deactivated</h2>
-          <p>Hi ${user.fullName},</p>
-          <p>Your ZoshBazaar account has been temporarily deactivated as requested.</p>
-          <p><strong>What this means:</strong></p>
-          <ul>
-            <li>You won't be able to shop or access your account</li>
-            <li>Your order history and data remain intact</li>
-            <li>You can reactivate anytime by signing in</li>
-          </ul>
-          <p>If you didn't request this, please contact our support team immediately.</p>
-          <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
-        </div>`
-      );
-    } catch { /* non-critical */ }
+      await emailService.sendTemplate({
+        template: EMAIL_TEMPLATES.CUSTOMER.AUTH_ACCOUNT_DEACTIVATION,
+        recipient: user.email,
+        data: {
+          name: user.fullName,
+          email: user.email,
+        },
+      });
+    } catch (err) {
+      console.warn("[AccountService] Error sending deactivation email:", err.message);
+    }
 
     return {
       message: "Account deactivated successfully. You can reactivate by signing in anytime.",
@@ -636,21 +629,20 @@ class AccountService {
 
     // Send email
     try {
-      await sendVerificationEmail(
-        user.email,
-        "ZoshBazaar — Account Deletion Verification Code",
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#dc2626;">Account Deletion Verification</h2>
-          <p>Hi ${user.fullName},</p>
-          <p>You've requested to permanently delete your ZoshBazaar account. Enter this code to verify your identity:</p>
-          <div style="background:#fef2f2;border:2px solid #dc2626;border-radius:12px;padding:20px;text-align:center;margin:16px 0;">
-            <span style="font-size:32px;font-weight:900;letter-spacing:8px;color:#dc2626;">${otp}</span>
-          </div>
-          <p style="color:#888;font-size:12px;">This code expires in 5 minutes. If you didn't request this, please ignore this email and secure your account.</p>
-          <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
-        </div>`
-      );
-    } catch { /* non-critical */ }
+      await emailService.sendTemplate({
+        template: EMAIL_TEMPLATES.CUSTOMER.AUTH_ACCOUNT_DELETION_REQUEST,
+        recipient: user.email,
+        data: {
+          name: user.fullName,
+          otp,
+          expiresInMinutes: 5,
+          validityMinutes: 5,
+          retentionDays: lifecycleConfig.GRACE_PERIOD_DAYS || 30,
+        },
+      });
+    } catch (err) {
+      console.warn("[AccountService] Error sending deletion OTP email:", err.message);
+    }
 
     await auditService.log({
       userId,
@@ -804,24 +796,24 @@ class AccountService {
     } catch { /* non-critical */ }
 
     // Email
+    // Email
     try {
-      await sendVerificationEmail(
-        user.email,
-        "ZoshBazaar — Account Deletion Confirmed",
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#dc2626;">Account Deletion Confirmed</h2>
-          <p>Hi ${user.fullName},</p>
-          <p>Your account deletion request has been confirmed.</p>
-          <div style="background:#fef2f2;border-radius:12px;padding:16px;margin:16px 0;">
-            <p style="margin:0;font-weight:700;color:#dc2626;">Deletion Date: ${gracePeriodEndsAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
-            <p style="margin:8px 0 0;color:#666;font-size:13px;">You have ${lifecycleConfig.GRACE_PERIOD_DAYS} days to change your mind.</p>
-          </div>
-          <p><strong>To cancel:</strong> Sign in to your account and go to Account Settings → Delete Account → Cancel Deletion.</p>
-          <p style="color:#888;font-size:12px;">If you didn't request this, please contact support immediately.</p>
-          <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
-        </div>`
-      );
-    } catch { /* non-critical */ }
+      await emailService.sendTemplate({
+        template: EMAIL_TEMPLATES.CUSTOMER.AUTH_ACCOUNT_DELETION_REQUEST,
+        recipient: user.email,
+        data: {
+          name: user.fullName,
+          retentionDays: lifecycleConfig.GRACE_PERIOD_DAYS || 30,
+          cancellationDeadline: gracePeriodEndsAt.toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          }),
+        },
+      });
+    } catch (err) {
+      console.warn("[AccountService] Error sending deletion confirmed email:", err.message);
+    }
 
     return {
       message: `Account deletion confirmed. Your account will be permanently deleted after ${lifecycleConfig.GRACE_PERIOD_DAYS} days. You can cancel anytime before then.`,
@@ -877,18 +869,16 @@ class AccountService {
 
     // Email
     try {
-      await sendVerificationEmail(
-        user.email,
-        "ZoshBazaar — Account Deletion Cancelled",
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#16a34a;">Account Deletion Cancelled</h2>
-          <p>Hi ${user.fullName},</p>
-          <p>Your account deletion request has been successfully cancelled. Your account is fully active and all your data remains intact.</p>
-          <p>Happy shopping! 🛍️</p>
-          <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
-        </div>`
-      );
-    } catch { /* non-critical */ }
+      await emailService.sendTemplate({
+        template: EMAIL_TEMPLATES.CUSTOMER.AUTH_ACCOUNT_DELETION_CANCELLED,
+        recipient: user.email,
+        data: {
+          name: user.fullName,
+        },
+      });
+    } catch (err) {
+      console.warn("[AccountService] Error sending deletion cancelled email:", err.message);
+    }
 
     return { message: "Account deletion cancelled. Your account is fully active." };
   }

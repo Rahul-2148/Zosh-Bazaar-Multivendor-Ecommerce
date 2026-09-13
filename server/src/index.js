@@ -21,6 +21,8 @@ import adminRouter from "./modules/admin/admin.router.js";
 import logisticsRouter from "./modules/logistics/logistics.router.js";
 import deliveryPartnerRouter from "./modules/deliveryPartner/deliveryPartner.router.js";
 import { startDeletionWorker } from "./workers/deletionWorker.js";
+import emailPreviewRouter from "./modules/email/preview/email-preview.router.js";
+import { startEmailWorker } from "./modules/email/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,6 +75,11 @@ app.use("/api/v1/logistics", logisticsRouter);
 // 5. Last-Mile Delivery Partner domain routes (Partner App: Port 5177)
 app.use("/api/v1/delivery-partner", deliveryPartnerRouter);
 
+// 6. Transactional Email Preview Studio (Development Mode Only)
+if (process.env.NODE_ENV !== "production") {
+  app.use("/dev/emails", emailPreviewRouter);
+}
+
 // default route
 app.get("/", (req, res) => {
   res.send({ message: "Hello! Welcome to Zosh Bazaar Production Backend System!" });
@@ -95,6 +102,10 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
   await connectDB();
   startDeletionWorker();
+  startEmailWorker();
   const duration = Date.now() - bootStartTime;
   console.log(`Server running on port ${PORT} [ready in ${duration}ms]`);
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`🎨 [Email Studio] Preview available at http://localhost:${PORT}/dev/emails`);
+  }
 });

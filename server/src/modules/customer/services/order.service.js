@@ -8,6 +8,7 @@ import { User } from "../../../models/user.model.js";
 import OrderStatus, { VALID_ORDER_TRANSITIONS } from "../../../domain/OrderStatus.js";
 import PaymentStatus from "../../../domain/PaymentStatus.js";
 import { emitOrderCreated, emitOrderStatusUpdated } from "../../../realtime/socket.js";
+import { emailEvents } from "../../email/index.js";
 
 class OrderService {
   async createOrder(user, shippingAddressData, cart) {
@@ -169,6 +170,32 @@ class OrderService {
 
       // Real-time notification to vendor & admin
       emitOrderCreated(populatedOrder);
+
+      // Enterprise Transactional Email: emit domain events for customer & seller
+      try {
+        emailEvents.emitDomainEvent("order.created", {
+          order: populatedOrder,
+          orderId: populatedOrder.orderId || populatedOrder._id.toString(),
+          recipient: populatedOrder.user?.email,
+          customerName: populatedOrder.user?.fullName,
+          total: populatedOrder.totalSellingPrice,
+          items: populatedOrder.orderItems,
+          deliveryAddress: populatedOrder.shippingAddress,
+          estimatedDelivery: populatedOrder.deliverDate,
+        });
+
+        if (populatedOrder.seller?.email) {
+          emailEvents.emitDomainEvent("seller.order_received", {
+            order: populatedOrder,
+            orderId: populatedOrder.orderId || populatedOrder._id.toString(),
+            recipient: populatedOrder.seller.email,
+            sellerName: populatedOrder.seller.sellerName,
+            items: populatedOrder.orderItems,
+          });
+        }
+      } catch (emailErr) {
+        console.warn("[OrderService] Error emitting order email events:", emailErr.message);
+      }
     }
 
     // 5. Clean up purchased items from user's cart
@@ -284,6 +311,36 @@ class OrderService {
 
     const updatedOrder = await this.findOrderById(orderId);
     emitOrderStatusUpdated(updatedOrder);
+
+    // Emit transactional email domain events based on lifecycle progression
+    try {
+      const emailPayload = {
+        order: updatedOrder,
+        orderId: updatedOrder.orderId || updatedOrder._id.toString(),
+        recipient: updatedOrder.user?.email,
+        customerName: updatedOrder.user?.fullName,
+        carrier: "Express Courier",
+        trackingNumber: updatedOrder._id.toString(),
+        total: updatedOrder.totalSellingPrice,
+        items: updatedOrder.orderItems,
+        deliveryAddress: updatedOrder.shippingAddress,
+      };
+
+      if (newStatus === OrderStatus.SHIPPED) {
+        emailEvents.emitDomainEvent("shipment.shipped", emailPayload);
+      } else if (newStatus === OrderStatus.OUT_FOR_DELIVERY) {
+        emailEvents.emitDomainEvent("shipment.out_for_delivery", emailPayload);
+      } else if (newStatus === OrderStatus.DELIVERED) {
+        emailEvents.emitDomainEvent("shipment.delivered", emailPayload);
+      } else if (newStatus === OrderStatus.CANCELLED) {
+        emailEvents.emitDomainEvent("order.cancelled", emailPayload);
+      } else if (newStatus === OrderStatus.RETURN_REQUESTED) {
+        emailEvents.emitDomainEvent("return.requested", emailPayload);
+      }
+    } catch (emailErr) {
+      console.warn("[OrderService] Error emitting status update email event:", emailErr.message);
+    }
+
     return updatedOrder;
   }
 

@@ -12,7 +12,7 @@ import { VerificationCode } from "../models/VerificationCode.js";
 import { Review } from "../models/review.model.js";
 import { AuditLog } from "../models/auditLog.model.js";
 import lifecycleConfig from "../config/accountLifecycle.config.js";
-import sendVerificationEmail from "../utils/sendEmail.js";
+import { emailService, EMAIL_TEMPLATES } from "../modules/email/index.js";
 
 /**
  * DeletionWorker — processes expired grace-period deletion requests.
@@ -142,24 +142,16 @@ class DeletionWorker {
 
     // Send final email (to original email, before anonymization — so we use the saved reference)
     try {
-      await sendVerificationEmail(
-        userEmail,
-        "ZoshBazaar — Account Permanently Deleted",
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-          <h2 style="color:#1a1a1a;">Account Deleted</h2>
-          <p>Hi ${userName},</p>
-          <p>Your ZoshBazaar account has been permanently deleted as requested. All personal data has been removed.</p>
-          <p><strong>What happened:</strong></p>
-          <ul>
-            <li>Personal profile, addresses, and saved payment methods have been deleted</li>
-            <li>Cart, wishlist, and collections have been removed</li>
-            <li>Order history has been retained (anonymized) for legal compliance</li>
-          </ul>
-          <p>If you wish to shop with us again, you can create a new account anytime.</p>
-          <p style="color:#888;font-size:12px;">— ZoshBazaar Team</p>
-        </div>`
-      );
-    } catch { /* non-critical */ }
+      await emailService.sendTemplate({
+        template: EMAIL_TEMPLATES.CUSTOMER.AUTH_ACCOUNT_PERMANENTLY_DELETED,
+        recipient: userEmail,
+        data: {
+          name: userName,
+        },
+      });
+    } catch (err) {
+      console.warn("[DeletionWorker] Error sending permanent deletion email:", err.message);
+    }
 
     console.log(`[DeletionWorker] ✅ Deletion completed for user ${userId}`);
   }

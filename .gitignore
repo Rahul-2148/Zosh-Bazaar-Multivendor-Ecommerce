@@ -17,7 +17,6 @@ build/
 .env.local
 .env.*.local
 !.env.example
-!.env.sample
 
 # Database storage
 .mongo_data/
