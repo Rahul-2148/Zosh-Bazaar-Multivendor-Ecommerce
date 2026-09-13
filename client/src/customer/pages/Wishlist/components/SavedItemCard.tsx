@@ -8,7 +8,6 @@ import {
   MoreVert,
   TrendingDown,
   TrendingUp,
-  Star,
   WarningAmber,
 } from "@mui/icons-material";
 import {
@@ -19,7 +18,6 @@ import {
   ListItemText,
   Checkbox,
   CircularProgress,
-  Tooltip,
 } from "@mui/material";
 import type { ISavedItem } from "../../../../types/wishlistTypes";
 import { useAppDispatch } from "../../../../Redux Toolkit/Store";

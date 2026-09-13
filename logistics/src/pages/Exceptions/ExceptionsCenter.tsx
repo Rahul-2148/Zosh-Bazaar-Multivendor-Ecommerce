@@ -4,12 +4,9 @@ import {
   Plus,
   Search,
   CheckCircle2,
-  Clock,
-  ShieldAlert,
   RefreshCw,
   X,
   ExternalLink,
-  Filter,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logisticsApi } from "../../services/api";
@@ -250,6 +247,18 @@ export const ExceptionsCenter: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto w-full lg:w-auto">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-surface-muted border border-border text-foreground focus:outline-none focus:border-primary"
+          >
+            <option value="ALL">All Types</option>
+            {EXCEPTION_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
           {["ALL", "DETECTED", "INVESTIGATING", "ACTION_REQUIRED", "RESOLVED"].map((s) => (
             <button
               key={s}

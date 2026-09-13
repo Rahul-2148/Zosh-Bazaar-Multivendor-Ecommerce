@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  FilterList,
   Refresh,
   LocalShippingOutlined,
   ArrowForward,
@@ -64,6 +63,14 @@ export const LiveOperationsBoard: React.FC = () => {
     { key: "OUT_FOR_DELIVERY", title: "Out for Delivery", color: "border-warning/40", icon: <AltRouteOutlined fontSize="small" className="text-warning" /> },
     { key: "DELIVERED", title: "Delivered (POD)", color: "border-success/30", icon: <CheckCircleOutline fontSize="small" className="text-success" /> },
   ];
+
+  if (loading && !refreshing) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">

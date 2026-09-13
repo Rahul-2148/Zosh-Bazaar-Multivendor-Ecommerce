@@ -50,8 +50,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSystemTheme(e.matches ? "dark" : "light");
     };
 
-    setSystemTheme(mediaQuery.matches ? "dark" : "light");
-
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener("change", handleSystemChange);
       return () => mediaQuery.removeEventListener("change", handleSystemChange);

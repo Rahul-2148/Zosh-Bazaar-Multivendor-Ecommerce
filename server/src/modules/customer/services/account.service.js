@@ -452,7 +452,7 @@ class AccountService {
         message: "Your account has been deactivated. You can reactivate it anytime by signing in.",
         link: "/account",
       });
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     // Email notification
     try {
@@ -473,7 +473,7 @@ class AccountService {
           <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
         </div>`
       );
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     return {
       message: "Account deactivated successfully. You can reactivate by signing in anytime.",
@@ -650,7 +650,7 @@ class AccountService {
           <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
         </div>`
       );
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     await auditService.log({
       userId,
@@ -801,7 +801,7 @@ class AccountService {
         message: `Your account is scheduled for permanent deletion on ${gracePeriodEndsAt.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}. You can cancel this from your Account Settings.`,
         link: "/account/delete-account",
       });
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     // Email
     try {
@@ -821,7 +821,7 @@ class AccountService {
           <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
         </div>`
       );
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     return {
       message: `Account deletion confirmed. Your account will be permanently deleted after ${lifecycleConfig.GRACE_PERIOD_DAYS} days. You can cancel anytime before then.`,
@@ -888,7 +888,7 @@ class AccountService {
           <p style="color:#888;font-size:12px;">— ZoshBazaar Security Team</p>
         </div>`
       );
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     return { message: "Account deletion cancelled. Your account is fully active." };
   }
@@ -945,7 +945,7 @@ class AccountService {
         message: "Your account deletion request has been submitted to our Customer Care team. We'll review and respond within 48 hours.",
         link: "/account/help",
       });
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     return {
       message: "Your deletion request has been submitted to Customer Care. Our team will review and respond within 48 hours.",

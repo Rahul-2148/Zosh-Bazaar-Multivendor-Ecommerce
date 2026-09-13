@@ -26,10 +26,15 @@ interface SaveToCollectionModalProps {
   onClose: () => void;
 }
 
-export const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
+interface SaveToCollectionContentProps {
+  product: any;
+  variantId?: string | null;
+  onClose: () => void;
+}
+
+const SaveToCollectionContent: React.FC<SaveToCollectionContentProps> = ({
   product,
   variantId,
-  open,
   onClose,
 }) => {
   const dispatch = useAppDispatch();
@@ -54,33 +59,31 @@ export const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   // Load existing collections & product's current collection status
   useEffect(() => {
     let active = true;
-    if (open && productId) {
-      setLoadingStatus(true);
-      if (collections.length === 0) {
-        dispatch(getWishlist());
-      }
-
-      Api.get(`/wishlist/product-status/${productId}`)
-        .then((res) => {
-          if (active && res.data?.collectionIds) {
-            setSelectedColIds(res.data.collectionIds);
-          }
-        })
-        .catch(() => {
-          // If not in any, check default favorites
-          const defaultCol = collections.find((c) => c.isDefault);
-          if (active && defaultCol) {
-            setSelectedColIds([defaultCol._id]);
-          }
-        })
-        .finally(() => {
-          if (active) setLoadingStatus(false);
-        });
+    if (collections.length === 0) {
+      dispatch(getWishlist());
     }
+
+    Api.get(`/wishlist/product-status/${productId}`)
+      .then((res) => {
+        if (active && res.data?.collectionIds) {
+          setSelectedColIds(res.data.collectionIds);
+        }
+      })
+      .catch(() => {
+        // If not in any, check default favorites
+        const defaultCol = collections.find((c) => c.isDefault);
+        if (active && defaultCol) {
+          setSelectedColIds([defaultCol._id]);
+        }
+      })
+      .finally(() => {
+        if (active) setLoadingStatus(false);
+      });
+
     return () => {
       active = false;
     };
-  }, [open, productId, dispatch, collections]);
+  }, [productId, dispatch, collections]);
 
   const handleToggleCollection = (colId: string) => {
     setSelectedColIds((prev) =>
@@ -135,22 +138,7 @@ export const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: "1.25rem",
-            border: "1px solid var(--border)",
-            backgroundColor: "var(--card)",
-            color: "var(--foreground)",
-          },
-        },
-      }}
-    >
+    <>
       {/* Header */}
       <DialogTitle className="flex items-center justify-between pb-2">
         <span className="text-base font-bold text-foreground">Save to Collection</span>
@@ -295,6 +283,43 @@ export const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
           {saving ? "Saving..." : "Done"}
         </Button>
       </DialogActions>
+    </>
+  );
+};
+
+export const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
+  product,
+  variantId,
+  open,
+  onClose,
+}) => {
+  const productId = product?._id || product?.id || (typeof product === "string" ? product : "");
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: "1.25rem",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--card)",
+            color: "var(--foreground)",
+          },
+        },
+      }}
+    >
+      {open && productId && (
+        <SaveToCollectionContent
+          key={`${productId}_${variantId || ""}`}
+          product={product}
+          variantId={variantId}
+          onClose={onClose}
+        />
+      )}
     </Dialog>
   );
 };

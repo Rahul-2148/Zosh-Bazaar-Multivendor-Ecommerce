@@ -26,7 +26,10 @@
     "lint:server": "npm --prefix server run lint",
     "lint:client": "npm --prefix client run lint",
     "lint:admin": "npm --prefix admin run lint",
-    "lint:all": "npm --prefix server run lint && npm --prefix client run lint && npm --prefix admin run lint",
+    "lint:seller": "npm --prefix seller run lint",
+    "lint:logistics": "npm --prefix logistics run lint",
+    "lint:partner": "npm --prefix delivery-partner run lint",
+    "lint:all": "npm run lint:server && npm run lint:client && npm run lint:admin && npm run lint:seller && npm run lint:logistics && npm run lint:partner",
     "mongo:start": "powershell -Command \"Start-Process cmd -ArgumentList '/c net start MongoDB' -Verb RunAs\"",
     "mongo": "powershell -Command \"Start-Process cmd -ArgumentList '/c net start MongoDB' -Verb RunAs\"",
     "seed": "npm --prefix server run seed"

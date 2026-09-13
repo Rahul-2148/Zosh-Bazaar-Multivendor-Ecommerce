@@ -7,11 +7,6 @@ import {
   Search,
   RefreshCw,
   ExternalLink,
-  ChevronRight,
-  ShieldAlert,
-  Zap,
-  Building2,
-  Phone,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logisticsApi } from "../../services/api";

@@ -14,7 +14,6 @@ import {
   User,
   Truck,
   Bike,
-  Power,
 } from "lucide-react";
 
 export const PartnerHeader: React.FC = () => {

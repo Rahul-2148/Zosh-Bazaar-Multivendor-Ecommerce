@@ -5,7 +5,6 @@ import { fetchBuyAgainProducts } from "../../../Redux Toolkit/features/customer/
 import { addItemToCart } from "../../../Redux Toolkit/features/customer/CartSlice";
 import SaveButton from "../Wishlist/components/SaveButton";
 import {
-  RepeatOutlined,
   AddShoppingCart,
   CheckCircle,
   RefreshOutlined,
@@ -19,12 +18,11 @@ export const BuyAgainView: React.FC = () => {
   const { buyAgain } = useAppSelector((store) => store.user);
   const jwt = localStorage.getItem("jwt") || "";
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(jwt));
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     if (jwt) {
-      setLoading(true);
       dispatch(fetchBuyAgainProducts()).finally(() => setLoading(false));
     }
   }, [dispatch, jwt]);

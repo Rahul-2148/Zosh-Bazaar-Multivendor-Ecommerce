@@ -6,11 +6,9 @@ import {
   CheckCircle2,
   Lock,
   Send,
-  Building2,
   RefreshCw,
   X,
   FileCheck,
-  Package,
 } from "lucide-react";
 import { logisticsApi } from "../../services/api";
 

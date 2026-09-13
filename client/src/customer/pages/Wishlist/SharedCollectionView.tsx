@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  FolderSpecial,
-  ShoppingBagOutlined,
   AddShoppingCart,
-  Share,
   ContentCopy,
   Check,
   WhatsApp,
   Telegram,
   ArrowBack,
 } from "@mui/icons-material";
-import { Button, CircularProgress, Alert, Tooltip } from "@mui/material";
+import { Button, CircularProgress, Alert } from "@mui/material";
 import { Api } from "../../../config/Api";
 import { useAppDispatch } from "../../../Redux Toolkit/Store";
 import { addItemToCart } from "../../../Redux Toolkit/features/customer/CartSlice";
@@ -39,30 +36,36 @@ export const SharedCollectionView: React.FC = () => {
   const { showSnackbar } = useSnackbar();
 
   const [data, setData] = useState<SharedCollectionData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(Boolean(shareToken));
+  const [error, setError] = useState<string | null>(() => (!shareToken ? "No share token provided" : null));
   const [copied, setCopied] = useState(false);
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!shareToken) {
-      setError("No share token provided");
-      setLoading(false);
-      return;
-    }
+    if (!shareToken) return;
 
-    setLoading(true);
+    let active = true;
     Api.get(`/wishlist/shared/${shareToken}`)
       .then((res) => {
-        setData(res.data);
-        setError(null);
+        if (active) {
+          setData(res.data);
+          setError(null);
+        }
       })
       .catch((err) => {
-        setError(
-          err.response?.data?.message || "Shared collection not found or is private."
-        );
+        if (active) {
+          setError(
+            err.response?.data?.message || "Shared collection not found or is private."
+          );
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [shareToken]);
 
   const handleCopy = () => {

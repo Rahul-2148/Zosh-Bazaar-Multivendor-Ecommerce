@@ -10,7 +10,6 @@ import {
   SmartToyOutlined,
   ExpandMore,
   ShoppingBagOutlined,
-  ReceiptLongOutlined,
 } from "@mui/icons-material";
 import {
   Accordion,

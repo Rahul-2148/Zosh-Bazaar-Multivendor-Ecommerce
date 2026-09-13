@@ -15,12 +15,11 @@ export const ReturnsRefundsView: React.FC = () => {
   const { returns } = useAppSelector((store) => store.user);
   const jwt = localStorage.getItem("jwt") || "";
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(jwt));
   const [filterTab, setFilterTab] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
 
   useEffect(() => {
     if (jwt) {
-      setLoading(true);
       dispatch(fetchUserReturns()).finally(() => setLoading(false));
     }
   }, [dispatch, jwt]);

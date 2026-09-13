@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Star, FlashOnOutlined } from "@mui/icons-material";
 import SaveButton from "../Wishlist/components/SaveButton";
@@ -8,7 +8,6 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ item }) => {
-  const [isHovered, setIsHovered] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
   const navigate = useNavigate();
 
@@ -34,9 +33,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ item }) => {
   return (
     <div
       onClick={() => navigate(productUrl)}
-      onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
-        setIsHovered(false);
         setCurrentImage(0);
       }}
       className="group relative bg-card rounded-xl border border-border/80 hover:border-primary/50 p-2.5 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer flex flex-col justify-between"

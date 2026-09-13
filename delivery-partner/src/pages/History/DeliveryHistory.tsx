@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { partnerApi } from "../../api/partnerApi";
 import { StatusPill } from "../../components/common/StatusPill";
-import { History, Search, Calendar, MapPin, Package } from "lucide-react";
+import { History, Search, MapPin } from "lucide-react";
 
 export const DeliveryHistory: React.FC = () => {
   const [history, setHistory] = useState<
@@ -45,6 +45,14 @@ export const DeliveryHistory: React.FC = () => {
       item.trackingNumber?.toLowerCase().includes(q)
     );
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

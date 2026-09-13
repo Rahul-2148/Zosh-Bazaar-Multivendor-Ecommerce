@@ -14,7 +14,6 @@ import {
   CheckCircle,
   CancelOutlined,
   AssignmentReturnOutlined,
-  ArrowForward,
   Close,
   StorefrontOutlined,
   RefreshOutlined,
@@ -84,7 +83,7 @@ export const OrdersView: React.FC = () => {
 
       return true;
     });
-  }, [orders, activeTab, searchQuery]);
+  }, [ordersList, activeTab, searchQuery]);
 
   const handleOpenCancel = (orderId: string) => {
     setSelectedOrderId(orderId);

@@ -9,7 +9,6 @@ import {
   Star,
   StarBorder,
   AutoAwesome,
-  Check,
   TuneOutlined,
   SaveOutlined,
 } from "@mui/icons-material";

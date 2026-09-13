@@ -3,16 +3,11 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
   Zap,
   Building2,
   Users,
-  Calendar,
   RefreshCw,
-  BarChart3,
   ShieldCheck,
-  Percent,
 } from "lucide-react";
 import { logisticsApi } from "../../services/api";
 
@@ -53,8 +48,6 @@ export const LogisticsAnalytics: React.FC = () => {
   const dailyTrends = analyticsData?.dailyTrends || [];
   const hubPerformance = analyticsData?.hubPerformance || [];
   const topAgents = analyticsData?.topAgents || [];
-  const exceptions = analyticsData?.exceptions || [];
-  const serviceLevels = analyticsData?.serviceLevels || [];
 
   return (
     <div className="space-y-6">

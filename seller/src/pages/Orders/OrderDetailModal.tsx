@@ -4,18 +4,12 @@ import {
   LocalShippingOutlined,
   PersonOutline,
   HomeOutlined,
-  CheckCircleOutline,
-  CancelOutlined,
-  HistoryOutlined,
-  Inventory2Outlined,
 } from "@mui/icons-material";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   Button,
-  CircularProgress,
-  Chip,
   Divider,
 } from "@mui/material";
 import { orderApi } from "../../services/api";

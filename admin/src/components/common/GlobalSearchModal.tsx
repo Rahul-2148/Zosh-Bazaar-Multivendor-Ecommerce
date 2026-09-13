@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   SearchOutlined,
@@ -69,8 +69,20 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ open, onCl
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<SearchCategory>("ALL");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setQuery("");
+      setSelectedIndex(0);
+    }
+  }
 
-  // Cached API Data for live deep search
+  const [prevQueryTab, setPrevQueryTab] = useState({ query, activeTab });
+  if (prevQueryTab.query !== query || prevQueryTab.activeTab !== activeTab) {
+    setPrevQueryTab({ query, activeTab });
+    setSelectedIndex(0);
+  }
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [sellers, setSellers] = useState<any[]>([]);
@@ -92,11 +104,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ open, onCl
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Focus input on open
+  // Focus input on open and lazily load data
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setSelectedIndex(0);
       setTimeout(() => inputRef.current?.focus(), 50);
 
       // Lazily load data on first modal open
@@ -133,15 +143,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ open, onCl
     }
   }, [open, dataLoaded]);
 
-  const saveRecentSearch = (text: string) => {
+  const saveRecentSearch = useCallback((text: string) => {
     if (!text.trim()) return;
     const clean = text.trim();
-    const updated = [clean, ...recentSearches.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 5);
-    setRecentSearches(updated);
-    try {
-      localStorage.setItem("admin_recent_searches", JSON.stringify(updated));
-    } catch {}
-  };
+    setRecentSearches((prev) => {
+      const updated = [clean, ...prev.filter((s) => s.toLowerCase() !== clean.toLowerCase())].slice(0, 5);
+      try {
+        localStorage.setItem("admin_recent_searches", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
 
   const removeRecentSearch = (text: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -440,18 +452,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ open, onCl
     });
 
     return results;
-  }, [query, orders, products, sellers, customers, categories, brands, navigate, toggleTheme, onClose, recentSearches]);
+  }, [query, orders, products, sellers, customers, categories, brands, navigate, toggleTheme, onClose, saveRecentSearch]);
 
   // Filtered by active category tab
   const filteredResults = useMemo(() => {
     if (activeTab === "ALL") return searchResults;
     return searchResults.filter((r) => r.type === activeTab);
   }, [searchResults, activeTab]);
-
-  // Keep selection within bounds
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query, activeTab]);
 
   // Keyboard navigation
   useEffect(() => {

@@ -28,36 +28,35 @@ interface ShareCollectionModalProps {
   onClose: () => void;
 }
 
-export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
+interface ShareCollectionContentProps {
+  collection: ICollection;
+  onClose: () => void;
+}
+
+const ShareCollectionContent: React.FC<ShareCollectionContentProps> = ({
   collection,
-  open,
   onClose,
 }) => {
   const dispatch = useAppDispatch();
   const { showSnackbar } = useSnackbar();
 
-  const [shareToken, setShareToken] = useState(collection?.shareToken || "");
-  const [loading, setLoading] = useState(false);
+  const [shareToken, setShareToken] = useState(collection.shareToken || "");
+  const [loading, setLoading] = useState(!collection.shareToken);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (open && collection) {
-      if (collection.shareToken) {
-        setShareToken(collection.shareToken);
-      } else {
-        setLoading(true);
-        dispatch(shareCollection(collection._id))
-          .unwrap()
-          .then((res) => {
-            if (res.shareToken) setShareToken(res.shareToken);
-          })
-          .catch((err) => {
-            showSnackbar(err.message || "Failed to generate share link", "error");
-          })
-          .finally(() => setLoading(false));
-      }
+    if (!collection.shareToken) {
+      dispatch(shareCollection(collection._id))
+        .unwrap()
+        .then((res) => {
+          if (res.shareToken) setShareToken(res.shareToken);
+        })
+        .catch((err) => {
+          showSnackbar(err.message || "Failed to generate share link", "error");
+        })
+        .finally(() => setLoading(false));
     }
-  }, [open, collection, dispatch, showSnackbar]);
+  }, [collection._id, collection.shareToken, dispatch, showSnackbar]);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = shareToken ? `${origin}/wishlist/shared/${shareToken}` : "";
@@ -91,22 +90,7 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
   );
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: "1.25rem",
-            border: "1px solid var(--border)",
-            backgroundColor: "var(--card)",
-            color: "var(--foreground)",
-          },
-        },
-      }}
-    >
+    <>
       <DialogTitle className="flex items-center justify-between pb-2">
         <span className="text-base font-bold text-foreground">Share Collection</span>
         <IconButton size="small" onClick={onClose} aria-label="Close">
@@ -210,6 +194,39 @@ export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
           Close
         </Button>
       </DialogActions>
+    </>
+  );
+};
+
+export const ShareCollectionModal: React.FC<ShareCollectionModalProps> = ({
+  collection,
+  open,
+  onClose,
+}) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: "1.25rem",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--card)",
+            color: "var(--foreground)",
+          },
+        },
+      }}
+    >
+      {open && collection && (
+        <ShareCollectionContent
+          key={collection._id}
+          collection={collection}
+          onClose={onClose}
+        />
+      )}
     </Dialog>
   );
 };

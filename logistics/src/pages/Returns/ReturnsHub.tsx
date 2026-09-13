@@ -8,9 +8,7 @@ import {
   RefreshCw,
   X,
   ExternalLink,
-  ShieldAlert,
   ClipboardCheck,
-  Truck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logisticsApi } from "../../services/api";
@@ -69,10 +67,11 @@ export const ReturnsHub: React.FC = () => {
   };
 
   const filtered = returnShipments.filter((r) => {
-    return (
+    const matchesStatus = statusFilter === "ALL" || r.status === statusFilter;
+    const matchesSearch =
       r.trackingNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+      r.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
   });
 
   return (
@@ -151,6 +150,22 @@ export const ReturnsHub: React.FC = () => {
             placeholder="Search return tracking # or customer..."
             className="w-full pl-9 pr-3 py-1.5 bg-surface-muted border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
           />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+          {["ALL", "RETURNED", "DELIVERY_FAILED", "CANCELLED"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                statusFilter === s
+                  ? "bg-primary text-white shadow-xs"
+                  : "bg-surface-muted text-muted-foreground hover:text-foreground hover:bg-surface-hover"
+              }`}
+            >
+              {s.replace(/_/g, " ")}
+            </button>
+          ))}
         </div>
       </div>
 

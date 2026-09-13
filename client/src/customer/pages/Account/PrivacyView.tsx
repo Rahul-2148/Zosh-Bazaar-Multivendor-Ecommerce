@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  SecurityOutlined,
   DownloadOutlined,
   DeleteForeverOutlined,
   WarningAmberOutlined,
@@ -9,7 +8,6 @@ import {
   CheckCircleOutlined,
   TimerOutlined,
   SupportAgentOutlined,
-  ErrorOutline,
   ArrowForward,
   LockOutlined,
   ShieldOutlined,
@@ -29,7 +27,6 @@ import {
   StepLabel,
   Chip,
   LinearProgress,
-  Collapse,
   FormControl,
   InputLabel,
   Select,

@@ -162,7 +162,6 @@ class AccountController {
   async deleteAccount(req, res, next) {
     // LEGACY: redirect to new flow
     try {
-      const userId = req.user._id;
       return res.status(400).json({
         success: false,
         error: true,

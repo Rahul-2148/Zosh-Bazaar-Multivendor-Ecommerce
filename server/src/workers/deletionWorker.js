@@ -138,7 +138,7 @@ class DeletionWorker {
           stepsFailed: request.processingLog.filter((s) => s.status === "FAILED").length,
         },
       });
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     // Send final email (to original email, before anonymization — so we use the saved reference)
     try {
@@ -159,7 +159,7 @@ class DeletionWorker {
           <p style="color:#888;font-size:12px;">— ZoshBazaar Team</p>
         </div>`
       );
-    } catch (e) { /* non-critical */ }
+    } catch { /* non-critical */ }
 
     console.log(`[DeletionWorker] ✅ Deletion completed for user ${userId}`);
   }

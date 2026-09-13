@@ -3,12 +3,10 @@ import {
   Add,
   Favorite,
   AccessTime,
-  FolderSpecial,
   MoreVert,
   ShareOutlined,
   EditOutlined,
   DeleteOutline,
-  LockOutlined,
   PublicOutlined,
 } from "@mui/icons-material";
 import {
@@ -35,7 +33,7 @@ interface CollectionSidebarProps {
 export const CollectionSidebar: React.FC<CollectionSidebarProps> = ({
   collections,
   activeCollectionId,
-  totalSavedCount,
+  totalSavedCount: _totalSavedCount,
   onSelectCollection,
   onOpenCreateModal,
   onOpenEditModal,

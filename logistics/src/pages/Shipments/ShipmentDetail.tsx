@@ -3,13 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowBack,
   LocalShippingOutlined,
-  PersonPinCircleOutlined,
-  WarehouseOutlined,
   AssignmentIndOutlined,
   PrintOutlined,
   CheckCircleOutline,
-  ReportProblemOutlined,
-  QrCodeScannerOutlined,
   HistoryOutlined,
   SecurityOutlined,
 } from "@mui/icons-material";

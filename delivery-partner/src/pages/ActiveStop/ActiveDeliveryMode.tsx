@@ -22,7 +22,6 @@ import {
   Camera,
   AlertTriangle,
   AlertOctagon,
-  Package,
 } from "lucide-react";
 
 export const ActiveDeliveryMode: React.FC = () => {
@@ -31,7 +30,6 @@ export const ActiveDeliveryMode: React.FC = () => {
   const {
     route,
     arriveAtStop,
-    scanPackage,
     verifyOtp,
     collectPayment,
     completeDelivery,
@@ -76,7 +74,6 @@ export const ActiveDeliveryMode: React.FC = () => {
   const isOtpDone = !stop.otpRequired || !!stop.otpVerified;
   const isCodDone = stop.paymentType !== "COD" || !!stop.codCollected;
   const isDelivered = stop.status === "DELIVERED";
-  const isFailed = stop.status === "FAILED";
 
   const handleArrive = async () => {
     try {

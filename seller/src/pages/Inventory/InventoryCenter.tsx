@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  TuneOutlined,
   Search,
   WarningAmberOutlined,
   CheckCircleOutline,
@@ -17,8 +16,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip,
-  Tooltip,
 } from "@mui/material";
 import { productApi } from "../../services/api";
 

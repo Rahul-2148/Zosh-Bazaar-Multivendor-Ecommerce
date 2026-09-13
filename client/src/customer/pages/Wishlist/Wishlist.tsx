@@ -1,15 +1,13 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ShareOutlined,
   EditOutlined,
-  DeleteOutline,
   Add,
   CloudSyncOutlined,
   SelectAll,
-  CheckCircleOutline,
 } from "@mui/icons-material";
-import { Button, Tooltip, Alert } from "@mui/material";
+import { Button } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import {
   getWishlist,
@@ -25,7 +23,6 @@ import {
 } from "../../../utils/guestWishlist";
 import type {
   ICollection,
-  ISavedItem,
   AvailabilityFilter,
   SortFilter,
 } from "../../../types/wishlistTypes";
@@ -76,7 +73,7 @@ export const Wishlist: React.FC = () => {
   const [itemsToMove, setItemsToMove] = useState<string[]>([]);
 
   // Guest items state if unauthenticated
-  const [guestItems, setGuestItems] = useState<any[]>([]);
+  const [guestItems, setGuestItems] = useState<any[]>(() => (!jwt ? getGuestSavedItems() : []));
 
   // 1. Initial Load & Guest Sync
   useEffect(() => {
@@ -97,21 +94,17 @@ export const Wishlist: React.FC = () => {
       dispatch(
         getWishlist({
           collectionId: colParam || undefined,
-          availability,
-          sort,
-          search: searchQuery,
         })
       );
     } else {
       // Guest mode
-      setGuestItems(getGuestSavedItems());
       const handleGuestUpdate = () => setGuestItems(getGuestSavedItems());
       window.addEventListener("guestWishlistUpdated", handleGuestUpdate);
       return () => {
         window.removeEventListener("guestWishlistUpdated", handleGuestUpdate);
       };
     }
-  }, [dispatch, jwt, searchParams]);
+  }, [dispatch, jwt, searchParams, showSnackbar]);
 
   // Handle active collection changes
   const handleSelectCollection = (col: ICollection | null) => {

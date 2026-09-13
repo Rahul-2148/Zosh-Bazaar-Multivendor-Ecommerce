@@ -71,6 +71,14 @@ export const ControlTowerOverview: React.FC = () => {
     openExceptions: 0,
   };
 
+  if (loading && !data) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header with Telemetry Status */}

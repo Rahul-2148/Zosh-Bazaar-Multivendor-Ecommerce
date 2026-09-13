@@ -8,10 +8,8 @@ import {
   MapPin,
   RefreshCw,
   X,
-  Building2,
   Navigation,
   ChevronRight,
-  AlertTriangle,
 } from "lucide-react";
 import { logisticsApi } from "../../services/api";
 

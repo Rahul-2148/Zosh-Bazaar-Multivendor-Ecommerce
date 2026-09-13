@@ -22,7 +22,6 @@ import {
 import { fetchProductById } from "../../../../Redux Toolkit/features/customer/ProductSlice";
 import { useParams, useNavigate } from "react-router-dom";
 import { addItemToCart } from "../../../../Redux Toolkit/features/customer/CartSlice";
-import { toggleWishlist } from "../../../../Redux Toolkit/features/customer/WishlistSlice";
 import {
   fetchProductReviews,
   checkCanReview,
@@ -38,7 +37,7 @@ const ProductDetails: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const { product, wishlist, review, location } = useAppSelector((store) => store);
+  const { product, review, location } = useAppSelector((store) => store);
   const jwt = localStorage.getItem("jwt");
 
   const currentProduct = product?.product;
@@ -86,14 +85,23 @@ const ProductDetails: React.FC = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
 
   // Delivery Serviceability State (connected to Redux activeLocation)
+  const activePin = location?.activeLocation?.pincode;
   const [pincodeInput, setPincodeInput] = useState(
-    () => location?.activeLocation?.pincode || localStorage.getItem("zosh_delivery_pincode") || ""
+    () => activePin || localStorage.getItem("zosh_delivery_pincode") || ""
   );
+  const [prevActivePin, setPrevActivePin] = useState(activePin);
+  if (activePin !== prevActivePin) {
+    setPrevActivePin(activePin);
+    if (activePin && activePin.length === 6) {
+      setPincodeInput(activePin);
+    }
+  }
+
   const [checkingDelivery, setCheckingDelivery] = useState(false);
   const [deliveryInfo, setDeliveryInfo] = useState<any>(null);
 
   const handleCheckDelivery = useCallback(async (pincodeToCheck?: string) => {
-    const code = (pincodeToCheck || pincodeInput).trim();
+    const code = (pincodeToCheck || "").trim();
     if (!code || code.length !== 6) return;
     setCheckingDelivery(true);
     try {
@@ -107,21 +115,33 @@ const ProductDetails: React.FC = () => {
     } finally {
       setCheckingDelivery(false);
     }
-  }, [pincodeInput]);
+  }, []);
 
-  // Automatically check delivery serviceability when activeLocation changes
+  // Automatically check delivery serviceability when activePin changes
   useEffect(() => {
-    const activePin = location?.activeLocation?.pincode;
-    if (activePin && activePin.length === 6) {
-      setPincodeInput(activePin);
-      handleCheckDelivery(activePin);
-    } else {
-      const savedPin = localStorage.getItem("zosh_delivery_pincode");
-      if (savedPin && savedPin.length === 6) {
-        handleCheckDelivery(savedPin);
-      }
-    }
-  }, [location?.activeLocation?.pincode, handleCheckDelivery]);
+    const pinToCheck = activePin && activePin.length === 6
+      ? activePin
+      : localStorage.getItem("zosh_delivery_pincode");
+    if (!pinToCheck || pinToCheck.length !== 6) return;
+
+    let active = true;
+    Api.get(`/logistics/serviceability?pincode=${pinToCheck}`)
+      .then((res) => {
+        if (active) setDeliveryInfo(res.data);
+      })
+      .catch(() => {
+        if (active) {
+          setDeliveryInfo({
+            serviceable: false,
+            message: "Delivery not available for this area",
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePin]);
 
   useEffect(() => {
     if (productId) {
@@ -513,7 +533,7 @@ const ProductDetails: React.FC = () => {
               <Button
                 size="small"
                 variant="outlined"
-                onClick={() => handleCheckDelivery()}
+                onClick={() => handleCheckDelivery(pincodeInput)}
                 disabled={checkingDelivery || pincodeInput.trim().length !== 6}
                 sx={{
                   textTransform: "none",

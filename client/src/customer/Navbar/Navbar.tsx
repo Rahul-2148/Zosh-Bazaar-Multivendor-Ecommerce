@@ -34,7 +34,7 @@ import {
   Menu as MuiMenu,
   MenuItem,
 } from "@mui/material";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { mainCategories } from "../../data/category/mainCategory";
 import CategorySheet from "./CategorySheet";
 import LocationSelector from "./LocationSelector";

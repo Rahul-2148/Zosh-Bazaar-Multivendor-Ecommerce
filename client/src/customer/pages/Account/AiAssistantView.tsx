@@ -2,25 +2,21 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   SmartToyOutlined,
   SendOutlined,
-  ShoppingBagOutlined,
   LocalShippingOutlined,
-  ReplayOutlined,
-  LocalOfferOutlined,
-  LocationOnOutlined,
-  CreditCardOutlined,
-  ArrowForward,
   ContentCopyOutlined,
   CheckCircleOutline,
   DeleteSweepOutlined,
-  FavoriteBorder,
 } from "@mui/icons-material";
-import { Button, TextField, IconButton, CircularProgress } from "@mui/material";
+import { Button, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import {
   fetchAccountOverview,
   fetchAvailableCoupons,
 } from "../../../Redux Toolkit/features/customer/UserSlice";
+
+let messageCounter = 0;
+const generateMsgId = () => `msg_${Date.now()}_${++messageCounter}`;
 
 interface Message {
   id: string;
@@ -101,7 +97,7 @@ export const AiAssistantView: React.FC = () => {
       const active = overview?.activeOrders?.[0] || overview?.latestOrder;
       if (active) {
         return {
-          id: String(Date.now()),
+          id: generateMsgId(),
           sender: "bot",
           text: `Here is your latest order details. Your order #${active._id.slice(-6).toUpperCase()} is currently **${active.orderStatus?.replace(/_/g, " ")}**.`,
           timestamp,
@@ -113,7 +109,7 @@ export const AiAssistantView: React.FC = () => {
         };
       } else {
         return {
-          id: String(Date.now()),
+          id: generateMsgId(),
           sender: "bot",
           text: "You don't have any orders in transit right now. All your previous purchases have been delivered or cancelled.",
           timestamp,
@@ -126,7 +122,7 @@ export const AiAssistantView: React.FC = () => {
     if (q.includes("coupon") || q.includes("offer") || q.includes("discount") || q.includes("promo") || q.includes("voucher")) {
       if (availableCoupons && availableCoupons.length > 0) {
         return {
-          id: String(Date.now()),
+          id: generateMsgId(),
           sender: "bot",
           text: `Great news! You have ${availableCoupons.length} active discount coupon(s) available for checkout:`,
           timestamp,
@@ -138,7 +134,7 @@ export const AiAssistantView: React.FC = () => {
         };
       } else {
         return {
-          id: String(Date.now()),
+          id: generateMsgId(),
           sender: "bot",
           text: "There are currently no active public coupons available. Check back soon during festive flash drops!",
           timestamp,
@@ -150,7 +146,7 @@ export const AiAssistantView: React.FC = () => {
     // 3. Returns & Refunds
     if (q.includes("return") || q.includes("refund") || q.includes("exchange")) {
       return {
-        id: String(Date.now()),
+        id: generateMsgId(),
         sender: "bot",
         text: `📦 **ZoshBazaar Return & Refund Policy:**\n• Most products are eligible for a **7-day doorstep return** after delivery.\n• Once picked up by courier, UPI refunds reflect in **2-4 hours** and card refunds take **3-5 banking days**.\n\nYou have ${overview?.stats?.activeReturns || 0} active return(s) in progress.`,
         timestamp,
@@ -164,7 +160,7 @@ export const AiAssistantView: React.FC = () => {
     // 4. Addresses & Delivery
     if (q.includes("address") || q.includes("location") || q.includes("pincode")) {
       return {
-        id: String(Date.now()),
+        id: generateMsgId(),
         sender: "bot",
         text: `You currently have **${overview?.stats?.savedAddresses || 0} saved shipping address(es)** in your account book. You can manage or add new delivery destinations anytime.`,
         timestamp,
@@ -179,7 +175,7 @@ export const AiAssistantView: React.FC = () => {
     if (q.includes("wishlist") || q.includes("price drop") || q.includes("saved item")) {
       const dropCount = overview?.stats?.priceDropCount || 0;
       return {
-        id: String(Date.now()),
+        id: generateMsgId(),
         sender: "bot",
         text: `You have **${overview?.stats?.savedItemsCount || 0} items saved** in your wishlist.${dropCount > 0 ? ` 🔥 **${dropCount} item(s) have dropped in price!**` : ""}`,
         timestamp,
@@ -193,7 +189,7 @@ export const AiAssistantView: React.FC = () => {
     // 6. Payment issues / payment methods
     if (q.includes("payment") || q.includes("card") || q.includes("upi") || q.includes("failed")) {
       return {
-        id: String(Date.now()),
+        id: generateMsgId(),
         sender: "bot",
         text: `💳 **Payment Safety at ZoshBazaar:**\n• We accept Cards, UPI, Net Banking, and COD.\n• We use PCI-DSS tokenization and never store full card numbers or CVV.\n• If money was deducted for a failed order, your bank will auto-reverse it within 24-48 hours.`,
         timestamp,
@@ -204,7 +200,7 @@ export const AiAssistantView: React.FC = () => {
     // 7. Cancellation
     if (q.includes("cancel") || q.includes("cancel order")) {
       return {
-        id: String(Date.now()),
+        id: generateMsgId(),
         sender: "bot",
         text: `You can cancel any order directly before it ships. Head to **My Orders**, select the active order, and click **Cancel Order**. Refunds are processed instantly to your source payment method.`,
         timestamp,
@@ -214,7 +210,7 @@ export const AiAssistantView: React.FC = () => {
 
     // Default fallback
     return {
-      id: String(Date.now()),
+      id: generateMsgId(),
       sender: "bot",
       text: `I'm here to help with your ZoshBazaar experience! You can ask me to track your shipments, check your refund status, find active discount codes, or assist with delivery addresses.`,
       timestamp,
@@ -232,7 +228,7 @@ export const AiAssistantView: React.FC = () => {
     if (!query.trim()) return;
 
     const userMsg: Message = {
-      id: String(Date.now()),
+      id: generateMsgId(),
       sender: "user",
       text: query.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),

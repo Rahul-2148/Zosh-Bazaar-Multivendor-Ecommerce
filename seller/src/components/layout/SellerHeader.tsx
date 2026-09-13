@@ -8,8 +8,6 @@ import {
   SettingsBrightnessOutlined,
   LogoutOutlined,
   StorefrontOutlined,
-  CheckCircleOutline,
-  DeleteOutline,
 } from "@mui/icons-material";
 import {
   Menu,
@@ -17,7 +15,6 @@ import {
   ListItemIcon,
   ListItemText,
   Badge,
-  IconButton,
 } from "@mui/material";
 import { useTheme } from "../../context/ThemeContext";
 import { useSellerAuth } from "../../context/SellerAuthContext";

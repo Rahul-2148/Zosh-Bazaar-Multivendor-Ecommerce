@@ -4,9 +4,6 @@ import {
   ShoppingBagOutlined,
   Search,
   Refresh,
-  LocalShippingOutlined,
-  FilterList,
-  ArrowForward,
 } from "@mui/icons-material";
 import { CircularProgress } from "@mui/material";
 import { orderApi } from "../../services/api";

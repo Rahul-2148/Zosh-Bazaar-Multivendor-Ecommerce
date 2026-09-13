@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   Refresh,
   FileDownloadOutlined,
   LocalShippingOutlined,
   VisibilityOutlined,
-  PrintOutlined,
-  AssignmentIndOutlined,
-  PlayCircleOutline,
 } from "@mui/icons-material";
 import { logisticsApi } from "../../services/api";
 import { StatusBadge } from "../../components/common/StatusBadge";

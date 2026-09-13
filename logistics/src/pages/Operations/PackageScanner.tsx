@@ -97,7 +97,7 @@ export const PackageScanner: React.FC = () => {
         osc.start();
         osc.stop(ctx.currentTime + 0.25);
       }
-    } catch (e) {
+    } catch {
       // AudioContext unavailable or restricted
     }
   };
@@ -117,7 +117,6 @@ export const PackageScanner: React.FC = () => {
         operatorName: operatorName.trim() || "Warehouse Scanner",
       });
 
-      const success = res.data?.success;
       const message = res.data?.message || "Scan processed successfully";
       const shipment = res.data?.shipment;
 

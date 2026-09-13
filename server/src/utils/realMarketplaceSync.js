@@ -498,6 +498,8 @@ async function syncRealMarketplace() {
           item.colorTheme.icon
         );
 
+        const relativeUrl = await savePhysicalImageToDisk(slug, imgName, svgContent);
+
         const serverBaseUrl = (
           process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5000}`
         ).replace(/\/+$/, "");

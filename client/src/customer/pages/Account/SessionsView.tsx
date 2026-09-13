@@ -86,6 +86,21 @@ const detectClientDevice = () => {
   return { deviceType, deviceName, browser, os };
 };
 
+const formatLastActive = (dateStr: string) => {
+  if (!dateStr) return "Active recently";
+  const date = new Date(dateStr);
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 2) return "Active now";
+  if (diffMins < 60) return `Active ${diffMins}m ago`;
+  if (diffHours < 24) return `Active ${diffHours}h ago`;
+  if (diffDays === 1) return "Active yesterday";
+  return `Active on ${date.toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`;
+};
+
 export const SessionsView: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((store) => store.user);
@@ -104,8 +119,10 @@ export const SessionsView: React.FC = () => {
   // Fetch active sessions from server
   const fetchSessions = useCallback(
     async (isManualRefresh = false) => {
-      if (isManualRefresh) setRefreshing(true);
-      setErrorMsg(null);
+      if (isManualRefresh) {
+        setRefreshing(true);
+        setErrorMsg(null);
+      }
 
       try {
         const clientInfo = detectClientDevice();
@@ -143,8 +160,46 @@ export const SessionsView: React.FC = () => {
 
   // Initial fetch and register
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+    let active = true;
+    const init = async () => {
+      try {
+        const clientInfo = detectClientDevice();
+        await Api.post(
+          "/account/sessions/heartbeat",
+          {
+            sessionId: currentSessionId,
+            ...clientInfo,
+            location: "Current Location",
+          },
+          {
+            headers: { "x-session-id": currentSessionId },
+          }
+        );
+
+        const res = await Api.get("/account/sessions", {
+          headers: { "x-session-id": currentSessionId },
+        });
+
+        if (active && res.data?.success && res.data?.sessions) {
+          setSessions(res.data.sessions);
+        }
+      } catch (err: any) {
+        if (active) {
+          setErrorMsg(err.response?.data?.message || "Failed to load active device sessions.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    init();
+
+    return () => {
+      active = false;
+    };
+  }, [currentSessionId]);
 
   // Real-time Socket.io listener for remote revocations
   useEffect(() => {
@@ -241,20 +296,6 @@ export const SessionsView: React.FC = () => {
     }
   };
 
-  const formatLastActive = (dateStr: string) => {
-    if (!dateStr) return "Active recently";
-    const date = new Date(dateStr);
-    const diffMs = Date.now() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 2) return "Active now";
-    if (diffMins < 60) return `Active ${diffMins}m ago`;
-    if (diffHours < 24) return `Active ${diffHours}h ago`;
-    if (diffDays === 1) return "Active yesterday";
-    return `Active on ${date.toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`;
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -385,7 +426,7 @@ export const SessionsView: React.FC = () => {
                       <span>• IP: {currentSession.ipAddress || "103.15.224.78"}</span>
                       <span className="flex items-center gap-1">
                         <AccessTimeOutlined sx={{ fontSize: 14 }} />
-                        Signed in: {new Date(currentSession.createdAt || Date.now()).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                        Signed in: {currentSession.createdAt ? new Date(currentSession.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "Today"}
                       </span>
                     </div>
                   </div>

@@ -14,7 +14,6 @@ import {
   Close,
   AddShoppingCart,
   CheckCircle,
-  FavoriteBorder,
 } from "@mui/icons-material";
 import { Button } from "@mui/material";
 
@@ -23,16 +22,11 @@ export const RecentlyViewedView: React.FC = () => {
   const dispatch = useAppDispatch();
   const jwt = localStorage.getItem("jwt") || "";
 
-  const [items, setItems] = useState<IRecentlyViewedItem[]>([]);
+  const [items, setItems] = useState<IRecentlyViewedItem[]>(() => getRecentlyViewedProducts());
   const [addedId, setAddedId] = useState<string | null>(null);
 
-  const loadItems = () => {
-    setItems(getRecentlyViewedProducts());
-  };
-
   useEffect(() => {
-    loadItems();
-    const handleUpdate = () => loadItems();
+    const handleUpdate = () => setItems(getRecentlyViewedProducts());
     window.addEventListener("recentlyViewedUpdated", handleUpdate);
     return () => window.removeEventListener("recentlyViewedUpdated", handleUpdate);
   }, []);
@@ -45,7 +39,7 @@ export const RecentlyViewedView: React.FC = () => {
   const handleRemove = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     removeRecentlyViewedProduct(id);
-    loadItems();
+    setItems(getRecentlyViewedProducts());
   };
 
   const handleAddToCart = (item: IRecentlyViewedItem, e: React.MouseEvent) => {

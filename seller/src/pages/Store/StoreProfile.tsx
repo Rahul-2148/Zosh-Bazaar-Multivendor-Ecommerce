@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   StorefrontOutlined,
   AccountBalanceOutlined,
-  HomeOutlined,
   VerifiedUserOutlined,
   SaveOutlined,
   CheckCircleOutline,
@@ -31,13 +30,6 @@ export const StoreProfile: React.FC = () => {
   const [bankName, setBankName] = useState(seller?.bankDetails?.bankName || "");
   const [ifscCode, setIfscCode] = useState(seller?.bankDetails?.ifscCode || "");
   const [accountBranch, setAccountBranch] = useState(seller?.bankDetails?.accountBranch || "");
-
-  // Pickup address fields
-  const [pickupLocality, setPickupLocality] = useState(seller?.pickupAddress?.locality || "");
-  const [pickupAddress, setPickupAddress] = useState(seller?.pickupAddress?.address || "");
-  const [pickupCity, setPickupCity] = useState(seller?.pickupAddress?.city || "");
-  const [pickupState, setPickupState] = useState(seller?.pickupAddress?.state || "");
-  const [pickupPinCode, setPickupPinCode] = useState(seller?.pickupAddress?.pinCode || "");
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

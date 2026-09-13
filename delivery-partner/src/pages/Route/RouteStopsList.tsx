@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useActiveRoute } from "../../context/ActiveRouteContext";
 import { StopCard } from "../../components/delivery/StopCard";
-import { Search, Filter, RefreshCw, MapPin } from "lucide-react";
+import { Search, RefreshCw, MapPin } from "lucide-react";
 
 export const RouteStopsList: React.FC = () => {
   const { route, activeStop, refreshRoute, loading } = useActiveRoute();

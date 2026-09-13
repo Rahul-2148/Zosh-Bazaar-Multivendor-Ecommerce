@@ -14,7 +14,6 @@ import {
   WarningAmberOutlined,
   ArrowForwardOutlined,
   CheckCircleOutline,
-  TrendingUpOutlined,
 } from "@mui/icons-material";
 
 export const Dashboard: React.FC = () => {

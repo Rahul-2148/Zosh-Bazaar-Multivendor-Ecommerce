@@ -1,5 +1,4 @@
-// src/components/common/SnackbarProvider.tsx
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { Alert, Snackbar } from "@mui/material";
 
 type SnackbarType = "success" | "error" | "warning" | "info";
@@ -25,11 +24,11 @@ export const SnackbarProvider = ({ children }: { children: ReactNode }) => {
   const [message, setMessage] = useState("");
   const [severity, setSeverity] = useState<SnackbarType>("info");
 
-  const showSnackbar = (msg: string, sev: SnackbarType = "info") => {
+  const showSnackbar = useCallback((msg: string, sev: SnackbarType = "info") => {
     setMessage(msg);
     setSeverity(sev);
     setOpen(true);
-  };
+  }, []);
 
   const handleClose = () => {
     setOpen(false);

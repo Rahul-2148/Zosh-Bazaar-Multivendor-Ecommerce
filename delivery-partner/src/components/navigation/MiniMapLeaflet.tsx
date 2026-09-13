@@ -13,7 +13,7 @@ export const MiniMapLeaflet: React.FC<MiniMapLeafletProps> = ({
   lat,
   lng,
   title,
-  address,
+  address: _address,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);

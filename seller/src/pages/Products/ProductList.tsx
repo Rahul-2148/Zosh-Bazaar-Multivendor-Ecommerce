@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   AddCircleOutline,
   Search,
-  FilterList,
   DeleteOutline,
   EditOutlined,
-  MoreVert,
   DownloadOutlined,
-  CheckCircleOutline,
-  ArchiveOutlined,
-  PublishOutlined,
-  VisibilityOutlined,
   Inventory2Outlined,
   Refresh,
 } from "@mui/icons-material";
@@ -22,12 +16,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Menu,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Chip,
-  Tooltip,
 } from "@mui/material";
 import { productApi, metaApi } from "../../services/api";
 
@@ -48,10 +36,6 @@ export const ProductList: React.FC = () => {
 
   // Single delete dialog
   const [deleteId, setDeleteId] = useState<string | null>(null);
-
-  // Row menu state
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [activeProduct, setActiveProduct] = useState<any | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -240,8 +224,21 @@ export const ProductList: React.FC = () => {
             />
           </div>
 
-          {/* Status Filter */}
+          {/* Status & Category Filters */}
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-surface border border-border text-xs text-foreground focus:outline-hidden focus:border-primary"
+            >
+              <option value="ALL">All Categories</option>
+              {categories.map((c: any) => (
+                <option key={c._id || c.categoryId} value={c._id || c.categoryId}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}

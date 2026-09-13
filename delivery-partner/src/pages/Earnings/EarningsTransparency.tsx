@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { partnerApi } from "../../api/partnerApi";
-import { IndianRupee, TrendingUp, ShieldCheck, Calendar, ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { IndianRupee, TrendingUp, ShieldCheck, ArrowUpRight } from "lucide-react";
 
 export const EarningsTransparency: React.FC = () => {
   const [earnings, setEarnings] = useState<{
@@ -57,6 +57,14 @@ export const EarningsTransparency: React.FC = () => {
       (earnings?.todayIncentives || 0) +
       (earnings?.todayDistancePay || 0) -
       (earnings?.todayDeductions || 0));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">

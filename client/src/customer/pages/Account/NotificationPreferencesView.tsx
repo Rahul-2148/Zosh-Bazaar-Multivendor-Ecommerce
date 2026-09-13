@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   NotificationsActiveOutlined,
   LocalShippingOutlined,
@@ -17,9 +17,8 @@ import {
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import { updateUserPreferences } from "../../../Redux Toolkit/features/customer/UserSlice";
 
-export const NotificationPreferencesView: React.FC = () => {
+const NotificationPreferencesForm: React.FC<{ user: any }> = ({ user }) => {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((store) => store.user);
 
   const existingPrefs = user?.preferences?.notifications || {
     orderUpdates: true,
@@ -41,19 +40,6 @@ export const NotificationPreferencesView: React.FC = () => {
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-
-  useEffect(() => {
-    if (user?.preferences?.notifications) {
-      const n = user.preferences.notifications;
-      setOrderUpdates(n.orderUpdates ?? true);
-      setPromotions(n.promotions ?? true);
-      setPriceDrops(n.priceDrops ?? true);
-      setNewsletter(n.newsletter ?? false);
-      setEmail(n.email ?? true);
-      setSms(n.sms ?? true);
-      setPush(n.push ?? true);
-    }
-  }, [user]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -176,6 +162,24 @@ export const NotificationPreferencesView: React.FC = () => {
               color="primary"
             />
           </div>
+
+          {/* Newsletter */}
+          <div className="py-3 flex items-center justify-between">
+            <div className="flex items-start gap-3">
+              <NotificationsActiveOutlined sx={{ fontSize: 20 }} className="text-blue-500 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Weekly Digest & Newsletter</p>
+                <p className="text-xs text-muted-foreground">
+                  Curated product guides, seasonal trends, and platform digest
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={newsletter}
+              onChange={(e) => setNewsletter(e.target.checked)}
+              color="primary"
+            />
+          </div>
         </div>
       </div>
 
@@ -248,4 +252,11 @@ export const NotificationPreferencesView: React.FC = () => {
     </div>
   );
 };
+
+export const NotificationPreferencesView: React.FC = () => {
+  const { user } = useAppSelector((store) => store.user);
+  const key = user?._id ? `${user._id}_${JSON.stringify(user.preferences?.notifications || {})}` : "guest";
+  return <NotificationPreferencesForm key={key} user={user} />;
+};
+
 export default NotificationPreferencesView;

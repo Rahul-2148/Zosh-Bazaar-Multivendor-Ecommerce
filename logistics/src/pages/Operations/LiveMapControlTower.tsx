@@ -1,12 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import L from "leaflet";
 import {
-  WarehouseOutlined,
   PersonPinCircleOutlined,
-  LocalShippingOutlined,
   Refresh,
-  SpeedOutlined,
-  CheckCircleOutline,
 } from "@mui/icons-material";
 import { logisticsApi } from "../../services/api";
 import { StatusBadge } from "../../components/common/StatusBadge";

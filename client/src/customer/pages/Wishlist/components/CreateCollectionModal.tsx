@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -36,35 +36,27 @@ const PALETTE = [
   "#64748b", // Slate
 ];
 
-export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
-  open,
-  onClose,
+interface CollectionFormProps {
+  collectionToEdit?: ICollection | null;
+  onClose: () => void;
+}
+
+const CollectionForm: React.FC<CollectionFormProps> = ({
   collectionToEdit,
+  onClose,
 }) => {
   const dispatch = useAppDispatch();
   const { showSnackbar } = useSnackbar();
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState(PALETTE[0]);
-  const [visibility, setVisibility] = useState<"PRIVATE" | "SHARED" | "PUBLIC">("PRIVATE");
+  const [name, setName] = useState(collectionToEdit?.name || "");
+  const [description, setDescription] = useState(collectionToEdit?.description || "");
+  const [color, setColor] = useState(collectionToEdit?.color || PALETTE[0]);
+  const [visibility, setVisibility] = useState<"PRIVATE" | "SHARED" | "PUBLIC">(
+    collectionToEdit?.visibility || "PRIVATE"
+  );
   const [loading, setLoading] = useState(false);
 
   const isEditing = Boolean(collectionToEdit);
-
-  useEffect(() => {
-    if (collectionToEdit) {
-      setName(collectionToEdit.name || "");
-      setDescription(collectionToEdit.description || "");
-      setColor(collectionToEdit.color || PALETTE[0]);
-      setVisibility(collectionToEdit.visibility || "PRIVATE");
-    } else {
-      setName("");
-      setDescription("");
-      setColor(PALETTE[0]);
-      setVisibility("PRIVATE");
-    }
-  }, [collectionToEdit, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,31 +97,15 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: "1.25rem",
-            border: "1px solid var(--border)",
-            backgroundColor: "var(--card)",
-            color: "var(--foreground)",
-          },
-        },
-      }}
-    >
-      <form onSubmit={handleSubmit}>
-        <DialogTitle className="flex items-center justify-between pb-2">
-          <span className="text-base font-bold text-foreground">
-            {isEditing ? "Edit Collection" : "Create New Collection"}
-          </span>
-          <IconButton size="small" onClick={onClose} aria-label="Close">
-            <Close fontSize="small" />
-          </IconButton>
-        </DialogTitle>
+    <form onSubmit={handleSubmit}>
+      <DialogTitle className="flex items-center justify-between pb-2">
+        <span className="text-base font-bold text-foreground">
+          {isEditing ? "Edit Collection" : "Create New Collection"}
+        </span>
+        <IconButton size="small" onClick={onClose} aria-label="Close">
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
 
         <DialogContent className="flex flex-col gap-4 pt-2">
           {/* Collection Name */}
@@ -267,6 +243,38 @@ export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
           </Button>
         </DialogActions>
       </form>
+    );
+};
+
+export const CreateCollectionModal: React.FC<CreateCollectionModalProps> = ({
+  open,
+  onClose,
+  collectionToEdit,
+}) => {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: "1.25rem",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--card)",
+            color: "var(--foreground)",
+          },
+        },
+      }}
+    >
+      {open && (
+        <CollectionForm
+          key={collectionToEdit?._id || "new"}
+          collectionToEdit={collectionToEdit}
+          onClose={onClose}
+        />
+      )}
     </Dialog>
   );
 };

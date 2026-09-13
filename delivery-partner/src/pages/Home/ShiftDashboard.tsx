@@ -4,8 +4,6 @@ import { useActiveRoute } from "../../context/ActiveRouteContext";
 import { NextStopHero } from "../../components/delivery/NextStopHero";
 import { useNavigate } from "react-router-dom";
 import {
-  Play,
-  CheckCircle2,
   Clock,
   Navigation,
   Scan,
@@ -17,7 +15,6 @@ import {
   Building,
   Radio,
   ChevronRight,
-  MapPin,
 } from "lucide-react";
 
 export const ShiftDashboard: React.FC = () => {
