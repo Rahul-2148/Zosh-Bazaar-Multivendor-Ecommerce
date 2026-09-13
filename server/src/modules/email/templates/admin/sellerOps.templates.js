@@ -3,6 +3,7 @@ import {
   EmailHeader,
   EmailFooter,
   Button,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatAdminViewModel } from "../../schemas/admin.schema.js";
@@ -41,7 +42,7 @@ export const adminSellerOpsTemplates = {
             A new vendor registered on Zosh Bazaar and is awaiting onboarding document submission.
           </p>
           ${AdminAlertBox(data)}
-          ${Button({ href: "http://localhost:5176/sellers", label: "Open Seller Manager" })}
+          ${Button({ href: emailConfig.adminUrl + "/sellers", label: "Open Seller Manager" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: "operations@zoshbazaar.com" })}
         `,
       });
@@ -70,7 +71,7 @@ export const adminSellerOpsTemplates = {
             A seller application triggered automated KYC or anti-fraud flags and requires manual underwriter approval.
           </p>
           ${AdminAlertBox(data)}
-          ${Button({ href: "http://localhost:5176/sellers/pending", label: "Perform Compliance Audit", variant: "primary" })}
+          ${Button({ href: emailConfig.adminUrl + "/sellers/pending", label: "Perform Compliance Audit", variant: "primary" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: "compliance@zoshbazaar.com" })}
         `,
       });
@@ -99,7 +100,7 @@ export const adminSellerOpsTemplates = {
             A merchant has submitted statutory tax documents. Please review and verify.
           </p>
           ${AdminAlertBox(data)}
-          ${Button({ href: "http://localhost:5176/sellers/verification", label: "Review Documents" })}
+          ${Button({ href: emailConfig.adminUrl + "/sellers/verification", label: "Review Documents" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: "operations@zoshbazaar.com" })}
         `,
       });

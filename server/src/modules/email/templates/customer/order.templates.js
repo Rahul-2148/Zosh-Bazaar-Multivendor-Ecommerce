@@ -9,6 +9,7 @@ import {
   OrderItem,
   AddressBlock,
   TrackingTimeline,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatOrderViewModel } from "../../schemas/order.schema.js";
@@ -539,7 +540,7 @@ export const customerOrderTemplates = {
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 16px 0; font-size: 13px; color: #475569;">
             If any online payment was captured, an automatic refund of <strong>${enIN.formatCurrency(data.totals.total)}</strong> will be credited to your original payment source within 5-7 banking days.
           </div>
-          ${Button({ href: "http://localhost:5173", label: "Continue Shopping" })}
+          ${Button({ href: emailConfig.clientUrl, label: "Continue Shopping" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.user.email })}
         `,
       });

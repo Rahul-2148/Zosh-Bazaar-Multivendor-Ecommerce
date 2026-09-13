@@ -1,4 +1,5 @@
 import { sanitizeString, sanitizeUrl } from "./common.schema.js";
+import { emailConfig } from "../config/email.config.js";
 
 export function formatOrderViewModel(data = {}) {
   const rawItems = Array.isArray(data.items)
@@ -44,10 +45,10 @@ export function formatOrderViewModel(data = {}) {
     paymentMethod: sanitizeString(data.paymentMethod || "Prepaid (Online)"),
     estimatedDelivery: sanitizeString(data.estimatedDelivery || "3 - 5 Business Days"),
     trackingNumber: sanitizeString(data.trackingNumber || data.shipmentId || ""),
-    trackingUrl: sanitizeUrl(data.trackingUrl || `http://localhost:5173/account/orders`),
+    trackingUrl: sanitizeUrl(data.trackingUrl || `${emailConfig.clientUrl}/account/orders`),
     carrier: sanitizeString(data.carrier || "Zosh Express Logistics"),
-    orderUrl: sanitizeUrl(data.orderUrl || `http://localhost:5173/account/orders`),
-    invoiceUrl: sanitizeUrl(data.invoiceUrl || `http://localhost:5173/account/orders`),
+    orderUrl: sanitizeUrl(data.orderUrl || `${emailConfig.clientUrl}/account/orders`),
+    invoiceUrl: sanitizeUrl(data.invoiceUrl || `${emailConfig.clientUrl}/account/orders`),
     items,
     shippingAddress,
     totals,

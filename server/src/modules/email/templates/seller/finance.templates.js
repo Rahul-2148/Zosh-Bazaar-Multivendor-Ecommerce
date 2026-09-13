@@ -3,6 +3,7 @@ import {
   EmailHeader,
   EmailFooter,
   Button,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatSellerViewModel } from "../../schemas/seller.schema.js";
@@ -57,7 +58,7 @@ export const sellerFinanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, your settlement report for cycle #${data.payoutId} has been generated. Net payable: <strong>${enIN.formatCurrency(data.amount)}</strong>.
           </p>
-          ${Button({ href: "http://localhost:5175/finances", label: "Download Settlement PDF" })}
+          ${Button({ href: emailConfig.sellerUrl + "/finances", label: "Download Settlement PDF" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -113,7 +114,7 @@ export const sellerFinanceTemplates = {
             Hi ${data.seller.sellerName}, <strong>${enIN.formatCurrency(data.amount)}</strong> has been credited to your bank account.
             ${data.payoutId ? `<br /><strong>UTR / Reference ID:</strong> ${data.payoutId}` : ""}
           </p>
-          ${Button({ href: "http://localhost:5175/finances", label: "View Payout History" })}
+          ${Button({ href: emailConfig.sellerUrl + "/finances", label: "View Payout History" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -141,7 +142,7 @@ export const sellerFinanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, the payout transfer of ${enIN.formatCurrency(data.amount)} was returned by the clearing house due to invalid account or IFSC details.
           </p>
-          ${Button({ href: "http://localhost:5175/finances/bank-account", label: "Update Bank Account", variant: "danger", fullWidth: true })}
+          ${Button({ href: emailConfig.sellerUrl + "/finances/bank-account", label: "Update Bank Account", variant: "danger", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -170,7 +171,7 @@ export const sellerFinanceTemplates = {
             Hi ${data.seller.sellerName}, an adjustment of ${enIN.formatCurrency(data.amount)} was applied to your merchant account balance.
             ${data.reason ? `<br /><strong>Reason:</strong> ${data.reason}` : ""}
           </p>
-          ${Button({ href: "http://localhost:5175/finances", label: "View Ledger Entries" })}
+          ${Button({ href: emailConfig.sellerUrl + "/finances", label: "View Ledger Entries" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -198,7 +199,7 @@ export const sellerFinanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, the marketplace commission and logistics handling statement for the current billing cycle is ready.
           </p>
-          ${Button({ href: "http://localhost:5175/finances/invoices", label: "Download GST Tax Invoice" })}
+          ${Button({ href: emailConfig.sellerUrl + "/finances/invoices", label: "Download GST Tax Invoice" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -227,7 +228,7 @@ export const sellerFinanceTemplates = {
             Hi ${data.seller.sellerName}, merchant disbursements for your store are temporarily paused.
             ${data.reason ? `<br /><strong>Reason:</strong> ${data.reason}` : ""}
           </p>
-          ${Button({ href: "http://localhost:5175/support", label: "Contact Merchant Helpdesk", variant: "danger" })}
+          ${Button({ href: emailConfig.sellerUrl + "/support", label: "Contact Merchant Helpdesk", variant: "danger" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });

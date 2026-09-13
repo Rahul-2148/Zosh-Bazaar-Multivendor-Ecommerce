@@ -17,6 +17,11 @@ export const emailConfig = Object.freeze({
   fromAddress: process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_ADDRESS || "no-reply@zoshbazaar.com",
   replyTo: process.env.EMAIL_REPLY_TO || "support@zoshbazaar.com",
   baseUrl: process.env.SERVER_URL || "http://localhost:5000",
+  clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
+  sellerUrl: process.env.SELLER_URL || "http://localhost:5175",
+  adminUrl: process.env.ADMIN_URL || "http://localhost:5176",
+  logisticsUrl: process.env.LOGISTICS_URL || "http://localhost:5174",
+  deliveryPartnerUrl: process.env.DELIVERY_PARTNER_URL || "http://localhost:5177",
   
   // Rate limits & timeouts
   connectionTimeoutMs: Number(process.env.EMAIL_CONN_TIMEOUT_MS) || 10000,

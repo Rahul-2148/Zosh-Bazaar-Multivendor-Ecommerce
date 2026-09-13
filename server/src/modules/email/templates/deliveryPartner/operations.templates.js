@@ -4,6 +4,7 @@ import {
   EmailFooter,
   Button,
   SecurityNotice,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatDeliveryViewModel } from "../../schemas/delivery.schema.js";
@@ -198,7 +199,7 @@ export const deliveryPartnerOperationsTemplates = {
           </p>
           ${SecurityNotice({
             severity: "MEDIUM",
-            supportUrl: "http://localhost:5177/help",
+            supportUrl: emailConfig.deliveryPartnerUrl + "/help",
           })}
           ${EmailFooter({ category: EmailCategory.SECURITY, recipientEmail: "security@zoshlogistics.com" })}
         `,

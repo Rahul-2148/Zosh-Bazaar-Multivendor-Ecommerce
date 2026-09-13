@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   SecurityNotice,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatAuthViewModel } from "../../schemas/auth.schema.js";
@@ -60,7 +61,7 @@ export const customerAuthTemplates = {
               </ul>
             `,
           })}
-          ${Button({ href: data.actionUrl || "http://localhost:5173", label: "Start Shopping Now", fullWidth: true })}
+          ${Button({ href: data.actionUrl || emailConfig.clientUrl, label: "Start Shopping Now", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.user.email })}
         `,
       });
@@ -189,7 +190,7 @@ export const customerAuthTemplates = {
             severity: "MEDIUM",
             supportUrl: data.supportUrl,
           })}
-          ${Button({ href: data.actionUrl || "http://localhost:5173/login", label: "Sign In With New Password" })}
+          ${Button({ href: data.actionUrl || (emailConfig.clientUrl + "/login"), label: "Sign In With New Password" })}
           ${EmailFooter({ category: EmailCategory.SECURITY, recipientEmail: data.user.email })}
         `,
       });
@@ -295,7 +296,7 @@ export const customerAuthTemplates = {
             severity: "CRITICAL",
             supportUrl: data.supportUrl,
           })}
-          ${Button({ href: data.actionUrl || "http://localhost:5173/account/security", label: "Secure Account Now", variant: "danger", fullWidth: true })}
+          ${Button({ href: data.actionUrl || (emailConfig.clientUrl + "/account/security"), label: "Secure Account Now", variant: "danger", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.SECURITY, recipientEmail: data.user.email })}
         `,
       });
@@ -514,7 +515,7 @@ export const customerAuthTemplates = {
           <p style="font-size: 13px; color: #475569; line-height: 1.5;" class="dark-text-muted">
             <strong>To cancel this deletion:</strong> Simply sign in to your Zosh Bazaar account before the deadline and select "Cancel Deletion" in Account Settings.
           </p>
-          ${Button({ href: data.actionUrl || "http://localhost:5173/account/delete-account", label: "Review Deletion Status" })}
+          ${Button({ href: data.actionUrl || (emailConfig.clientUrl + "/account/delete-account"), label: "Review Deletion Status" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.user.email })}
         `,
       });
@@ -549,7 +550,7 @@ export const customerAuthTemplates = {
               </div>
             `,
           })}
-          ${Button({ href: "http://localhost:5173", label: "Return to Marketplace" })}
+          ${Button({ href: emailConfig.clientUrl, label: "Return to Marketplace" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.user.email })}
         `,
       });

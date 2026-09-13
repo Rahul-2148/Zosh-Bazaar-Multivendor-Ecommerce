@@ -3,6 +3,7 @@ import {
   EmailHeader,
   EmailFooter,
   Button,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatSellerViewModel } from "../../schemas/seller.schema.js";
@@ -160,7 +161,7 @@ export const sellerOnboardingTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Congratulations ${data.seller.sellerName}! Your merchant account for <strong>${data.seller.storeName}</strong> has been fully approved. You can now add products, configure inventory, and begin selling to customers across India.
           </p>
-          ${Button({ href: "http://localhost:5175/products/add", label: "Create Your First Product Listing", fullWidth: true })}
+          ${Button({ href: emailConfig.sellerUrl + "/products/add", label: "Create Your First Product Listing", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -356,7 +357,7 @@ export const sellerOnboardingTemplates = {
             Hi ${data.seller.sellerName}, your merchant account for ${data.seller.storeName} has been suspended.
             ${data.reason ? `<br /><strong>Reason:</strong> ${data.reason}` : ""}
           </p>
-          ${Button({ href: "http://localhost:5175/support/appeal", label: "File Merchant Appeal", variant: "danger" })}
+          ${Button({ href: emailConfig.sellerUrl + "/support/appeal", label: "File Merchant Appeal", variant: "danger" })}
           ${EmailFooter({ category: EmailCategory.SECURITY, recipientEmail: data.seller.email })}
         `,
       });
@@ -384,7 +385,7 @@ export const sellerOnboardingTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, your seller account appeal has been approved and your store listings are live again.
           </p>
-          ${Button({ href: "http://localhost:5175/dashboard", label: "Open Seller Dashboard" })}
+          ${Button({ href: emailConfig.sellerUrl + "/dashboard", label: "Open Seller Dashboard" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.seller.email })}
         `,
       });

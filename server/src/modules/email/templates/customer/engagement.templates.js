@@ -4,6 +4,7 @@ import {
   EmailFooter,
   Button,
   Card,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatOrderViewModel } from "../../schemas/order.schema.js";
@@ -158,7 +159,7 @@ export const customerEngagementTemplates = {
               </div>
             `,
           })}
-          ${Button({ href: rawData.productUrl || "http://localhost:5173", label: "Buy at Discounted Price", fullWidth: true })}
+          ${Button({ href: rawData.productUrl || emailConfig.clientUrl, label: "Buy at Discounted Price", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.MARKETING, recipientEmail: data.user.email })}
         `,
       });
@@ -187,7 +188,7 @@ export const customerEngagementTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.user.fullName}, the wait is over! <strong>"${title}"</strong> has just been restocked by the seller. Grab yours before stock runs out again.
           </p>
-          ${Button({ href: rawData.productUrl || "http://localhost:5173", label: "View Product", fullWidth: true })}
+          ${Button({ href: rawData.productUrl || emailConfig.clientUrl, label: "View Product", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.MARKETING, recipientEmail: data.user.email })}
         `,
       });
@@ -216,7 +217,7 @@ export const customerEngagementTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.user.fullName}, <strong>"${title}"</strong> is selling fast and only a few units remain with our merchants.
           </p>
-          ${Button({ href: rawData.productUrl || "http://localhost:5173", label: "Check Availability" })}
+          ${Button({ href: rawData.productUrl || emailConfig.clientUrl, label: "Check Availability" })}
           ${EmailFooter({ category: EmailCategory.MARKETING, recipientEmail: data.user.email })}
         `,
       });
@@ -244,7 +245,7 @@ export const customerEngagementTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.user.fullName}, you left items in your shopping bag. Return now to secure current promotional pricing and express delivery options.
           </p>
-          ${Button({ href: "http://localhost:5173/cart", label: "Review & Checkout Cart", fullWidth: true })}
+          ${Button({ href: emailConfig.clientUrl + "/cart", label: "Review & Checkout Cart", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.MARKETING, recipientEmail: data.user.email })}
         `,
       });

@@ -4,6 +4,7 @@ import {
   EmailFooter,
   Button,
   Card,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatSellerViewModel } from "../../schemas/seller.schema.js";
@@ -39,7 +40,7 @@ export const sellerOrderTemplates = {
               </div>
             `,
           })}
-          ${Button({ href: `http://localhost:5175/orders/${data.orderId}`, label: "View & Process Order", fullWidth: true })}
+          ${Button({ href: `${emailConfig.sellerUrl}/orders/${data.orderId}`, label: "View & Process Order", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -67,7 +68,7 @@ export const sellerOrderTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, order #${data.orderId} has been awaiting confirmation for over 12 hours. Please confirm availability to prevent automatic cancellation.
           </p>
-          ${Button({ href: `http://localhost:5175/orders/${data.orderId}`, label: "Confirm Order Now", variant: "primary" })}
+          ${Button({ href: `${emailConfig.sellerUrl}/orders/${data.orderId}`, label: "Confirm Order Now", variant: "primary" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -95,7 +96,7 @@ export const sellerOrderTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, please ensure order #${data.orderId} is packed with barcode shipping labels affixed.
           </p>
-          ${Button({ href: `http://localhost:5175/orders/${data.orderId}`, label: "Print Shipping Label" })}
+          ${Button({ href: `${emailConfig.sellerUrl}/orders/${data.orderId}`, label: "Print Shipping Label" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -123,7 +124,7 @@ export const sellerOrderTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, order #${data.orderId} is nearing its mandatory dispatch SLA window. Hand over the parcel to avoid merchant cancellation strikes and rating deductions.
           </p>
-          ${Button({ href: `http://localhost:5175/orders/${data.orderId}`, label: "Mark Ready for Pickup Now", variant: "danger", fullWidth: true })}
+          ${Button({ href: `${emailConfig.sellerUrl}/orders/${data.orderId}`, label: "Mark Ready for Pickup Now", variant: "danger", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -259,7 +260,7 @@ export const sellerOrderTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, the customer requested to cancel order #${data.orderId}. If the package has not left your facility, please approve the cancellation in your console.
           </p>
-          ${Button({ href: `http://localhost:5175/orders/${data.orderId}`, label: "Respond to Request" })}
+          ${Button({ href: `${emailConfig.sellerUrl}/orders/${data.orderId}`, label: "Respond to Request" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -288,7 +289,7 @@ export const sellerOrderTemplates = {
             Hi ${data.seller.sellerName}, a customer requested a return for order #${data.orderId}.
             ${data.reason ? `<br /><strong>Stated Reason:</strong> ${data.reason}` : ""}
           </p>
-          ${Button({ href: `http://localhost:5175/returns`, label: "Review Return Case" })}
+          ${Button({ href: emailConfig.sellerUrl + "/returns", label: "Review Return Case" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -343,7 +344,7 @@ export const sellerOrderTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, returned goods for order #${data.orderId} have been delivered back to your pickup address. Please complete quality inspection within 48 hours.
           </p>
-          ${Button({ href: `http://localhost:5175/returns`, label: "Complete Merchant Inspection" })}
+          ${Button({ href: emailConfig.sellerUrl + "/returns", label: "Complete Merchant Inspection" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -371,7 +372,7 @@ export const sellerOrderTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, a customer refund of <strong>${enIN.formatCurrency(data.amount)}</strong> was processed for order #${data.orderId}. This sum will be reconciled in your upcoming settlement cycle.
           </p>
-          ${Button({ href: "http://localhost:5175/finances", label: "View Financial Ledger" })}
+          ${Button({ href: emailConfig.sellerUrl + "/finances", label: "View Financial Ledger" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });

@@ -4,6 +4,7 @@ import {
   EmailFooter,
   Button,
   Card,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatSellerViewModel } from "../../schemas/seller.schema.js";
@@ -39,7 +40,7 @@ export const sellerPerformanceTemplates = {
               </div>
             `,
           })}
-          ${Button({ href: "http://localhost:5175/analytics", label: "Open Merchant Analytics" })}
+          ${Button({ href: emailConfig.sellerUrl + "/analytics", label: "Open Merchant Analytics" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -67,7 +68,7 @@ export const sellerPerformanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, your on-time order fulfillment score dropped below 95%. Consistent dispatch delays can result in listing suppression or search ranking penalties.
           </p>
-          ${Button({ href: "http://localhost:5175/performance", label: "Review Fulfillment Metrics" })}
+          ${Button({ href: emailConfig.sellerUrl + "/performance", label: "Review Fulfillment Metrics" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -95,7 +96,7 @@ export const sellerPerformanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, merchant-initiated order cancellations for your store have exceeded the 2% threshold. Please update your inventory numbers to prevent orders on out-of-stock items.
           </p>
-          ${Button({ href: "http://localhost:5175/inventory", label: "Sync Inventory Immediately", variant: "danger" })}
+          ${Button({ href: emailConfig.sellerUrl + "/inventory", label: "Sync Inventory Immediately", variant: "danger" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -123,7 +124,7 @@ export const sellerPerformanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, return requests for products in your store reached ${data.metricValue || "8.5%"}. Common reasons cited by buyers include incorrect sizing and material description mismatches.
           </p>
-          ${Button({ href: "http://localhost:5175/returns/insights", label: "Inspect Return Causes" })}
+          ${Button({ href: emailConfig.sellerUrl + "/returns/insights", label: "Inspect Return Causes" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -151,7 +152,7 @@ export const sellerPerformanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, your current overall marketplace score is <strong>4.8 / 5.0 ⭐</strong> based on verified customer purchases.
           </p>
-          ${Button({ href: "http://localhost:5175/reviews", label: "View Customer Feedback" })}
+          ${Button({ href: emailConfig.sellerUrl + "/reviews", label: "View Customer Feedback" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -179,7 +180,7 @@ export const sellerPerformanceTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, customer support received an escalated complaint regarding order #${data.orderId}. Please reply within 24 hours.
           </p>
-          ${Button({ href: `http://localhost:5175/disputes`, label: "Respond to Dispute", variant: "danger" })}
+          ${Button({ href: emailConfig.sellerUrl + "/disputes", label: "Respond to Dispute", variant: "danger" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -208,7 +209,7 @@ export const sellerPerformanceTemplates = {
             Hi ${data.seller.sellerName}, a violation of our Fair Marketplace Policy was detected on your account.
             ${data.reason ? `<br /><br /><strong>Infraction Details:</strong> ${data.reason}` : ""}
           </p>
-          ${Button({ href: "http://localhost:5175/compliance", label: "Review Policy Guidelines" })}
+          ${Button({ href: emailConfig.sellerUrl + "/compliance", label: "Review Policy Guidelines" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });

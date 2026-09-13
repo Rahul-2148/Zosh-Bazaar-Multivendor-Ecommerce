@@ -10,6 +10,8 @@ import connectDB from "./db/connectDB.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { initSocket } from "./realtime/socket.js";
 import { getAllowedOrigins } from "./config/corsConfig.js";
+const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env";
+dotenv.config({ path: envFile, quiet: true });
 dotenv.config({ quiet: true });
 
 // importing domain modular routers

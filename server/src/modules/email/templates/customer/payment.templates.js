@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   PriceRow,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatOrderViewModel } from "../../schemas/order.schema.js";
@@ -270,7 +271,7 @@ export const customerPaymentTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.user.fullName}, your refund of <strong>${enIN.formatCurrency(amt)}</strong> for order #${data.orderId} has been credited back to your original payment method.
           </p>
-          ${Button({ href: "http://localhost:5173", label: "Shop Zosh Bazaar" })}
+          ${Button({ href: emailConfig.clientUrl, label: "Shop Zosh Bazaar" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.user.email })}
         `,
       });

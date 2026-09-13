@@ -1,4 +1,5 @@
 import { sanitizeString, sanitizeUrl } from "./common.schema.js";
+import { emailConfig } from "../config/email.config.js";
 
 export function formatSellerViewModel(data = {}) {
   return {
@@ -12,7 +13,7 @@ export function formatSellerViewModel(data = {}) {
     amount: Number(data.amount || data.payoutAmount || 0),
     payoutId: sanitizeString(data.payoutId || data.settlementId || ""),
     bankAccountMasked: sanitizeString(data.bankAccountMasked || "•••• •••• 9876"),
-    actionUrl: sanitizeUrl(data.actionUrl || "http://localhost:5175/dashboard"),
+    actionUrl: sanitizeUrl(data.actionUrl || `${emailConfig.sellerUrl}/dashboard`),
     deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
     reason: sanitizeString(data.reason || ""),
     productTitle: sanitizeString(data.productTitle || ""),

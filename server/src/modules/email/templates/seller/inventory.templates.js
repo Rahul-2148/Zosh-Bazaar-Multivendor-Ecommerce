@@ -3,6 +3,7 @@ import {
   EmailHeader,
   EmailFooter,
   Button,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatSellerViewModel } from "../../schemas/seller.schema.js";
@@ -29,7 +30,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, inventory for <strong>"${data.productTitle}"</strong> has fallen below your threshold. Remaining: <strong>${data.stockRemaining} units</strong>.
           </p>
-          ${Button({ href: "http://localhost:5175/inventory", label: "Restock Product Now", fullWidth: true })}
+          ${Button({ href: emailConfig.sellerUrl + "/inventory", label: "Restock Product Now", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -57,7 +58,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, <strong>"${data.productTitle}"</strong> has 0 inventory available. The product listing is paused for customers until you restock.
           </p>
-          ${Button({ href: "http://localhost:5175/inventory", label: "Update Stock Levels", variant: "danger", fullWidth: true })}
+          ${Button({ href: emailConfig.sellerUrl + "/inventory", label: "Update Stock Levels", variant: "danger", fullWidth: true })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -85,7 +86,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, several high-demand products in your store are projected to stock out within 7 days based on recent sales trends.
           </p>
-          ${Button({ href: "http://localhost:5175/inventory/forecast", label: "View Replenishment Report" })}
+          ${Button({ href: emailConfig.sellerUrl + "/inventory/forecast", label: "View Replenishment Report" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -113,7 +114,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, one of the variants of <strong>"${data.productTitle}"</strong> has reached low stock thresholds (${data.stockRemaining} units left).
           </p>
-          ${Button({ href: "http://localhost:5175/inventory", label: "Manage Variants" })}
+          ${Button({ href: emailConfig.sellerUrl + "/inventory", label: "Manage Variants" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -141,7 +142,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, <strong>"${data.productTitle}"</strong> has been approved by catalog moderators and is discoverable by shoppers.
           </p>
-          ${Button({ href: "http://localhost:5175/products", label: "View Active Products" })}
+          ${Button({ href: emailConfig.sellerUrl + "/products", label: "View Active Products" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -170,7 +171,7 @@ export const sellerInventoryTemplates = {
             Hi ${data.seller.sellerName}, <strong>"${data.productTitle}"</strong> was rejected during catalog moderation.
             ${data.reason ? `<br /><br /><strong>Moderation Notes:</strong> ${data.reason}` : ""}
           </p>
-          ${Button({ href: "http://localhost:5175/products", label: "Edit & Resubmit Listing", variant: "danger" })}
+          ${Button({ href: emailConfig.sellerUrl + "/products", label: "Edit & Resubmit Listing", variant: "danger" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -198,7 +199,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, <strong>"${data.productTitle}"</strong> is live and indexed in marketplace search.
           </p>
-          ${Button({ href: "http://localhost:5175/products", label: "View Listing" })}
+          ${Button({ href: emailConfig.sellerUrl + "/products", label: "View Listing" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.seller.email })}
         `,
       });
@@ -226,7 +227,7 @@ export const sellerInventoryTemplates = {
           <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
             Hi ${data.seller.sellerName}, <strong>"${data.productTitle}"</strong> has been removed from public display as requested or due to merchant settings.
           </p>
-          ${Button({ href: "http://localhost:5175/products", label: "Manage Catalog" })}
+          ${Button({ href: emailConfig.sellerUrl + "/products", label: "Manage Catalog" })}
           ${EmailFooter({ category: EmailCategory.TRANSACTIONAL, recipientEmail: data.seller.email })}
         `,
       });

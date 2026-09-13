@@ -13,3 +13,4 @@ export { TrackingTimeline } from "./TrackingTimeline.js";
 export { SecurityNotice } from "./SecurityNotice.js";
 export { SocialLinks } from "./SocialLinks.js";
 export { UnsubscribeFooter } from "./UnsubscribeFooter.js";
+export { emailConfig } from "../../config/email.config.js";

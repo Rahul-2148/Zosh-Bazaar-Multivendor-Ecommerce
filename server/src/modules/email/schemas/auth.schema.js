@@ -1,4 +1,5 @@
 import { sanitizeString, sanitizeUrl } from "./common.schema.js";
+import { emailConfig } from "../config/email.config.js";
 
 export function formatAuthViewModel(data = {}) {
   return {
@@ -13,6 +14,6 @@ export function formatAuthViewModel(data = {}) {
     device: sanitizeString(data.device || data.userAgent || "Unknown Device"),
     location: sanitizeString(data.location || "India"),
     timestamp: data.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString(),
-    supportUrl: sanitizeUrl(data.supportUrl || "http://localhost:5173/help"),
+    supportUrl: sanitizeUrl(data.supportUrl || `${emailConfig.clientUrl}/help`),
   };
 }

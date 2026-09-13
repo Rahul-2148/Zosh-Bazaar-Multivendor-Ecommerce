@@ -1,4 +1,5 @@
 import { sanitizeString, sanitizeUrl } from "./common.schema.js";
+import { emailConfig } from "../config/email.config.js";
 
 export function formatAdminViewModel(data = {}) {
   return {
@@ -8,7 +9,7 @@ export function formatAdminViewModel(data = {}) {
     summary: sanitizeString(data.summary || data.message || "An operational anomaly requires administrator review."),
     impact: sanitizeString(data.impact || "Customer / Seller fulfillment latency"),
     recommendedAction: sanitizeString(data.recommendedAction || "Investigate via Admin Control Center"),
-    dashboardUrl: sanitizeUrl(data.dashboardUrl || "http://localhost:5176/dashboard"),
+    dashboardUrl: sanitizeUrl(data.dashboardUrl || `${emailConfig.adminUrl}/dashboard`),
     affectedIds: Array.isArray(data.affectedIds) ? data.affectedIds.map(String) : [],
     timestamp: data.timestamp ? new Date(data.timestamp).toISOString() : new Date().toISOString(),
   };

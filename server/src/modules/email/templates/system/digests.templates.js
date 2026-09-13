@@ -4,6 +4,7 @@ import {
   EmailFooter,
   Button,
   Card,
+  emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatAdminViewModel } from "../../schemas/admin.schema.js";
@@ -77,7 +78,7 @@ export const systemDigestsTemplates = {
               </table>
             `,
           })}
-          ${Button({ href: "http://localhost:5176/dashboard", label: "Open Executive BI Dashboard" })}
+          ${Button({ href: emailConfig.adminUrl + "/dashboard", label: "Open Executive BI Dashboard" })}
           ${EmailFooter({ category: EmailCategory.OPERATIONAL, recipientEmail: "leadership@zoshbazaar.com" })}
         `,
       });
