@@ -24,12 +24,11 @@ export interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
+const apiEndpoint = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
 const SOCKET_SERVER_URL =
   import.meta.env.VITE_SOCKET_URL ||
-  (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL
-    ? (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL)
-        .replace("/api/v1", "")
-        .replace("/api", "")
+  (apiEndpoint
+    ? String(apiEndpoint).replace("/api/v1", "").replace("/api", "")
     : "http://localhost:5000");
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
