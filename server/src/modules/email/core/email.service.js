@@ -139,28 +139,62 @@ class EmailService {
       return null;
     }
 
-    const { templateKey, getRecipient, buildData, priority, idempotencyPrefix } = mapping;
-    const recipient = typeof getRecipient === "function" ? getRecipient(payload) : payload.email || payload.recipient;
+    const templateList = Array.isArray(mapping)
+      ? mapping
+      : mapping.templateKey
+      ? [mapping.templateKey]
+      : [];
 
-    if (!recipient) {
-      console.warn(`[EmailService] No recipient resolved for domain event '${event}'`);
+    if (templateList.length === 0) {
       return null;
     }
 
-    const data = typeof buildData === "function" ? buildData(payload) : payload;
-    const idempotencyKey = idempotencyPrefix
-      ? `${idempotencyPrefix}:${payload.id || payload.orderId || payload.userId || Date.now()}`
-      : null;
+    const results = [];
+    for (const templateKey of templateList) {
+      const isSeller = templateKey.startsWith("seller.");
+      const isDelivery = templateKey.startsWith("delivery.") || templateKey.startsWith("delivery_partner.");
 
-    return await this.sendTemplate({
-      template: templateKey,
-      recipient,
-      data,
-      idempotencyKey,
-      priority: priority || EmailPriority.NORMAL,
-      relatedEntityType: payload.entityType || null,
-      relatedEntityId: payload.id || payload.orderId || payload.userId || null,
-    });
+      let recipient = payload.recipient || payload.email;
+      if (isSeller) {
+        recipient =
+          payload.sellerEmail ||
+          payload.seller?.email ||
+          payload.order?.seller?.email ||
+          payload.recipient ||
+          payload.email;
+      } else if (isDelivery) {
+        recipient =
+          payload.partnerEmail ||
+          payload.deliveryPartner?.email ||
+          payload.recipient ||
+          payload.email;
+      }
+
+      if (!recipient) {
+        console.warn(`[EmailService] No recipient resolved for template '${templateKey}' on event '${event}'`);
+        continue;
+      }
+
+      const entityId = payload.orderId || payload.order?._id || payload.id || payload.userId || Date.now();
+      const idempotencyKey = `${event}:${templateKey}:${entityId}`;
+
+      try {
+        const res = await this.sendTemplate({
+          template: templateKey,
+          recipient,
+          data: payload,
+          idempotencyKey,
+          priority: isSeller ? EmailPriority.NORMAL : EmailPriority.HIGH,
+          relatedEntityType: payload.entityType || (payload.order ? "Order" : "User"),
+          relatedEntityId: entityId,
+        });
+        results.push(res);
+      } catch (err) {
+        console.error(`[EmailService] Error dispatching '${templateKey}' for event '${event}':`, err.message);
+      }
+    }
+
+    return results;
   }
 
   /**
