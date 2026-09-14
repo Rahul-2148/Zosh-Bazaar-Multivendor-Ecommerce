@@ -6,9 +6,27 @@ class EmailDomainEventEmitter extends EventEmitter {
     super();
     this.setMaxListeners(50);
   }
+
+  /**
+   * Emit a domain event that triggers domain_event listeners as well as specific event listeners.
+   * @param {string} event
+   * @param {Object} payload
+   */
+  emitDomainEvent(event, payload) {
+    this.emit("domain_event", { event, payload });
+    return this.emit(event, payload);
+  }
 }
 
 export const emailEvents = new EmailDomainEventEmitter();
+
+/**
+ * Standalone helper to emit domain events across the application.
+ * @param {string} event
+ * @param {Object} payload
+ */
+export const emitDomainEvent = (event, payload) => emailEvents.emitDomainEvent(event, payload);
+
 
 /**
  * Master mapping between domain events and corresponding email templates.
