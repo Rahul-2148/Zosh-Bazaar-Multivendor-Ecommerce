@@ -599,7 +599,7 @@ export function renderPreviewDashboardHtml({
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: #9ca3af; margin-bottom: 12px;">
-          Dispatches template <strong>${selectedTemplateKey}</strong> with sample fixtures to your real inbox.
+          Dispatches template <strong id="modalSelectedTemplateKey">${selectedTemplateKey}</strong> with sample fixtures to your real inbox.
         </p>
         <label style="font-size: 12px; font-weight: 600; text-transform: uppercase;">Recipient Email Address</label>
         <input type="email" id="testRecipientEmail" class="send-input" placeholder="developer@yourcompany.com" required>
@@ -619,9 +619,39 @@ export function renderPreviewDashboardHtml({
     const frameWrapper = document.getElementById('frameWrapper');
     const viewportCanvas = document.getElementById('viewportCanvas');
 
-    // Filter Logic
+    let currentSelectedKey = "${selectedTemplateKey}";
+
+    // Filter Logic with URL & LocalStorage Persistence
+    const urlParams = new URLSearchParams(window.location.search);
+    const savedFilter = localStorage.getItem('zosh_email_preview_filter');
+    const urlRole = urlParams.get('role');
+
+    // Determine initial active filter
     let currentFilter = 'all';
+    if (urlRole) {
+      currentFilter = urlRole;
+    } else if (savedFilter) {
+      currentFilter = savedFilter;
+    } else {
+      // If template belongs to a specific role, auto-focus that role
+      const initialActiveItem = document.querySelector('.template-item.active');
+      if (initialActiveItem && initialActiveItem.dataset.role) {
+        currentFilter = initialActiveItem.dataset.role;
+      }
+    }
+
     let currentSearch = '';
+
+    function syncFilterUI() {
+      tabBtns.forEach(btn => {
+        if (btn.dataset.filter.toLowerCase() === currentFilter.toLowerCase()) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+      filterTemplates();
+    }
 
     function filterTemplates() {
       templateItems.forEach(item => {
@@ -646,9 +676,93 @@ export function renderPreviewDashboardHtml({
         tabBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
+        localStorage.setItem('zosh_email_preview_filter', currentFilter);
+
+        const url = new URL(window.location);
+        if (currentFilter !== 'all') {
+          url.searchParams.set('role', currentFilter);
+        } else {
+          url.searchParams.delete('role');
+        }
+        window.history.replaceState({ template: currentSelectedKey, role: currentFilter }, '', url);
+
         filterTemplates();
       });
     });
+
+    // Seamless SPA Template Loading (Zero Page Reload - Preserves Filter, Search & Scroll!)
+    async function selectTemplate(key, pushHistory = true) {
+      if (!key) return;
+      currentSelectedKey = key;
+
+      templateItems.forEach(item => {
+        if (item.dataset.key === key) {
+          item.classList.add('active');
+          item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } else {
+          item.classList.remove('active');
+        }
+      });
+
+      const modalKeyEl = document.getElementById('modalSelectedTemplateKey');
+      if (modalKeyEl) modalKeyEl.textContent = key;
+
+      try {
+        const res = await fetch('/dev/emails/api/render/' + encodeURIComponent(key));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        if (data.html) {
+          previewIframe.srcdoc = data.html;
+          const subjectSpan = document.querySelector('.subject-line span');
+          if (subjectSpan) subjectSpan.textContent = data.subject || "No Subject";
+          const preheaderEl = document.querySelector('.preheader-line');
+          if (preheaderEl) preheaderEl.textContent = "Preheader: " + (data.preheader || "None specified");
+          const rawCodePre = document.getElementById('rawCodePre');
+          if (rawCodePre) rawCodePre.textContent = data.html;
+        }
+      } catch (err) {
+        console.error('[EmailStudio] Failed to load template:', err);
+      }
+
+      if (pushHistory) {
+        const url = new URL(window.location);
+        url.searchParams.set('template', key);
+        if (currentFilter && currentFilter !== 'all') {
+          url.searchParams.set('role', currentFilter);
+        } else {
+          url.searchParams.delete('role');
+        }
+        window.history.pushState({ template: key, role: currentFilter }, '', url);
+      }
+    }
+
+    templateItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const key = item.dataset.key;
+        selectTemplate(key, true);
+      });
+    });
+
+    // Browser Back / Forward History Navigation
+    window.addEventListener('popstate', () => {
+      const params = new URLSearchParams(window.location.search);
+      const template = params.get('template');
+      const role = params.get('role') || 'all';
+
+      if (role !== currentFilter) {
+        currentFilter = role;
+        syncFilterUI();
+      }
+
+      if (template && template !== currentSelectedKey) {
+        selectTemplate(template, false);
+      }
+    });
+
+    // Run initial filter sync
+    syncFilterUI();
 
     // Viewport switching
     document.getElementById('btnDesktop').addEventListener('click', function() {
@@ -766,7 +880,7 @@ export function renderPreviewDashboardHtml({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            templateKey: '${selectedTemplateKey}',
+            templateKey: currentSelectedKey,
             recipient: email
           })
         });
