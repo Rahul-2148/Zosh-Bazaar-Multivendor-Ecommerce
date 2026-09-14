@@ -69,6 +69,16 @@ export function EmailLayout({
       background-color: ${colors.background};
       font-family: ${typography.fontFamily};
     }
+    .timeline-desktop {
+      display: table !important;
+      width: 100% !important;
+    }
+    .timeline-mobile {
+      display: none !important;
+      max-height: 0;
+      overflow: hidden;
+      mso-hide: all;
+    }
     @media only screen and (max-width: 620px) {
       .email-container {
         width: 100% !important;
@@ -106,6 +116,18 @@ export function EmailLayout({
         text-align: center !important;
         white-space: normal !important;
       }
+      .timeline-desktop {
+        display: none !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        mso-hide: all !important;
+      }
+      .timeline-mobile {
+        display: block !important;
+        width: 100% !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
     }
     @media (prefers-color-scheme: dark) {
       body, .email-canvas {
@@ -114,6 +136,25 @@ export function EmailLayout({
       .email-card {
         background-color: ${colors.darkCardBackground} !important;
         border-color: ${colors.darkBorder} !important;
+      }
+      .timeline-card {
+        background-color: #0f172a !important;
+        border-color: #334155 !important;
+      }
+      .timeline-track-bg {
+        background-color: #334155 !important;
+      }
+      .timeline-future-circle {
+        background-color: #1e293b !important;
+        border-color: #475569 !important;
+        color: #94a3b8 !important;
+      }
+      .timeline-future-text {
+        color: #64748b !important;
+      }
+      .timeline-active-row {
+        background-color: #1e293b !important;
+        border-color: #3b82f6 !important;
       }
       .dark-text-main {
         color: ${colors.darkTextMain} !important;

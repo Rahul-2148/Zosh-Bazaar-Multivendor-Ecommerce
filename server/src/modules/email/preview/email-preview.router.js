@@ -3,7 +3,7 @@ import { emailRegistry } from "../core/email.registry.js";
 import { emailRenderer } from "../core/email.renderer.js";
 import { emailService } from "../core/email.service.js";
 import { getFixtureForTemplate } from "./fixtures/email.fixtures.js";
-import { renderPreviewDashboardHtml } from "./preview-ui.js";
+import { renderPreviewDashboardHtml, formatTemplateTitle, formatTemplateCategory } from "./preview-ui.js";
 
 const router = express.Router();
 
@@ -53,13 +53,23 @@ router.get("/", async (req, res) => {
  * API: List all templates
  */
 router.get("/api/templates", (req, res) => {
-  const templates = emailRegistry.getAll().map((t) => ({
-    key: t.templateKey,
-    role: t.recipientRole,
-    category: t.category,
-    subject: t.subject,
-    priority: t.priority,
-  }));
+  const templates = emailRegistry.getAll().map((t) => {
+    const fixture = getFixtureForTemplate(t.templateKey);
+    let resolvedSubject = "";
+    try {
+      resolvedSubject = typeof t.subject === "function" ? t.subject(fixture || {}) : String(t.subject || t.templateKey);
+    } catch {
+      resolvedSubject = t.templateKey;
+    }
+    return {
+      key: t.templateKey,
+      title: formatTemplateTitle(t.templateKey),
+      category: formatTemplateCategory(t.templateKey),
+      role: t.recipientRole,
+      subject: resolvedSubject,
+      priority: t.priority,
+    };
+  });
   res.json({ count: templates.length, templates });
 });
 

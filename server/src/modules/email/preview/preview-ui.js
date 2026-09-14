@@ -1,3 +1,5 @@
+import { getFixtureForTemplate } from "./fixtures/email.fixtures.js";
+
 const DARK_PREVIEW_INJECTED_CSS = `
   :root {
     color-scheme: dark !important;
@@ -14,6 +16,27 @@ const DARK_PREVIEW_INJECTED_CSS = `
   }
   td.email-content {
     background-color: #1e293b !important;
+  }
+
+  /* Tracking Timeline dark mode styles */
+  .timeline-card {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+  }
+  .timeline-track-bg {
+    background-color: #334155 !important;
+  }
+  .timeline-future-circle {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+    color: #94a3b8 !important;
+  }
+  .timeline-future-text {
+    color: #64748b !important;
+  }
+  .timeline-active-row {
+    background-color: #1e293b !important;
+    border-color: #3b82f6 !important;
   }
 
   /* OTP Component dark mode styles */
@@ -134,6 +157,148 @@ const DARK_PREVIEW_INJECTED_CSS = `
   }
 `;
 
+export function formatTemplateTitle(key) {
+  if (!key) return "Untitled";
+  const parts = key.split(".");
+  const group = parts.length > 2 ? parts[1] : "";
+  const action = parts[parts.length - 1] || "";
+
+  const specialTitles = {
+    "customer.auth.welcome": "Welcome Shopper",
+    "customer.auth.email_verification": "Email Verification Code",
+    "customer.auth.login_otp": "Login Security OTP",
+    "customer.auth.password_reset_request": "Password Reset Request",
+    "customer.auth.password_reset_success": "Password Reset Completed",
+    "customer.auth.password_changed": "Password Changed Alert",
+    "customer.auth.new_login": "New Login Detected",
+    "customer.auth.suspicious_login": "Suspicious Login Alert",
+    "customer.auth.email_changed": "Email Address Updated",
+    "customer.auth.phone_changed": "Phone Number Updated",
+    "customer.auth.security_alert": "Security Alert Notice",
+    "customer.account.deactivated": "Account Deactivated",
+    "customer.account.deletion_otp": "Account Deletion OTP",
+    "customer.account.deletion_scheduled": "Account Deletion Scheduled",
+    "customer.account.deletion_cancelled": "Account Deletion Cancelled",
+    "customer.account.permanently_deleted": "Account Deleted Permanently",
+    "customer.auth.two_factor_enabled": "2FA Authentication Enabled",
+    "customer.order.placed": "Order Placed",
+    "customer.order.confirmed": "Order Confirmed",
+    "customer.order.processing": "Order in Processing",
+    "customer.order.packed": "Order Packed",
+    "customer.order.ready_to_ship": "Ready for Shipment",
+    "customer.order.shipped": "Order Shipped",
+    "customer.order.in_transit": "Order in Transit",
+    "customer.order.delayed": "Order Delivery Delayed",
+    "customer.order.exception": "Delivery Exception Notice",
+    "customer.order.out_for_delivery": "Out for Delivery",
+    "customer.order.delivered": "Order Delivered",
+    "customer.order.delivery_failed": "Delivery Attempt Failed",
+    "customer.order.cancelled": "Order Cancelled",
+    "customer.order.partially_cancelled": "Order Partially Cancelled",
+    "customer.order.modified": "Order Details Modified",
+    "customer.order.cod_confirmed": "COD Order Confirmed",
+    "customer.order.address_updated": "Delivery Address Updated",
+    "customer.payment.success": "Payment Received",
+    "customer.payment.failed": "Payment Failed Notice",
+    "customer.payment.pending": "Payment Verification Pending",
+    "customer.payment.retry": "Payment Retry Reminder",
+    "customer.payment.cod_reminder": "COD Cash Ready Reminder",
+    "customer.payment.refund_initiated": "Refund Initiated",
+    "customer.payment.refund_processing": "Refund Processing",
+    "customer.payment.refund_completed": "Refund Completed",
+    "customer.payment.refund_failed": "Refund Transfer Failed",
+    "customer.payment.refund_delayed": "Refund Delay Notice",
+    "customer.returns.requested": "Return Request Received",
+    "customer.returns.approved": "Return Request Approved",
+    "customer.returns.rejected": "Return Request Rejected",
+    "customer.returns.pickup_scheduled": "Return Pickup Scheduled",
+    "customer.returns.pickup_reminder": "Return Pickup Reminder",
+    "customer.returns.picked_up": "Return Item Picked Up",
+    "customer.returns.received": "Return Item Received at Hub",
+    "customer.returns.inspected": "Return Inspection Passed",
+    "customer.returns.replacement_shipped": "Replacement Item Shipped",
+    "customer.returns.completed": "Return & Resolution Completed",
+    "customer.engagement.review_request": "Product Review Request",
+    "customer.engagement.review_reminder": "Review Feedback Reminder",
+    "customer.engagement.review_published": "Review Published Live",
+    "customer.engagement.seller_reply": "Seller Responded to Review",
+    "customer.engagement.price_drop": "Wishlist Price Drop Alert",
+    "customer.engagement.back_in_stock": "Item Back in Stock",
+    "customer.engagement.wishlist_low_stock": "Wishlist Item Almost Gone",
+    "customer.engagement.abandoned_cart": "Saved Cart Waiting for You",
+    "seller.onboarding.registration_received": "Seller Registration Received",
+    "seller.onboarding.email_verification": "Seller Email Verification",
+    "seller.onboarding.application_submitted": "Application Submitted",
+    "seller.onboarding.under_review": "KYC Application Under Review",
+    "seller.onboarding.approved": "Seller Account Approved",
+    "seller.onboarding.rejected": "Seller Application Rejected",
+    "seller.onboarding.documents_required": "Additional Documents Required",
+    "seller.onboarding.suspended": "Seller Account Suspended",
+    "seller.onboarding.reactivated": "Seller Account Reactivated",
+    "seller.orders.new_order": "New Customer Order Received",
+    "seller.orders.action_required": "Fulfillment Action Required",
+    "seller.orders.preparation_reminder": "Order Dispatch Reminder",
+    "seller.inventory.low_stock": "Low Stock Inventory Alert",
+    "seller.inventory.out_of_stock": "Out of Stock Critical Alert",
+    "seller.finance.payout_initiated": "Payout Transfer Initiated",
+    "seller.finance.payout_completed": "Payout Successfully Credited",
+    "seller.finance.payout_failed": "Payout Transfer Failed",
+    "admin.security.new_session": "New Admin Session Detected",
+    "admin.platform_ops.high_value_order": "High-Value Order Alert",
+    "admin.platform_ops.payment_failure_spike": "Payment Failure Spike Alert",
+    "logistics.shipment.assigned": "Shipment Consignment Assigned",
+    "logistics.shipment.hub_transfer": "Inter-Hub Transfer Manifest",
+    "delivery_partner.operations.route_assigned": "Daily Delivery Route Assigned",
+    "system.alerts.service_failure": "Critical Microservice Failure",
+  };
+
+  if (specialTitles[key]) {
+    return specialTitles[key];
+  }
+
+  let title = action
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+  const orderStates = ["Placed", "Confirmed", "Processing", "Packed", "Shipped", "Cancelled", "Delayed", "Modified"];
+  if (group === "order" && orderStates.includes(title)) {
+    title = `Order ${title}`;
+  }
+
+  return title;
+}
+
+export function formatTemplateCategory(key) {
+  if (!key) return "General";
+  const parts = key.split(".");
+  const group = parts.length > 2 ? parts[1] : (parts[0] || "general");
+
+  const categoryNames = {
+    auth: "Authentication",
+    account: "Account & Profile",
+    order: "Orders & Delivery",
+    orders: "Orders & Fulfillment",
+    payment: "Payments & Billing",
+    payments: "Payments & Billing",
+    returns: "Returns & Refunds",
+    engagement: "Engagement & Retention",
+    onboarding: "Onboarding & KYC",
+    inventory: "Inventory & Catalog",
+    finance: "Finance & Payouts",
+    performance: "Seller Performance",
+    security: "Security & Sessions",
+    seller_ops: "Seller Operations",
+    platform_ops: "Platform Operations",
+    shipment: "Shipment Logistics",
+    operations: "Hub Operations",
+    alerts: "System & Alerts",
+    digests: "Executive Digests",
+  };
+
+  return categoryNames[group] || group.charAt(0).toUpperCase() + group.slice(1).replace(/_/g, " ");
+}
+
 export function renderPreviewDashboardHtml({
   templates,
   selectedTemplateKey,
@@ -153,12 +318,33 @@ export function renderPreviewDashboardHtml({
     system: templates.filter((t) => normalizeRole(t.recipientRole) === "SYSTEM").length,
   };
 
+  const enrichedTemplates = templates.map((t) => {
+    const fixture = getFixtureForTemplate(t.templateKey);
+    let resolvedSubject = "";
+    try {
+      if (typeof t.subject === "function") {
+        resolvedSubject = t.subject(fixture || {});
+      } else {
+        resolvedSubject = String(t.subject || "");
+      }
+    } catch {
+      resolvedSubject = t.templateKey;
+    }
+    return {
+      ...t,
+      displayTitle: formatTemplateTitle(t.templateKey),
+      displayCategory: formatTemplateCategory(t.templateKey),
+      resolvedSubject: resolvedSubject || formatTemplateTitle(t.templateKey),
+    };
+  });
+
   const safeTemplates = JSON.stringify(
-    templates.map((t) => ({
+    enrichedTemplates.map((t) => ({
       key: t.templateKey,
+      title: t.displayTitle,
+      category: t.displayCategory,
       role: t.recipientRole,
-      category: t.category,
-      subject: t.subject,
+      subject: t.resolvedSubject,
     }))
   );
 
@@ -297,33 +483,100 @@ export function renderPreviewDashboardHtml({
       border-radius: 8px;
       cursor: pointer;
       transition: all 0.15s;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
       display: block;
       text-decoration: none;
       color: inherit;
-      border: 1px solid transparent;
+      background: rgba(17, 24, 39, 0.6);
+      border: 1px solid var(--surface-border);
     }
     .template-item:hover {
       background: var(--surface-hover);
+      border-color: #374151;
+      transform: translateY(-1px);
     }
     .template-item.active {
-      background: rgba(249, 115, 22, 0.12);
-      border-color: rgba(249, 115, 22, 0.4);
+      background: rgba(37, 99, 235, 0.12);
+      border-color: #3b82f6;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
     }
     .item-header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      margin-bottom: 4px;
+      gap: 8px;
+      margin-bottom: 5px;
     }
-    .item-key {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--text-muted);
+    .item-title-col {
+      min-width: 0;
+      flex: 1;
+    }
+    .item-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #f8fafc;
+      line-height: 1.3;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 240px;
+    }
+    .template-item.active .item-title {
+      color: #60a5fa;
+    }
+    .item-category {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .item-subject-preview {
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.35;
+      margin-bottom: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .template-item.active .item-subject-preview {
+      color: #cbd5e1;
+    }
+    .subject-icon {
+      font-size: 11px;
+      color: #3b82f6;
+      flex-shrink: 0;
+    }
+    .subject-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .item-key-row {
+      display: flex;
+      align-items: center;
+    }
+    .item-key-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #64748b;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .template-item.active .item-key-code {
+      color: #93c5fd;
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(37, 99, 235, 0.2);
     }
     .role-badge {
       font-size: 9px;
@@ -331,6 +584,7 @@ export function renderPreviewDashboardHtml({
       text-transform: uppercase;
       padding: 2px 6px;
       border-radius: 4px;
+      flex-shrink: 0;
     }
     .role-customer { background: #0284c7; color: #fff; }
     .role-seller { background: #7c3aed; color: #fff; }
@@ -338,12 +592,6 @@ export function renderPreviewDashboardHtml({
     .role-logistics { background: #059669; color: #fff; }
     .role-deliverypartner, .role-delivery_partner, .role-deliveryPartner { background: #d97706; color: #fff; }
     .role-system { background: #4b5563; color: #fff; }
-    .item-subject {
-      font-size: 13px;
-      font-weight: 600;
-      color: #e5e7eb;
-      line-height: 1.3;
-    }
     /* MAIN PREVIEW AREA */
     .preview-container {
       flex: 1;
@@ -791,16 +1039,27 @@ export function renderPreviewDashboardHtml({
       <button class="tab-btn" data-filter="system">System <span class="tab-count">${counts.system}</span></button>
     </div>
     <div class="template-list" id="templateList">
-      ${templates
+      ${enrichedTemplates
         .map((t) => {
           const isActive = t.templateKey === selectedTemplateKey ? "active" : "";
+          const roleClass = String(t.recipientRole || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanSubject = (t.resolvedSubject || t.displayTitle).replace(/"/g, '&quot;');
           return `
             <a href="/dev/emails?template=${t.templateKey}" class="template-item ${isActive}" data-role="${t.recipientRole}" data-key="${t.templateKey}">
               <div class="item-header">
-                <span class="item-key">${t.templateKey}</span>
-                <span class="role-badge role-${String(t.recipientRole || '').toLowerCase().replace(/[^a-z0-9]/g, '')}">${t.recipientRole}</span>
+                <div class="item-title-col">
+                  <div class="item-title">${t.displayTitle}</div>
+                  <div class="item-category">${t.displayCategory}</div>
+                </div>
+                <span class="role-badge role-${roleClass}">${t.recipientRole}</span>
               </div>
-              <div class="item-subject">${t.subject}</div>
+              <div class="item-subject-preview" title="${cleanSubject}">
+                <span class="subject-icon">✉</span>
+                <span class="subject-text">"${t.resolvedSubject}"</span>
+              </div>
+              <div class="item-key-row">
+                <code class="item-key-code">${t.templateKey}</code>
+              </div>
             </a>
           `;
         })
@@ -1339,6 +1598,9 @@ export function renderPreviewDashboardHtml({
 
     const btnWindowClose = document.getElementById('btnWindowClose');
     if (btnWindowClose) btnWindowClose.addEventListener('click', closeHtmlModal);
+
+    const btnCloseHtmlModal = document.getElementById('btnCloseHtmlModal');
+    if (btnCloseHtmlModal) btnCloseHtmlModal.addEventListener('click', closeHtmlModal);
 
     const btnCopyHtmlCode = document.getElementById('btnCopyHtmlCode');
     if (btnCopyHtmlCode) {
