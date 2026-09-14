@@ -5,29 +5,11 @@ import {
   Button,
   Card,
   SecurityNotice,
+  OtpBox,
   emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatAuthViewModel } from "../../schemas/auth.schema.js";
-
-/**
- * OTP Card Component helper
- */
-function OtpBox(otp, validityMinutes = 5) {
-  return `
-    <div style="background: #f8fafc; border: 2px dashed #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
-      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 1px; margin-bottom: 8px;">
-        Your Single-Use Verification Code
-      </div>
-      <div style="font-size: 38px; font-weight: 900; letter-spacing: 10px; color: #1e293b; font-family: monospace;" class="dark-text-main">
-        ${otp}
-      </div>
-      <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
-        &#9201; Valid for <strong>${validityMinutes} minutes</strong>. Do not share this code with anyone.
-      </div>
-    </div>
-  `;
-}
 
 export const customerAuthTemplates = {
   // 1. Welcome / Registration Complete
@@ -83,14 +65,14 @@ export const customerAuthTemplates = {
         preheader: "Verify your email address to activate your Zosh Bazaar account.",
         children: `
           ${EmailHeader({ roleBadge: { label: "Verification", variant: "info" } })}
-          <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 8px 0; color: #0f172a;" class="dark-text-main">
+          <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 10px 0; color: #0f172a;" class="dark-text-main">
             Verify Your Email Address
           </h2>
-          <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
-            Hi ${data.user.fullName}, please use the 6-digit code below to verify your email address on Zosh Bazaar:
+          <p style="font-size: 15px; line-height: 1.6; color: #1e293b; margin: 0 0 16px 0;" class="dark-text-muted">
+            Hi <strong>${data.user.fullName}</strong>, please use the 6-digit code below to verify your email address on Zosh Bazaar:
           </p>
-          ${OtpBox(data.otp, data.validityMinutes)}
-          <p style="font-size: 13px; color: #64748b; line-height: 1.5;" class="dark-text-muted">
+          ${OtpBox(data.otp, data.validityMinutes, "Email Verification Code")}
+          <p style="font-size: 13px; color: #475569; line-height: 1.5; margin: 16px 0 0 0;" class="dark-text-muted">
             If you did not sign up for a Zosh Bazaar account, please ignore this email.
           </p>
           ${EmailFooter({ category: EmailCategory.SECURITY, recipientEmail: data.user.email })}
@@ -114,13 +96,13 @@ export const customerAuthTemplates = {
         preheader: "Enter this one-time code to complete your sign-in to Zosh Bazaar.",
         children: `
           ${EmailHeader({ roleBadge: { label: "Security OTP", variant: "warning" } })}
-          <h2 style="font-size: 20px; font-weight: 800; margin: 0 0 8px 0; color: #0f172a;" class="dark-text-main">
+          <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 10px 0; color: #0f172a;" class="dark-text-main">
             Your Sign-In Verification Code
           </h2>
-          <p style="font-size: 14px; line-height: 1.5; color: #475569;" class="dark-text-muted">
+          <p style="font-size: 15px; line-height: 1.6; color: #1e293b; margin: 0 0 16px 0;" class="dark-text-muted">
             Hello, a request was received to sign in to your Zosh Bazaar account (<strong>${data.user.email}</strong>).
           </p>
-          ${OtpBox(data.otp, data.validityMinutes)}
+          ${OtpBox(data.otp, data.validityMinutes, "Login Security Code")}
           <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #991b1b; margin-top: 14px;">
             <strong>Security Alert:</strong> Zosh Bazaar staff will NEVER ask for this OTP via phone, email, or chat. If you did not attempt to sign in, someone else may be trying to access your account.
           </div>

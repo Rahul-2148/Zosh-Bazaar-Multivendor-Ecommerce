@@ -4,22 +4,48 @@ const DARK_PREVIEW_INJECTED_CSS = `
     supported-color-schemes: dark !important;
   }
   body, .email-canvas, table.email-canvas {
-    background-color: #0f172a !important;
+    background-color: #0b1120 !important;
     color: #f8fafc !important;
   }
   .email-card, table.email-container {
     background-color: #1e293b !important;
-    border-color: #334155 !important;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7) !important;
   }
   td.email-content {
     background-color: #1e293b !important;
   }
+
+  /* OTP Component dark mode styles */
+  .otp-card {
+    background-color: #0f172a !important;
+    border: 2px solid #2563eb !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  }
+  .otp-badge {
+    background-color: #172554 !important;
+    color: #93c5fd !important;
+    border: 1px solid #1d4ed8 !important;
+  }
+  .otp-token-box {
+    background-color: #1e293b !important;
+    border: 2px solid #3b82f6 !important;
+    box-shadow: 0 0 24px rgba(59, 130, 246, 0.35) !important;
+  }
+  .otp-digits {
+    color: #60a5fa !important;
+    text-shadow: 0 0 16px rgba(96, 165, 250, 0.5) !important;
+  }
+  .otp-footer-text {
+    color: #93c5fd !important;
+  }
+
   /* Invert or adapt all light cards, boxes, and summary tables */
   table[style*="background-color: #ffffff"],
   table[style*="background-color:#ffffff"],
   table[style*="background-color: #f8fafc"],
   table[style*="background-color:#f8fafc"],
+  table[style*="background: #f8fafc"],
   td[style*="background-color: #ffffff"],
   td[style*="background-color:#ffffff"],
   td[style*="background-color: #f8fafc"],
@@ -27,79 +53,71 @@ const DARK_PREVIEW_INJECTED_CSS = `
   div[style*="background-color: #ffffff"],
   div[style*="background-color:#ffffff"],
   div[style*="background-color: #f8fafc"],
-  div[style*="background-color:#f8fafc"] {
+  div[style*="background-color:#f8fafc"],
+  div[style*="background: #f8fafc"] {
     background-color: #1e293b !important;
     border-color: #334155 !important;
   }
-  /* Subtle callouts, highlight boxes, OTP badge containers */
+
+  /* Subtle callouts, highlight boxes */
   table[style*="background-color: #f1f5f9"],
   table[style*="background-color:#f1f5f9"],
   td[style*="background-color: #f1f5f9"],
   td[style*="background-color:#f1f5f9"],
   div[style*="background-color: #f1f5f9"],
   div[style*="background-color:#f1f5f9"],
-  table[style*="background-color: #f8fafc"],
-  td[style*="background-color: #f8fafc"],
-  div[style*="background-color: #f8fafc"] {
+  div[style*="background: #f1f5f9"] {
     background-color: #0f172a !important;
     border-color: #334155 !important;
   }
-  /* Dark text to bright/readable text */
-  h1, h2, h3, h4, h5, h6,
-  span[style*="color: #0f172a"],
-  span[style*="color:#0f172a"],
-  span[style*="color: #1e293b"],
-  span[style*="color:#1e293b"],
-  span[style*="color: #111827"],
-  span[style*="color:#111827"],
-  p[style*="color: #0f172a"],
-  p[style*="color:#0f172a"],
-  p[style*="color: #1e293b"],
-  p[style*="color:#1e293b"],
-  p[style*="color: #111827"],
-  p[style*="color:#111827"],
-  td[style*="color: #0f172a"],
-  td[style*="color:#0f172a"],
-  td[style*="color: #1e293b"],
-  td[style*="color:#1e293b"],
-  td[style*="color: #111827"],
-  td[style*="color:#111827"],
-  div[style*="color: #0f172a"],
-  div[style*="color:#0f172a"],
-  div[style*="color: #1e293b"],
-  div[style*="color:#1e293b"],
-  div[style*="color: #111827"],
-  div[style*="color:#111827"] {
-    color: #f8fafc !important;
+
+  /* Alerts: Red / Danger */
+  div[style*="background: #fef2f2"],
+  table[style*="background-color: #fef2f2"] {
+    background-color: #450a0a !important;
+    border-color: #991b1b !important;
+    color: #fca5a5 !important;
   }
-  /* Muted text */
+
+  /* Alerts: Amber / Warning */
+  div[style*="background: #fffbeb"],
+  table[style*="background-color: #fffbeb"] {
+    background-color: #451a03 !important;
+    border-color: #92400e !important;
+    color: #fde68a !important;
+  }
+
+  /* Headings: Pristine White */
+  h1, h2, h3, h4, h5, h6,
+  .dark-text-main {
+    color: #ffffff !important;
+  }
+
+  /* High-Contrast Readable Body Text */
+  p,
+  .dark-text-muted {
+    color: #e2e8f0 !important;
+  }
+
+  strong, b {
+    color: #ffffff !important;
+  }
+
+  /* Muted metadata */
   span[style*="color: #64748b"],
   span[style*="color:#64748b"],
-  span[style*="color: #475569"],
-  span[style*="color:#475569"],
   p[style*="color: #64748b"],
-  p[style*="color:#64748b"],
-  p[style*="color: #475569"],
-  p[style*="color:#475569"],
-  td[style*="color: #64748b"],
-  td[style*="color:#64748b"],
-  td[style*="color: #475569"],
-  td[style*="color:#475569"],
-  div[style*="color: #64748b"],
-  div[style*="color:#64748b"],
-  div[style*="color: #475569"],
-  div[style*="color:#475569"] {
+  td[style*="color: #64748b"] {
     color: #94a3b8 !important;
   }
+
   /* Borders */
   *[style*="border: 1px solid #e2e8f0"],
   *[style*="border:1px solid #e2e8f0"],
   *[style*="border: 1px solid #e5e7eb"],
   *[style*="border:1px solid #e5e7eb"],
   *[style*="border-top: 1px solid #e2e8f0"],
-  *[style*="border-top:1px solid #e2e8f0"],
-  *[style*="border-bottom: 1px solid #e2e8f0"],
-  *[style*="border-bottom:1px solid #e2e8f0"] {
+  *[style*="border-bottom: 1px solid #e2e8f0"] {
     border-color: #334155 !important;
   }
 `;
@@ -388,7 +406,7 @@ export function renderPreviewDashboardHtml({
       display: flex;
       justify-content: center;
       padding: 30px;
-      background: #0b0f19;
+      background: #cbd5e1;
       transition: background 0.3s ease;
     }
     .viewport-canvas.dark-mode {
@@ -398,16 +416,16 @@ export function renderPreviewDashboardHtml({
       background: #ffffff;
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
       transition: all 0.3s ease;
       height: fit-content;
       min-height: 100%;
-      border: 1px solid #1f2937;
+      border: 1px solid #94a3b8;
     }
     .preview-frame-wrapper.dark-mode {
       background: #0f172a;
       border-color: #334155;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.08);
     }
     .preview-frame-wrapper.desktop {
       width: 650px;

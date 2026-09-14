@@ -3,26 +3,11 @@ import {
   EmailHeader,
   EmailFooter,
   Button,
+  OtpBox,
   emailConfig,
 } from "../shared/index.js";
 import { EmailCategory, EmailPriority, EmailRecipientRole } from "../../core/email.types.js";
 import { formatSellerViewModel } from "../../schemas/seller.schema.js";
-
-function OtpBox(otp, validityMinutes = 5) {
-  return `
-    <div style="background: #f8fafc; border: 2px dashed #0284c7; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0;">
-      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 1px; margin-bottom: 6px;">
-        Seller Verification Code
-      </div>
-      <div style="font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #0f172a; font-family: monospace;" class="dark-text-main">
-        ${otp}
-      </div>
-      <div style="font-size: 12px; color: #64748b; margin-top: 6px;">
-        Valid for ${validityMinutes} minutes. Never share this code.
-      </div>
-    </div>
-  `;
-}
 
 export const sellerOnboardingTemplates = {
   // 1. Seller Registered
