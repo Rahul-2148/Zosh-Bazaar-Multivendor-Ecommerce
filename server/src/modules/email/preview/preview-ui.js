@@ -472,30 +472,266 @@ export function renderPreviewDashboardHtml({
     iframe.dark-mode {
       background: #0f172a;
     }
-    /* MODAL */
+    /* MODAL BACKDROP */
     .modal-backdrop {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       z-index: 999;
       align-items: center;
       justify-content: center;
+      padding: 24px;
     }
     .modal-backdrop.open {
       display: flex;
     }
-    .modal-card {
-      background: #111827;
-      border: 1px solid #374151;
-      border-radius: 12px;
-      width: 600px;
-      max-width: 90vw;
-      max-height: 85vh;
+
+    /* VS CODE EDITOR MODAL */
+    .vscode-modal-card {
+      background: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      border-radius: 10px;
+      width: 1100px;
+      max-width: 95vw;
+      height: 88vh;
+      max-height: 88vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      animation: vsModalSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes vsModalSlide {
+      from { opacity: 0; transform: scale(0.97) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .vscode-title-bar {
+      background: #252526;
+      border-bottom: 1px solid #333333;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .vscode-title-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .vscode-window-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .vscode-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .vscode-dot:hover { opacity: 0.8; }
+    .vscode-dot-close { background: #ff5f56; }
+    .vscode-dot-min { background: #ffbd2e; }
+    .vscode-dot-max { background: #27c93f; }
+
+    .vscode-tab {
+      display: flex;
+      align-items: center;
+      background: #1e1e1e;
+      border-top: 2px solid #007acc;
+      padding: 6px 14px;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #cccccc;
+      border-right: 1px solid #333333;
+      border-radius: 4px 4px 0 0;
+    }
+    .vscode-html-icon {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+    .vscode-tab-name {
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    .vscode-badge {
+      background: #2d2d2d;
+      color: #9cdcfe;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid #3a3a3a;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .vscode-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .vscode-btn {
+      background: #2d2d2d;
+      border: 1px solid #3e3e3e;
+      color: #cccccc;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .vscode-btn:hover {
+      background: #383838;
+      color: #ffffff;
+      border-color: #555555;
+    }
+    .vscode-btn.active {
+      background: #007acc;
+      border-color: #0098ff;
+      color: #ffffff;
+    }
+    .vscode-btn-copy.copied {
+      background: #0e639c !important;
+      color: #4ec9b0 !important;
+      border-color: #4ec9b0 !important;
+    }
+    .vscode-btn-close {
+      padding: 5px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    /* CODE EDITOR BODY */
+    .vscode-editor-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      background: #1e1e1e;
+      position: relative;
+    }
+    .vscode-code-viewport {
+      flex: 1;
+      overflow: auto;
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 20px;
+      scrollbar-width: thin;
+      scrollbar-color: #424242 #1e1e1e;
+    }
+    .vscode-code-viewport::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    .vscode-code-viewport::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+    .vscode-code-viewport::-webkit-scrollbar-thumb {
+      background: #424242;
+      border-radius: 4px;
+    }
+    .vscode-code-viewport::-webkit-scrollbar-thumb:hover {
+      background: #4f4f4f;
+    }
+
+    /* CODE LINES */
+    .vscode-lines-container {
+      min-width: 100%;
+      width: fit-content;
+      padding: 8px 0;
+    }
+    .vscode-line {
+      display: flex;
+      min-width: 100%;
+      width: fit-content;
+      transition: background 0.1s;
+    }
+    .vscode-line:hover {
+      background: #282828;
+    }
+    .vscode-line-num {
+      width: 58px;
+      padding: 0 16px 0 12px;
+      text-align: right;
+      color: #858585;
+      user-select: none;
+      flex-shrink: 0;
+      border-right: 1px solid #2d2d2d;
+      background: #1e1e1e;
+      font-variant-numeric: tabular-nums;
+    }
+    .vscode-line:hover .vscode-line-num {
+      color: #c6c6c6;
+    }
+    .vscode-line-content {
+      padding: 0 16px;
+      white-space: pre;
+      color: #d4d4d4;
+      flex: 1;
+    }
+    .vscode-code-viewport.wrap-active .vscode-line-content {
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* SYNTAX HIGHLIGHTING (VS CODE DARK+ THEME) */
+    .hl-doctype { color: #569cd6; font-weight: 600; }
+    .hl-delimiter { color: #808080; }
+    .hl-tag { color: #4ec9b0; font-weight: 500; }
+    .hl-attr { color: #9cdcfe; }
+    .hl-punct { color: #d4d4d4; }
+    .hl-string { color: #ce9178; }
+    .hl-comment { color: #6a9955; font-style: italic; }
+
+    /* STATUS BAR */
+    .vscode-status-bar {
+      background: #007acc;
+      color: #ffffff;
+      font-size: 11px;
+      padding: 4px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      flex-shrink: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .vscode-status-left, .vscode-status-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .vscode-status-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: default;
+    }
+
+    /* SEND TEST MODAL */
+    .send-modal-card {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      width: 480px;
+      max-width: 90vw;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
     }
     .modal-header {
       padding: 16px 20px;
@@ -506,18 +742,6 @@ export function renderPreviewDashboardHtml({
     }
     .modal-body {
       padding: 20px;
-      overflow-y: auto;
-    }
-    .raw-code {
-      background: #030712;
-      color: #a7f3d0;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 16px;
-      border-radius: 8px;
-      white-space: pre-wrap;
-      word-break: break-all;
-      max-height: 500px;
       overflow-y: auto;
     }
     .send-input {
@@ -602,22 +826,82 @@ export function renderPreviewDashboardHtml({
     </div>
   </main>
 
-  <!-- INSPECT HTML MODAL -->
+  <!-- INSPECT HTML MODAL (VS CODE STYLE) -->
   <div class="modal-backdrop" id="htmlModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Compiled Safe Email HTML</h3>
-        <button class="btn" id="btnCloseHtmlModal">Close</button>
+    <div class="vscode-modal-card">
+      <!-- Title / Tab Bar -->
+      <div class="vscode-title-bar">
+        <div class="vscode-title-left">
+          <div class="vscode-window-controls">
+            <span class="vscode-dot vscode-dot-close" id="btnWindowClose" title="Close (Esc)"></span>
+            <span class="vscode-dot vscode-dot-min"></span>
+            <span class="vscode-dot vscode-dot-max"></span>
+          </div>
+          <div class="vscode-tab">
+            <svg class="vscode-html-icon" viewBox="0 0 24 24" fill="none">
+              <path d="M4 3L2 21L12 24L22 21L20 3H4Z" fill="#E44D26"/>
+              <path d="M12 22L19.5 20L21 4H12V22Z" fill="#F16529"/>
+              <path d="M12 8H7.5L8 11H12V8ZM12 14H8.5L8.2 11.5H6.2L6.7 16H12V14Z" fill="#EBEBEB"/>
+              <path d="M12 8V11H16.5L16 16L12 17.2V19.4L17.5 17.8L18.5 8H12ZM12 14V16L12 14Z" fill="#FFFFFF"/>
+            </svg>
+            <span class="vscode-tab-name" id="vsCodeTabTitle">${selectedTemplateKey}.html</span>
+            <span class="vscode-badge" id="vsCodeLinesBadge">0 lines</span>
+            <span class="vscode-badge" id="vsCodeSizeBadge">0 KB</span>
+          </div>
+        </div>
+
+        <div class="vscode-actions">
+          <button class="vscode-btn" id="btnToggleWordWrap" title="Toggle Word Wrap (Alt+Z)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 6h16M4 12h13a3 3 0 0 1 0 6h-4m0 0l2-2m-2 2l2 2M4 18h4"/>
+            </svg>
+            <span>Wrap Lines</span>
+          </button>
+          <button class="vscode-btn vscode-btn-copy" id="btnCopyHtmlCode" title="Copy clean HTML code">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span id="copyBtnText">Copy HTML</span>
+          </button>
+          <button class="vscode-btn vscode-btn-close" id="btnCloseHtmlModal" title="Close (Esc)">✕</button>
+        </div>
       </div>
-      <div class="modal-body">
-        <pre class="raw-code" id="rawCodePre">${renderedHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
+
+      <!-- Editor Body with Gutter & Code Lines -->
+      <div class="vscode-editor-body">
+        <div class="vscode-code-viewport" id="vsCodeViewport">
+          <div class="vscode-lines-container" id="vsCodeLinesContainer">
+            <!-- Dynamically populated formatted & highlighted lines -->
+          </div>
+        </div>
+      </div>
+
+      <!-- VS Code Status Bar -->
+      <div class="vscode-status-bar">
+        <div class="vscode-status-left">
+          <span class="vscode-status-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+            Ready
+          </span>
+          <span class="vscode-status-item" id="vsStatusTemplateKey">${selectedTemplateKey}</span>
+        </div>
+        <div class="vscode-status-right">
+          <span class="vscode-status-item" id="vsStatusLineCount">Ln 1, Col 1</span>
+          <span class="vscode-status-item">Spaces: 2</span>
+          <span class="vscode-status-item">UTF-8</span>
+          <span class="vscode-status-item" style="color: #93c5fd; font-weight: 700;">HTML</span>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- SEND TEST MODAL -->
   <div class="modal-backdrop" id="sendModal">
-    <div class="modal-card">
+    <div class="send-modal-card">
       <div class="modal-header">
         <h3>Send Live Email Test</h3>
         <button class="btn" id="btnCloseSendModal">Cancel</button>
@@ -774,8 +1058,10 @@ export function renderPreviewDashboardHtml({
           if (subjectSpan) subjectSpan.textContent = data.subject || "No Subject";
           const preheaderEl = document.querySelector('.preheader-line');
           if (preheaderEl) preheaderEl.textContent = "Preheader: " + (data.preheader || "None specified");
-          const rawCodePre = document.getElementById('rawCodePre');
-          if (rawCodePre) rawCodePre.textContent = data.html;
+          currentRawHtml = data.html;
+          if (htmlModal && htmlModal.classList.contains('open')) {
+            renderVsCodeEditor(data.html, key);
+          }
         }
       } catch (err) {
         console.error('[EmailStudio] Failed to load template:', err);
@@ -900,15 +1186,190 @@ export function renderPreviewDashboardHtml({
     // Run after initial mount
     setTimeout(applyDarkPreview, 100);
 
+    // Current rendered HTML state & VS Code Editor logic
+    let currentRawHtml = ${JSON.stringify(renderedHtml)};
+    let isWordWrap = false;
+
+    function formatHtmlCode(html) {
+      if (!html) return '';
+      const tab = '  ';
+      let result = '';
+      let indent = 0;
+
+      let processed = html.replace(/\r\n/g, '\n').trim();
+      const ifRegex = new RegExp('<!--\\[if[\\s\\S]*?<!\\[endif\\]-->', 'gi');
+      processed = processed.replace(ifRegex, function(m) { return '\n' + m.trim() + '\n'; });
+
+      const tokenRegex = new RegExp('(<!DOCTYPE[\\s\\S]*?>|<!--\\[if[\\s\\S]*?<!\\[endif\\]-->|<!--[\\s\\S]*?-->|</?[a-zA-Z0-9:-]+(?:\\s+[^>]*?)?>)', 'gi');
+      const tokens = processed.split(tokenRegex).filter(Boolean);
+
+      const voidTags = new Set([
+        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+        'link', 'meta', 'param', 'source', 'track', 'wbr'
+      ]);
+
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i].trim();
+        if (!token) continue;
+
+        if (token.toUpperCase().startsWith('<!DOCTYPE')) {
+          result += token + '\n';
+        } else if (token.startsWith('<!--')) {
+          const commentLines = token.split('\n');
+          for (const cl of commentLines) {
+            result += tab.repeat(indent) + cl.trim() + '\n';
+          }
+        } else if (token.startsWith('</')) {
+          indent = Math.max(0, indent - 1);
+          result += tab.repeat(indent) + token + '\n';
+        } else if (token.startsWith('<')) {
+          const match = token.match(/^<([a-zA-Z0-9:-]+)/);
+          const tag = match ? match[1].toLowerCase() : '';
+          const isVoid = voidTags.has(tag) || token.endsWith('/>');
+
+          const nextToken = tokens[i + 1] ? tokens[i + 1].trim() : '';
+          const afterNextToken = tokens[i + 2] ? tokens[i + 2].trim() : '';
+          if (!isVoid && nextToken && !nextToken.startsWith('<') && afterNextToken.toLowerCase() === '</' + tag + '>') {
+            result += tab.repeat(indent) + token + nextToken + afterNextToken + '\n';
+            i += 2;
+          } else {
+            result += tab.repeat(indent) + token + '\n';
+            if (!isVoid) {
+              indent++;
+            }
+          }
+        } else {
+          const subLines = token.split('\n');
+          for (const sl of subLines) {
+            const trimmedSl = sl.trim();
+            if (trimmedSl) {
+              result += tab.repeat(indent) + trimmedSl + '\n';
+            }
+          }
+        }
+      }
+
+      return result.trim();
+    }
+
+    function highlightHtmlLine(line) {
+      let escaped = line
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      if (escaped.includes('&lt;!--')) {
+        const commentRegex = new RegExp('(&lt;!--[\\s\\S]*?--&gt;)', 'g');
+        return escaped.replace(commentRegex, '<span class="hl-comment">$1</span>');
+      }
+
+      if (escaped.toLowerCase().includes('&lt;!doctype')) {
+        const doctypeRegex = new RegExp('(&lt;!DOCTYPE[\\s\\S]*?&gt;)', 'gi');
+        return escaped.replace(doctypeRegex, '<span class="hl-doctype">$1</span>');
+      }
+
+      const tagRegex = new RegExp('(&lt;\\/?[a-zA-Z0-9:-]+)([\\s\\S]*?)(&gt;|\\/&gt;)', 'g');
+      return escaped.replace(tagRegex, function(full, openTag, attrs, closeTag) {
+        const openTagRegex = new RegExp('^(&lt;\\/?)([a-zA-Z0-9:-]+)');
+        const tagPart = openTag.replace(openTagRegex, function(m, prefix, name) {
+          return '<span class="hl-delimiter">' + prefix + '</span><span class="hl-tag">' + name + '</span>';
+        });
+
+        const attrRegex = new RegExp('([a-zA-Z0-9:-]+)(\\\\s*=\\\\s*)("[^"]*"|' + "'[^']*'" + '|[^\\\\s>]+)', 'g');
+        const attrPart = attrs.replace(attrRegex, function(m, attrName, eq, val) {
+          return '<span class="hl-attr">' + attrName + '</span><span class="hl-punct">' + eq + '</span><span class="hl-string">' + val + '</span>';
+        });
+
+        const closePart = '<span class="hl-delimiter">' + closeTag + '</span>';
+        return tagPart + attrPart + closePart;
+      });
+    }
+
+    function renderVsCodeEditor(html, templateKey) {
+      currentRawHtml = html;
+      const key = templateKey || currentSelectedKey || 'email-template';
+
+      const titleEl = document.getElementById('vsCodeTabTitle');
+      if (titleEl) titleEl.textContent = key + '.html';
+
+      const statusKeyEl = document.getElementById('vsStatusTemplateKey');
+      if (statusKeyEl) statusKeyEl.textContent = key;
+
+      const formatted = formatHtmlCode(html);
+      const lines = formatted.split('\n');
+
+      const linesBadge = document.getElementById('vsCodeLinesBadge');
+      if (linesBadge) linesBadge.textContent = lines.length + ' lines';
+
+      const sizeKb = (new Blob([html]).size / 1024).toFixed(1);
+      const sizeBadge = document.getElementById('vsCodeSizeBadge');
+      if (sizeBadge) sizeBadge.textContent = sizeKb + ' KB';
+
+      const statusLinesEl = document.getElementById('vsStatusLineCount');
+      if (statusLinesEl) statusLinesEl.textContent = 'Ln ' + lines.length + ', Col 1';
+
+      const container = document.getElementById('vsCodeLinesContainer');
+      if (!container) return;
+
+      let htmlLinesStr = '';
+      for (let i = 0; i < lines.length; i++) {
+        const lineNum = i + 1;
+        const lineHighlighted = highlightHtmlLine(lines[i]);
+        htmlLinesStr += '<div class="vscode-line" data-line="' + lineNum + '">' +
+          '<span class="vscode-line-num">' + lineNum + '</span>' +
+          '<span class="vscode-line-content">' + lineHighlighted + '</span>' +
+        '</div>';
+      }
+      container.innerHTML = htmlLinesStr;
+    }
+
     // Modals
     const htmlModal = document.getElementById('htmlModal');
     const sendModal = document.getElementById('sendModal');
 
+    function closeHtmlModal() {
+      htmlModal.classList.remove('open');
+    }
+
     document.getElementById('btnViewHtml').addEventListener('click', () => {
+      renderVsCodeEditor(currentRawHtml, currentSelectedKey);
       htmlModal.classList.add('open');
     });
-    document.getElementById('btnCloseHtmlModal').addEventListener('click', () => {
-      htmlModal.classList.remove('open');
+
+    document.getElementById('btnCloseHtmlModal').addEventListener('click', closeHtmlModal);
+    const btnDotClose = document.getElementById('btnWindowClose');
+    if (btnDotClose) btnDotClose.addEventListener('click', closeHtmlModal);
+
+    document.getElementById('btnCopyHtmlCode').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(currentRawHtml);
+        const copyBtn = document.getElementById('btnCopyHtmlCode');
+        const copyText = document.getElementById('copyBtnText');
+        copyBtn.classList.add('copied');
+        copyText.textContent = '✓ Copied!';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyText.textContent = 'Copy HTML';
+        }, 2000);
+      } catch (e) {
+        console.error('Failed to copy code:', e);
+      }
+    });
+
+    document.getElementById('btnToggleWordWrap').addEventListener('click', function() {
+      isWordWrap = !isWordWrap;
+      const viewport = document.getElementById('vsCodeViewport');
+      if (isWordWrap) {
+        viewport.classList.add('wrap-active');
+        this.classList.add('active');
+      } else {
+        viewport.classList.remove('wrap-active');
+        this.classList.remove('active');
+      }
+    });
+
+    htmlModal.addEventListener('click', (e) => {
+      if (e.target === htmlModal) closeHtmlModal();
     });
 
     document.getElementById('btnSendTest').addEventListener('click', () => {
@@ -916,6 +1377,16 @@ export function renderPreviewDashboardHtml({
     });
     document.getElementById('btnCloseSendModal').addEventListener('click', () => {
       sendModal.classList.remove('open');
+    });
+    sendModal.addEventListener('click', (e) => {
+      if (e.target === sendModal) sendModal.classList.remove('open');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeHtmlModal();
+        sendModal.classList.remove('open');
+      }
     });
 
     // Send Test Submission
