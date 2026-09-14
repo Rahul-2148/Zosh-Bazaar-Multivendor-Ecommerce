@@ -130,6 +130,16 @@ export function renderPreviewDashboardHtml({
   subject,
   preheader,
 }) {
+  const counts = {
+    all: templates.length,
+    customer: templates.filter((t) => t.recipientRole === "customer").length,
+    seller: templates.filter((t) => t.recipientRole === "seller").length,
+    admin: templates.filter((t) => t.recipientRole === "admin").length,
+    logistics: templates.filter((t) => t.recipientRole === "logistics").length,
+    deliveryPartner: templates.filter((t) => t.recipientRole === "deliveryPartner").length,
+    system: templates.filter((t) => t.recipientRole === "system").length,
+  };
+
   const safeTemplates = JSON.stringify(
     templates.map((t) => ({
       key: t.templateKey,
@@ -249,6 +259,20 @@ export function renderPreviewDashboardHtml({
       background: #374151;
       color: #fff;
       border-color: #4b5563;
+    }
+    .tab-count {
+      font-size: 10px;
+      font-weight: 700;
+      opacity: 0.75;
+      margin-left: 4px;
+      padding: 1px 5px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .tab-btn.active .tab-count {
+      background: rgba(249, 115, 22, 0.25);
+      color: #fb923c;
+      opacity: 1;
     }
     .template-list {
       flex: 1;
@@ -514,20 +538,20 @@ export function renderPreviewDashboardHtml({
       <div class="brand-badge">ZB</div>
       <div>
         <div class="brand-title">Email Studio</div>
-        <div class="brand-sub">${templates.length} Active Templates</div>
+        <div class="brand-sub" id="templateCountSub">${templates.length} Active Templates</div>
       </div>
     </div>
     <div class="search-box">
       <input type="text" id="searchInput" class="search-input" placeholder="Search templates (e.g. order, otp, return)...">
     </div>
     <div class="category-tabs">
-      <button class="tab-btn active" data-filter="all">All</button>
-      <button class="tab-btn" data-filter="customer">Customer</button>
-      <button class="tab-btn" data-filter="seller">Seller</button>
-      <button class="tab-btn" data-filter="admin">Admin</button>
-      <button class="tab-btn" data-filter="logistics">Logistics</button>
-      <button class="tab-btn" data-filter="deliveryPartner">Partner</button>
-      <button class="tab-btn" data-filter="system">System</button>
+      <button class="tab-btn active" data-filter="all">All <span class="tab-count">${counts.all}</span></button>
+      <button class="tab-btn" data-filter="customer">Customer <span class="tab-count">${counts.customer}</span></button>
+      <button class="tab-btn" data-filter="seller">Seller <span class="tab-count">${counts.seller}</span></button>
+      <button class="tab-btn" data-filter="admin">Admin <span class="tab-count">${counts.admin}</span></button>
+      <button class="tab-btn" data-filter="logistics">Logistics <span class="tab-count">${counts.logistics}</span></button>
+      <button class="tab-btn" data-filter="deliveryPartner">Partner <span class="tab-count">${counts.deliveryPartner}</span></button>
+      <button class="tab-btn" data-filter="system">System <span class="tab-count">${counts.system}</span></button>
     </div>
     <div class="template-list" id="templateList">
       ${templates
@@ -654,6 +678,7 @@ export function renderPreviewDashboardHtml({
     }
 
     function filterTemplates() {
+      let visibleCount = 0;
       templateItems.forEach(item => {
         const role = item.dataset.role;
         const key = item.dataset.key.toLowerCase();
@@ -662,8 +687,31 @@ export function renderPreviewDashboardHtml({
         const matchesFilter = currentFilter === 'all' || role.toLowerCase() === currentFilter.toLowerCase();
         const matchesSearch = !currentSearch || key.includes(currentSearch) || text.includes(currentSearch);
 
-        item.style.display = (matchesFilter && matchesSearch) ? 'block' : 'none';
+        const isVisible = matchesFilter && matchesSearch;
+        item.style.display = isVisible ? 'block' : 'none';
+        if (isVisible) visibleCount++;
       });
+
+      const countEl = document.getElementById('templateCountSub');
+      if (countEl) {
+        const roleLabels = {
+          all: 'All Roles',
+          customer: 'Customer',
+          seller: 'Seller',
+          admin: 'Admin',
+          logistics: 'Logistics',
+          deliveryPartner: 'Partner',
+          system: 'System',
+        };
+        const roleLabel = roleLabels[currentFilter] || (currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1));
+        if (currentFilter === 'all' && !currentSearch) {
+          countEl.textContent = templates.length + ' Active Templates';
+        } else if (currentSearch) {
+          countEl.textContent = visibleCount + ' of ' + templates.length + ' (' + roleLabel + ' Matching)';
+        } else {
+          countEl.textContent = visibleCount + ' Active Templates (' + roleLabel + ')';
+        }
+      }
     }
 
     searchInput.addEventListener('input', (e) => {
