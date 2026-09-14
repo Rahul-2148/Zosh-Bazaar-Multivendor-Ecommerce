@@ -6,9 +6,9 @@ export function UnsubscribeFooter({ recipientEmail = "" }) {
   const prefsUrl = `${urls.unsubscribe}?email=${encodedEmail}`;
 
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 16px; border-top: 1px dashed ${colors.border}; padding-top: 12px;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 16px; border-top: 1px dashed ${colors.border};">
       <tr>
-        <td align="center" style="font-size: 11px; color: ${colors.textMuted}; line-height: 1.4;">
+        <td align="center" style="font-size: 11px; color: ${colors.textMuted}; line-height: 1.4; padding-top: 12px;">
           You received this message because you subscribed to updates from Zosh Bazaar.<br />
           <a href="${prefsUrl}" target="_blank" style="color: ${colors.primary}; text-decoration: underline;">Manage Preferences</a>
           &nbsp;&bull;&nbsp;

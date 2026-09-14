@@ -15,19 +15,19 @@ export function SecurityNotice({
   const fg = isHigh ? "#991b1b" : "#92400e";
 
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${bg}; border: 1px solid ${border}; border-radius: 8px; margin: 18px 0; padding: 14px 16px;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="security-notice-table" style="background-color: ${bg}; border: 1px solid ${border}; border-radius: 8px; margin: 20px 0; border-collapse: separate !important;">
       <tr>
-        <td>
-          <div style="font-size: 13px; font-weight: 800; color: ${fg}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+        <td class="security-notice-cell" style="padding: 16px 20px; vertical-align: top;">
+          <div style="font-size: 13px; font-weight: 800; color: ${fg}; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">
             &#9888; Security Advisory (${severity})
           </div>
-          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 12px; color: ${fg};">
-            ${timestamp ? `<tr><td style="padding: 2px 0; width: 80px; font-weight: bold;">Time:</td><td>${timestamp}</td></tr>` : ""}
-            ${ipAddress ? `<tr><td style="padding: 2px 0; font-weight: bold;">IP Address:</td><td>${ipAddress}</td></tr>` : ""}
-            ${device ? `<tr><td style="padding: 2px 0; font-weight: bold;">Device:</td><td>${device}</td></tr>` : ""}
-            ${location ? `<tr><td style="padding: 2px 0; font-weight: bold;">Location:</td><td>${location}</td></tr>` : ""}
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px; color: ${fg}; border-collapse: collapse;">
+            ${timestamp ? `<tr><td style="padding: 3px 0; width: 90px; font-weight: bold; color: ${fg};">Time:</td><td style="padding: 3px 0; color: ${fg};">${timestamp}</td></tr>` : ""}
+            ${ipAddress ? `<tr><td style="padding: 3px 0; font-weight: bold; color: ${fg};">IP Address:</td><td style="padding: 3px 0; color: ${fg};">${ipAddress}</td></tr>` : ""}
+            ${device ? `<tr><td style="padding: 3px 0; font-weight: bold; color: ${fg};">Device:</td><td style="padding: 3px 0; color: ${fg};">${device}</td></tr>` : ""}
+            ${location ? `<tr><td style="padding: 3px 0; font-weight: bold; color: ${fg};">Location:</td><td style="padding: 3px 0; color: ${fg};">${location}</td></tr>` : ""}
           </table>
-          <div style="margin-top: 10px; font-size: 12px; color: ${fg}; line-height: 1.4;">
+          <div style="margin-top: 12px; font-size: 12px; color: ${fg}; line-height: 1.5;">
             If this wasn't you, your account may be compromised. <a href="${supportUrl}" style="color: ${fg}; font-weight: bold; text-decoration: underline;">Secure your account immediately &rarr;</a>
           </div>
         </td>

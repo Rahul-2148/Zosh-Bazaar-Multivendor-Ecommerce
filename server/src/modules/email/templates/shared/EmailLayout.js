@@ -127,6 +127,24 @@ export function EmailLayout({
       .dark-bg-subtle {
         background-color: #0f172a !important;
       }
+      .security-notice-table[style*="background-color: #fffbeb"] {
+        background-color: #451a03 !important;
+        border-color: #92400e !important;
+      }
+      .security-notice-table[style*="background-color: #fffbeb"] td,
+      .security-notice-table[style*="background-color: #fffbeb"] div,
+      .security-notice-table[style*="background-color: #fffbeb"] a {
+        color: #fde68a !important;
+      }
+      .security-notice-table[style*="background-color: #fef2f2"] {
+        background-color: #450a0a !important;
+        border-color: #991b1b !important;
+      }
+      .security-notice-table[style*="background-color: #fef2f2"] td,
+      .security-notice-table[style*="background-color: #fef2f2"] div,
+      .security-notice-table[style*="background-color: #fef2f2"] a {
+        color: #fca5a5 !important;
+      }
     }
   </style>
 </head>

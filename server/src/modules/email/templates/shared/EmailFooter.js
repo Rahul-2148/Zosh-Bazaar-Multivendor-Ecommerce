@@ -11,9 +11,9 @@ export function EmailFooter({
   const isMarketing = category === EmailCategory.MARKETING;
 
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 32px; border-top: 1px solid ${colors.border}; padding-top: 24px;" class="dark-border">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 32px; border-top: 1px solid ${colors.border};" class="dark-border">
       <tr>
-        <td align="center">
+        <td align="center" style="padding-top: 24px;">
           ${SocialLinks()}
           <div style="font-size: 11px; color: ${colors.textMuted}; line-height: 1.5; margin: 10px 0;" class="dark-text-muted">
             &copy; ${new Date().getFullYear()} ${legalEntityName}. All rights reserved.<br />

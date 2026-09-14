@@ -9,9 +9,15 @@ import { formatDeliveryViewModel } from "../../schemas/delivery.schema.js";
 
 function PartnerBox(data) {
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin: 14px 0; font-size: 13px;">
-      <tr><td style="color: #64748b; width: 120px; padding: 2px 0;">Agent ID:</td><td style="font-weight: bold; font-family: monospace;">${data.partner.agentId || "ZDP-9988"}</td></tr>
-      <tr><td style="color: #64748b; padding: 2px 0;">Base Hub:</td><td style="font-weight: bold;">${data.hubName}</td></tr>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" class="email-card dark-border" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 14px 0; border-collapse: separate !important;">
+      <tr>
+        <td style="padding: 14px 18px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px; border-collapse: collapse;">
+            <tr><td style="color: #64748b; width: 120px; padding: 3px 0;" class="dark-text-muted">Agent ID:</td><td style="font-weight: bold; font-family: monospace; padding: 3px 0;" class="dark-text-main">${data.partner.agentId || "ZDP-9988"}</td></tr>
+            <tr><td style="color: #64748b; padding: 3px 0;" class="dark-text-muted">Base Hub:</td><td style="font-weight: bold; padding: 3px 0;" class="dark-text-main">${data.hubName}</td></tr>
+          </table>
+        </td>
+      </tr>
     </table>
   `;
 }

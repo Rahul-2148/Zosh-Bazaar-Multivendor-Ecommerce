@@ -9,10 +9,16 @@ import { formatDeliveryViewModel } from "../../schemas/delivery.schema.js";
 
 function LogisticsBox(data) {
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #0f172a; border-radius: 8px; padding: 14px; margin: 16px 0; color: #f8fafc; font-family: monospace; font-size: 12px;">
-      <tr><td style="color: #94a3b8; width: 120px; padding: 3px 0;">FACILITY:</td><td style="color: #38bdf8; font-weight: bold;">${data.hubName}</td></tr>
-      ${data.shipmentId ? `<tr><td style="color: #94a3b8; padding: 3px 0;">PARCEL ID:</td><td>${data.shipmentId}</td></tr>` : ""}
-      ${data.exceptionReason ? `<tr><td style="color: #94a3b8; padding: 3px 0;">EXCEPTION:</td><td style="color: #f87171;">${data.exceptionReason}</td></tr>` : ""}
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #0f172a; border-radius: 8px; margin: 16px 0; border-collapse: separate !important;">
+      <tr>
+        <td style="padding: 16px 18px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="color: #f8fafc; font-family: monospace; font-size: 12px; border-collapse: collapse;">
+            <tr><td style="color: #94a3b8; width: 120px; padding: 3px 0;">FACILITY:</td><td style="color: #38bdf8; font-weight: bold; padding: 3px 0;">${data.hubName}</td></tr>
+            ${data.shipmentId ? `<tr><td style="color: #94a3b8; padding: 3px 0;">PARCEL ID:</td><td style="padding: 3px 0;">${data.shipmentId}</td></tr>` : ""}
+            ${data.exceptionReason ? `<tr><td style="color: #94a3b8; padding: 3px 0;">EXCEPTION:</td><td style="color: #f87171; padding: 3px 0;">${data.exceptionReason}</td></tr>` : ""}
+          </table>
+        </td>
+      </tr>
     </table>
   `;
 }

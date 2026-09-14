@@ -9,12 +9,18 @@ import { formatAdminViewModel } from "../../schemas/admin.schema.js";
 
 function AdminMetricsBox(data) {
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #0f172a; border-radius: 8px; padding: 16px; margin: 16px 0; color: #f8fafc; font-family: monospace; font-size: 12px;">
-      <tr><td style="color: #94a3b8; width: 130px; padding: 3px 0;">SEVERITY:</td><td style="color: ${data.severity === "HIGH" || data.severity === "CRITICAL" ? "#ef4444" : "#f59e0b"}; font-weight: bold;">${data.severity}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">TIMESTAMP:</td><td>${data.timestamp}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">INCIDENT:</td><td style="color: #38bdf8; font-weight: bold;">${data.incidentTitle}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">IMPACT:</td><td style="color: #cbd5e1;">${data.impact}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">ACTION:</td><td style="color: #4ade80;">${data.recommendedAction}</td></tr>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #0f172a; border-radius: 8px; margin: 16px 0; border-collapse: separate !important;">
+      <tr>
+        <td style="padding: 16px 18px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="color: #f8fafc; font-family: monospace; font-size: 12px; border-collapse: collapse;">
+            <tr><td style="color: #94a3b8; width: 130px; padding: 3px 0;">SEVERITY:</td><td style="color: ${data.severity === "HIGH" || data.severity === "CRITICAL" ? "#ef4444" : "#f59e0b"}; font-weight: bold; padding: 3px 0;">${data.severity}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">TIMESTAMP:</td><td style="padding: 3px 0;">${data.timestamp}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">INCIDENT:</td><td style="color: #38bdf8; font-weight: bold; padding: 3px 0;">${data.incidentTitle}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">IMPACT:</td><td style="color: #cbd5e1; padding: 3px 0;">${data.impact}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">ACTION:</td><td style="color: #4ade80; padding: 3px 0;">${data.recommendedAction}</td></tr>
+          </table>
+        </td>
+      </tr>
     </table>
   `;
 }

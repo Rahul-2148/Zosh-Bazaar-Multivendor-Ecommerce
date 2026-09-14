@@ -6,9 +6,9 @@ export function EmailHeader({ roleBadge = null, subtitle = "" }) {
   const { colors, urls } = brandConfig;
 
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-bottom: 1px solid ${colors.border}; padding-bottom: 18px;" class="dark-border">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-bottom: 1px solid ${colors.border};" class="dark-border">
       <tr>
-        <td align="left" valign="middle">
+        <td align="left" valign="middle" style="padding-bottom: 18px;">
           <a href="${urls.website}" target="_blank" style="text-decoration: none; display: inline-block;">
             ${Logo({ size: 32 })}
           </a>
@@ -20,7 +20,7 @@ export function EmailHeader({ roleBadge = null, subtitle = "" }) {
         </td>
         ${
           roleBadge
-            ? `<td align="right" valign="middle">
+            ? `<td align="right" valign="middle" style="padding-bottom: 18px;">
                 ${Badge({ label: roleBadge.label || roleBadge, variant: roleBadge.variant || "neutral" })}
               </td>`
             : ""

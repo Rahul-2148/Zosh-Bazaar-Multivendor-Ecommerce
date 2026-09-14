@@ -9,12 +9,18 @@ import { formatAdminViewModel } from "../../schemas/admin.schema.js";
 
 function SystemAlertBox(data) {
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #0f172a; border-radius: 8px; padding: 16px; margin: 16px 0; color: #f8fafc; font-family: monospace; font-size: 12px;">
-      <tr><td style="color: #94a3b8; width: 120px; padding: 3px 0;">SEVERITY:</td><td style="color: #ef4444; font-weight: bold;">CRITICAL</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">TIMESTAMP:</td><td>${data.timestamp}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">SUBSYSTEM:</td><td style="color: #38bdf8;">${data.moduleName}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">DIAGNOSTIC:</td><td style="color: #cbd5e1;">${data.summary}</td></tr>
-      <tr><td style="color: #94a3b8; padding: 3px 0;">RUNBOOK:</td><td style="color: #4ade80;">${data.recommendedAction}</td></tr>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: #0f172a; border-radius: 8px; margin: 16px 0; border-collapse: separate !important;">
+      <tr>
+        <td style="padding: 16px 18px;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="color: #f8fafc; font-family: monospace; font-size: 12px; border-collapse: collapse;">
+            <tr><td style="color: #94a3b8; width: 120px; padding: 3px 0;">SEVERITY:</td><td style="color: #ef4444; font-weight: bold; padding: 3px 0;">CRITICAL</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">TIMESTAMP:</td><td style="padding: 3px 0;">${data.timestamp}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">SUBSYSTEM:</td><td style="color: #38bdf8; padding: 3px 0;">${data.moduleName}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">DIAGNOSTIC:</td><td style="color: #cbd5e1; padding: 3px 0;">${data.summary}</td></tr>
+            <tr><td style="color: #94a3b8; padding: 3px 0;">RUNBOOK:</td><td style="color: #4ade80; padding: 3px 0;">${data.recommendedAction}</td></tr>
+          </table>
+        </td>
+      </tr>
     </table>
   `;
 }

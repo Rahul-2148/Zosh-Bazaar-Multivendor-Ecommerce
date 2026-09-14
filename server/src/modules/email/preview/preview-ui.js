@@ -73,17 +73,29 @@ const DARK_PREVIEW_INJECTED_CSS = `
 
   /* Alerts: Red / Danger */
   div[style*="background: #fef2f2"],
-  table[style*="background-color: #fef2f2"] {
+  table[style*="background-color: #fef2f2"],
+  .security-notice-table[style*="background-color: #fef2f2"] {
     background-color: #450a0a !important;
     border-color: #991b1b !important;
+    color: #fca5a5 !important;
+  }
+  table[style*="background-color: #fef2f2"] td,
+  table[style*="background-color: #fef2f2"] div,
+  table[style*="background-color: #fef2f2"] a {
     color: #fca5a5 !important;
   }
 
   /* Alerts: Amber / Warning */
   div[style*="background: #fffbeb"],
-  table[style*="background-color: #fffbeb"] {
+  table[style*="background-color: #fffbeb"],
+  .security-notice-table[style*="background-color: #fffbeb"] {
     background-color: #451a03 !important;
     border-color: #92400e !important;
+    color: #fde68a !important;
+  }
+  table[style*="background-color: #fffbeb"] td,
+  table[style*="background-color: #fffbeb"] div,
+  table[style*="background-color: #fffbeb"] a {
     color: #fde68a !important;
   }
 
@@ -1196,15 +1208,12 @@ export function renderPreviewDashboardHtml({
     function formatHtmlCode(html) {
       if (!html) return '';
       const tab = '  ';
-      let result = '';
+      let result = [];
       let indent = 0;
 
-      let processed = html.replace(/\r\n/g, '\n').trim();
-      const ifRegex = new RegExp('<!--\\[if[\\s\\S]*?<!\\[endif\\]-->', 'gi');
-      processed = processed.replace(ifRegex, function(m) { return '\n' + m.trim() + '\n'; });
-
-      const tokenRegex = new RegExp('(<!DOCTYPE[\\s\\S]*?>|<!--\\[if[\\s\\S]*?<!\\[endif\\]-->|<!--[\\s\\S]*?-->|</?[a-zA-Z0-9:-]+(?:\\s+[^>]*?)?>)', 'gi');
-      const tokens = processed.split(tokenRegex).filter(Boolean);
+      const clean = String(html).replace(/\\r\\n/g, '\\n').replace(/\\r/g, '\\n');
+      const tokenRegex = /(<!DOCTYPE[^>]*>|<!--\\[if[\\s\\S]*?<!\\[endif\\]-->|<!--[\\s\\S]*?-->|<\\/?[a-zA-Z0-9:-]+(?:\\s+[^>]*?)?>|[^<]+)/gi;
+      const tokens = clean.match(tokenRegex) || [clean];
 
       const voidTags = new Set([
         'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
@@ -1216,15 +1225,12 @@ export function renderPreviewDashboardHtml({
         if (!token) continue;
 
         if (token.toUpperCase().startsWith('<!DOCTYPE')) {
-          result += token + '\n';
+          result.push(token);
         } else if (token.startsWith('<!--')) {
-          const commentLines = token.split('\n');
-          for (const cl of commentLines) {
-            result += tab.repeat(indent) + cl.trim() + '\n';
-          }
+          result.push(tab.repeat(indent) + token);
         } else if (token.startsWith('</')) {
           indent = Math.max(0, indent - 1);
-          result += tab.repeat(indent) + token + '\n';
+          result.push(tab.repeat(indent) + token);
         } else if (token.startsWith('<')) {
           const match = token.match(/^<([a-zA-Z0-9:-]+)/);
           const tag = match ? match[1].toLowerCase() : '';
@@ -1233,58 +1239,44 @@ export function renderPreviewDashboardHtml({
           const nextToken = tokens[i + 1] ? tokens[i + 1].trim() : '';
           const afterNextToken = tokens[i + 2] ? tokens[i + 2].trim() : '';
           if (!isVoid && nextToken && !nextToken.startsWith('<') && afterNextToken.toLowerCase() === '</' + tag + '>') {
-            result += tab.repeat(indent) + token + nextToken + afterNextToken + '\n';
+            result.push(tab.repeat(indent) + token + nextToken + afterNextToken);
             i += 2;
           } else {
-            result += tab.repeat(indent) + token + '\n';
-            if (!isVoid) {
-              indent++;
-            }
+            result.push(tab.repeat(indent) + token);
+            if (!isVoid) indent++;
           }
         } else {
-          const subLines = token.split('\n');
-          for (const sl of subLines) {
-            const trimmedSl = sl.trim();
-            if (trimmedSl) {
-              result += tab.repeat(indent) + trimmedSl + '\n';
-            }
-          }
+          result.push(tab.repeat(indent) + token);
         }
       }
 
-      return result.trim();
+      return result.join(String.fromCharCode(10));
     }
 
     function highlightHtmlLine(line) {
-      let escaped = line
+      let escaped = String(line)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
       if (escaped.includes('&lt;!--')) {
-        const commentRegex = new RegExp('(&lt;!--[\\s\\S]*?--&gt;)', 'g');
-        return escaped.replace(commentRegex, '<span class="hl-comment">$1</span>');
+        return '<span class="hl-comment">' + escaped + '</span>';
       }
 
       if (escaped.toLowerCase().includes('&lt;!doctype')) {
-        const doctypeRegex = new RegExp('(&lt;!DOCTYPE[\\s\\S]*?&gt;)', 'gi');
-        return escaped.replace(doctypeRegex, '<span class="hl-doctype">$1</span>');
+        return '<span class="hl-doctype">' + escaped + '</span>';
       }
 
-      const tagRegex = new RegExp('(&lt;\\/?[a-zA-Z0-9:-]+)([\\s\\S]*?)(&gt;|\\/&gt;)', 'g');
-      return escaped.replace(tagRegex, function(full, openTag, attrs, closeTag) {
-        const openTagRegex = new RegExp('^(&lt;\\/?)([a-zA-Z0-9:-]+)');
-        const tagPart = openTag.replace(openTagRegex, function(m, prefix, name) {
+      return escaped.replace(/(&lt;\\/?[a-zA-Z0-9:-]+)([\\s\\S]*?)(&gt;|\\/&gt;)/g, function(full, openTag, attrs, closeTag) {
+        const tagPart = openTag.replace(/^(&lt;\\/?)([a-zA-Z0-9:-]+)/, function(m, prefix, name) {
           return '<span class="hl-delimiter">' + prefix + '</span><span class="hl-tag">' + name + '</span>';
         });
 
-        const attrRegex = new RegExp('([a-zA-Z0-9:-]+)(\\\\s*=\\\\s*)("[^"]*"|' + "'[^']*'" + '|[^\\\\s>]+)', 'g');
-        const attrPart = attrs.replace(attrRegex, function(m, attrName, eq, val) {
+        const attrPart = attrs.replace(/([a-zA-Z0-9:-]+)(\\s*=\\s*)("[^"]*"|'[^']*'|[^\\s>]+)/g, function(m, attrName, eq, val) {
           return '<span class="hl-attr">' + attrName + '</span><span class="hl-punct">' + eq + '</span><span class="hl-string">' + val + '</span>';
         });
 
-        const closePart = '<span class="hl-delimiter">' + closeTag + '</span>';
-        return tagPart + attrPart + closePart;
+        return tagPart + attrPart + '<span class="hl-delimiter">' + closeTag + '</span>';
       });
     }
 
@@ -1299,7 +1291,7 @@ export function renderPreviewDashboardHtml({
       if (statusKeyEl) statusKeyEl.textContent = key;
 
       const formatted = formatHtmlCode(html);
-      const lines = formatted.split('\n');
+      const lines = formatted.split(String.fromCharCode(10));
 
       const linesBadge = document.getElementById('vsCodeLinesBadge');
       if (linesBadge) linesBadge.textContent = lines.length + ' lines';
@@ -1331,64 +1323,88 @@ export function renderPreviewDashboardHtml({
     const sendModal = document.getElementById('sendModal');
 
     function closeHtmlModal() {
-      htmlModal.classList.remove('open');
+      if (htmlModal) htmlModal.classList.remove('open');
     }
 
-    document.getElementById('btnViewHtml').addEventListener('click', () => {
-      renderVsCodeEditor(currentRawHtml, currentSelectedKey);
-      htmlModal.classList.add('open');
-    });
+    const btnViewHtml = document.getElementById('btnViewHtml');
+    if (btnViewHtml) {
+      btnViewHtml.addEventListener('click', () => {
+        renderVsCodeEditor(currentRawHtml, currentSelectedKey);
+        if (htmlModal) htmlModal.classList.add('open');
+      });
+    }
 
-    document.getElementById('btnCloseHtmlModal').addEventListener('click', closeHtmlModal);
-    const btnDotClose = document.getElementById('btnWindowClose');
-    if (btnDotClose) btnDotClose.addEventListener('click', closeHtmlModal);
+    const btnVsClose = document.getElementById('btnVsClose');
+    if (btnVsClose) btnVsClose.addEventListener('click', closeHtmlModal);
 
-    document.getElementById('btnCopyHtmlCode').addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(currentRawHtml);
-        const copyBtn = document.getElementById('btnCopyHtmlCode');
-        const copyText = document.getElementById('copyBtnText');
-        copyBtn.classList.add('copied');
-        copyText.textContent = '✓ Copied!';
-        setTimeout(() => {
-          copyBtn.classList.remove('copied');
-          copyText.textContent = 'Copy HTML';
-        }, 2000);
-      } catch (e) {
-        console.error('Failed to copy code:', e);
-      }
-    });
+    const btnWindowClose = document.getElementById('btnWindowClose');
+    if (btnWindowClose) btnWindowClose.addEventListener('click', closeHtmlModal);
 
-    document.getElementById('btnToggleWordWrap').addEventListener('click', function() {
-      isWordWrap = !isWordWrap;
-      const viewport = document.getElementById('vsCodeViewport');
-      if (isWordWrap) {
-        viewport.classList.add('wrap-active');
-        this.classList.add('active');
-      } else {
-        viewport.classList.remove('wrap-active');
-        this.classList.remove('active');
-      }
-    });
+    const btnCopyHtmlCode = document.getElementById('btnCopyHtmlCode');
+    if (btnCopyHtmlCode) {
+      btnCopyHtmlCode.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(currentRawHtml);
+          const copyText = document.getElementById('copyBtnText');
+          btnCopyHtmlCode.classList.add('copied');
+          if (copyText) copyText.textContent = '✓ Copied!';
+          setTimeout(() => {
+            btnCopyHtmlCode.classList.remove('copied');
+            if (copyText) copyText.textContent = 'Copy HTML';
+          }, 2000);
+        } catch (e) {
+          console.error('Failed to copy code:', e);
+        }
+      });
+    }
 
-    htmlModal.addEventListener('click', (e) => {
-      if (e.target === htmlModal) closeHtmlModal();
-    });
+    const btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
+    if (btnToggleWordWrap) {
+      btnToggleWordWrap.addEventListener('click', function() {
+        isWordWrap = !isWordWrap;
+        const viewport = document.getElementById('vsCodeViewport');
+        if (viewport) {
+          if (isWordWrap) {
+            viewport.classList.add('wrap-active');
+            this.classList.add('active');
+          } else {
+            viewport.classList.remove('wrap-active');
+            this.classList.remove('active');
+          }
+        }
+      });
+    }
 
-    document.getElementById('btnSendTest').addEventListener('click', () => {
-      sendModal.classList.add('open');
-    });
-    document.getElementById('btnCloseSendModal').addEventListener('click', () => {
-      sendModal.classList.remove('open');
-    });
-    sendModal.addEventListener('click', (e) => {
-      if (e.target === sendModal) sendModal.classList.remove('open');
-    });
+    if (htmlModal) {
+      htmlModal.addEventListener('click', (e) => {
+        if (e.target === htmlModal) closeHtmlModal();
+      });
+    }
+
+    const btnSendTest = document.getElementById('btnSendTest');
+    if (btnSendTest) {
+      btnSendTest.addEventListener('click', () => {
+        if (sendModal) sendModal.classList.add('open');
+      });
+    }
+
+    const btnCloseSendModal = document.getElementById('btnCloseSendModal');
+    if (btnCloseSendModal) {
+      btnCloseSendModal.addEventListener('click', () => {
+        if (sendModal) sendModal.classList.remove('open');
+      });
+    }
+
+    if (sendModal) {
+      sendModal.addEventListener('click', (e) => {
+        if (e.target === sendModal) sendModal.classList.remove('open');
+      });
+    }
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeHtmlModal();
-        sendModal.classList.remove('open');
+        if (sendModal) sendModal.classList.remove('open');
       }
     });
 
