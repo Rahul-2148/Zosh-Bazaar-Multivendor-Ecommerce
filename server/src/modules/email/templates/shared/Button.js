@@ -25,17 +25,17 @@ export function Button({
   const border = variant === "outline" ? `2px solid ${colors.primary}` : "none";
 
   return `
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" ${fullWidth ? 'width="100%"' : ""} style="margin: 16px 0;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="button-container" ${fullWidth ? 'width="100%"' : ""} style="margin: 20px 0; border-collapse: separate !important; ${fullWidth ? "width: 100%;" : ""}">
       <tr>
-        <td align="center" style="border-radius: 8px; background-color: ${bg}; border: ${border};">
+        <td align="center" class="button-cell" style="border-radius: 8px; background-color: ${bg}; vertical-align: middle;">
           <!--[if mso]>
-          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:44px;v-text-anchor:middle;width:${fullWidth ? "500px" : "220px"};" arcsize="18%" stroke="f" fillcolor="${bg}">
+          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:48px;v-text-anchor:middle;width:${fullWidth ? "500px" : "240px"};" arcsize="18%" stroke="${variant === "outline" ? "t" : "f"}" strokecolor="${colors.primary}" fillcolor="${bg}">
             <w:anchorlock/>
-            <center style="color:${fg};font-family:sans-serif;font-size:14px;font-weight:bold;">${label}</center>
+            <center style="color:${fg};font-family:sans-serif;font-size:15px;font-weight:bold;">${label}</center>
           </v:roundrect>
           <![endif]-->
           <!--[if !mso]><!-->
-          <a href="${href}" target="_blank" class="responsive-button" style="display: inline-block; padding: 12px 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 700; color: ${fg}; text-decoration: none; border-radius: 8px; text-align: center; mso-padding-alt: 0;">
+          <a href="${href}" target="_blank" class="responsive-button" style="display: ${fullWidth ? "block" : "inline-block"}; box-sizing: border-box; -webkit-box-sizing: border-box; background-color: ${bg}; color: ${fg}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; line-height: 1.2; text-decoration: none; padding: 14px 28px; border-radius: 8px; border: ${border}; text-align: center; mso-padding-alt: 0; white-space: nowrap; ${fullWidth ? "width: 100%;" : ""}">
             ${label}
           </a>
           <!--<![endif]-->

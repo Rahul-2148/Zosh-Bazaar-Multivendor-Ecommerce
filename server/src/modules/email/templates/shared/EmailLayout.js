@@ -84,10 +84,27 @@ export function EmailLayout({
         width: 100% !important;
         direction: ltr !important;
       }
-      .responsive-button {
+      .button-container {
+        width: 100% !important;
+        margin: 18px 0 !important;
+      }
+      .button-cell {
         width: 100% !important;
         display: block !important;
+        box-sizing: border-box !important;
+        -webkit-box-sizing: border-box !important;
+        padding: 0 !important;
+        background-color: transparent !important;
+        border: none !important;
+      }
+      .responsive-button {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        -webkit-box-sizing: border-box !important;
+        padding: 14px 20px !important;
         text-align: center !important;
+        white-space: normal !important;
       }
     }
     @media (prefers-color-scheme: dark) {

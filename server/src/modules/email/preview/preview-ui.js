@@ -1107,17 +1107,20 @@ export function renderPreviewDashboardHtml({
     syncFilterUI();
 
     // Viewport switching
+    function setViewport(mode, btn) {
+      setActiveViewportBtn(btn);
+      frameWrapper.classList.remove('desktop', 'tablet', 'mobile');
+      frameWrapper.classList.add(mode);
+    }
+
     document.getElementById('btnDesktop').addEventListener('click', function() {
-      setActiveViewportBtn(this);
-      frameWrapper.className = 'preview-frame-wrapper desktop';
+      setViewport('desktop', this);
     });
     document.getElementById('btnTablet').addEventListener('click', function() {
-      setActiveViewportBtn(this);
-      frameWrapper.className = 'preview-frame-wrapper tablet';
+      setViewport('tablet', this);
     });
     document.getElementById('btnMobile').addEventListener('click', function() {
-      setActiveViewportBtn(this);
-      frameWrapper.className = 'preview-frame-wrapper mobile';
+      setViewport('mobile', this);
     });
 
     function setActiveViewportBtn(btn) {
