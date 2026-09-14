@@ -1,3 +1,109 @@
+const DARK_PREVIEW_INJECTED_CSS = `
+  :root {
+    color-scheme: dark !important;
+    supported-color-schemes: dark !important;
+  }
+  body, .email-canvas, table.email-canvas {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+  }
+  .email-card, table.email-container {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+  }
+  td.email-content {
+    background-color: #1e293b !important;
+  }
+  /* Invert or adapt all light cards, boxes, and summary tables */
+  table[style*="background-color: #ffffff"],
+  table[style*="background-color:#ffffff"],
+  table[style*="background-color: #f8fafc"],
+  table[style*="background-color:#f8fafc"],
+  td[style*="background-color: #ffffff"],
+  td[style*="background-color:#ffffff"],
+  td[style*="background-color: #f8fafc"],
+  td[style*="background-color:#f8fafc"],
+  div[style*="background-color: #ffffff"],
+  div[style*="background-color:#ffffff"],
+  div[style*="background-color: #f8fafc"],
+  div[style*="background-color:#f8fafc"] {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+  }
+  /* Subtle callouts, highlight boxes, OTP badge containers */
+  table[style*="background-color: #f1f5f9"],
+  table[style*="background-color:#f1f5f9"],
+  td[style*="background-color: #f1f5f9"],
+  td[style*="background-color:#f1f5f9"],
+  div[style*="background-color: #f1f5f9"],
+  div[style*="background-color:#f1f5f9"],
+  table[style*="background-color: #f8fafc"],
+  td[style*="background-color: #f8fafc"],
+  div[style*="background-color: #f8fafc"] {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+  }
+  /* Dark text to bright/readable text */
+  h1, h2, h3, h4, h5, h6,
+  span[style*="color: #0f172a"],
+  span[style*="color:#0f172a"],
+  span[style*="color: #1e293b"],
+  span[style*="color:#1e293b"],
+  span[style*="color: #111827"],
+  span[style*="color:#111827"],
+  p[style*="color: #0f172a"],
+  p[style*="color:#0f172a"],
+  p[style*="color: #1e293b"],
+  p[style*="color:#1e293b"],
+  p[style*="color: #111827"],
+  p[style*="color:#111827"],
+  td[style*="color: #0f172a"],
+  td[style*="color:#0f172a"],
+  td[style*="color: #1e293b"],
+  td[style*="color:#1e293b"],
+  td[style*="color: #111827"],
+  td[style*="color:#111827"],
+  div[style*="color: #0f172a"],
+  div[style*="color:#0f172a"],
+  div[style*="color: #1e293b"],
+  div[style*="color:#1e293b"],
+  div[style*="color: #111827"],
+  div[style*="color:#111827"] {
+    color: #f8fafc !important;
+  }
+  /* Muted text */
+  span[style*="color: #64748b"],
+  span[style*="color:#64748b"],
+  span[style*="color: #475569"],
+  span[style*="color:#475569"],
+  p[style*="color: #64748b"],
+  p[style*="color:#64748b"],
+  p[style*="color: #475569"],
+  p[style*="color:#475569"],
+  td[style*="color: #64748b"],
+  td[style*="color:#64748b"],
+  td[style*="color: #475569"],
+  td[style*="color:#475569"],
+  div[style*="color: #64748b"],
+  div[style*="color:#64748b"],
+  div[style*="color: #475569"],
+  div[style*="color:#475569"] {
+    color: #94a3b8 !important;
+  }
+  /* Borders */
+  *[style*="border: 1px solid #e2e8f0"],
+  *[style*="border:1px solid #e2e8f0"],
+  *[style*="border: 1px solid #e5e7eb"],
+  *[style*="border:1px solid #e5e7eb"],
+  *[style*="border-top: 1px solid #e2e8f0"],
+  *[style*="border-top:1px solid #e2e8f0"],
+  *[style*="border-bottom: 1px solid #e2e8f0"],
+  *[style*="border-bottom:1px solid #e2e8f0"] {
+    border-color: #334155 !important;
+  }
+`;
+
 export function renderPreviewDashboardHtml({
   templates,
   selectedTemplateKey,
@@ -269,6 +375,12 @@ export function renderPreviewDashboardHtml({
       background: #374151;
       color: var(--primary);
     }
+    .btn.dark-active {
+      background: #4f46e5;
+      border-color: #6366f1;
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    }
     /* PREVIEW VIEWPORT */
     .viewport-canvas {
       flex: 1;
@@ -276,11 +388,11 @@ export function renderPreviewDashboardHtml({
       display: flex;
       justify-content: center;
       padding: 30px;
-      background: #030712;
-      transition: background 0.2s;
+      background: #0b0f19;
+      transition: background 0.3s ease;
     }
     .viewport-canvas.dark-mode {
-      background: #000000;
+      background: #020617;
     }
     .preview-frame-wrapper {
       background: #ffffff;
@@ -291,6 +403,11 @@ export function renderPreviewDashboardHtml({
       height: fit-content;
       min-height: 100%;
       border: 1px solid #1f2937;
+    }
+    .preview-frame-wrapper.dark-mode {
+      background: #0f172a;
+      border-color: #334155;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05);
     }
     .preview-frame-wrapper.desktop {
       width: 650px;
@@ -307,6 +424,10 @@ export function renderPreviewDashboardHtml({
       border: none;
       display: block;
       background: #ffffff;
+      transition: background 0.3s ease;
+    }
+    iframe.dark-mode {
+      background: #0f172a;
     }
     /* MODAL */
     .modal-backdrop {
@@ -425,7 +546,7 @@ export function renderPreviewDashboardHtml({
           <button class="btn" id="btnTablet" title="Tablet View (520px)">Tablet</button>
           <button class="btn" id="btnMobile" title="Mobile View (375px)">Mobile</button>
         </div>
-        <button class="btn" id="btnDarkModeToggle">Toggle Dark Preview</button>
+        <button class="btn" id="btnDarkModeToggle" title="Toggle email dark mode preview">🌙 Dark Preview: OFF</button>
         <button class="btn" id="btnViewHtml">Inspect HTML</button>
         <button class="btn btn-primary" id="btnSendTest">Send Test</button>
       </div>
@@ -530,10 +651,66 @@ export function renderPreviewDashboardHtml({
       btn.classList.add('active');
     }
 
-    // Dark preview toggle
-    document.getElementById('btnDarkModeToggle').addEventListener('click', () => {
-      viewportCanvas.classList.toggle('dark-mode');
+    // Dark preview engine
+    const btnDarkModeToggle = document.getElementById('btnDarkModeToggle');
+    const previewIframe = document.getElementById('previewIframe');
+    let isDarkMode = localStorage.getItem('zosh_email_dark_preview') === 'true';
+
+    const DARK_MODE_STYLE_ID = 'zosh-dark-preview-styles';
+    const darkStyles = ${JSON.stringify(DARK_PREVIEW_INJECTED_CSS)};
+
+    function applyDarkPreview() {
+      if (isDarkMode) {
+        btnDarkModeToggle.classList.add('dark-active');
+        btnDarkModeToggle.innerHTML = '🌙 Dark Preview: ON';
+        viewportCanvas.classList.add('dark-mode');
+        frameWrapper.classList.add('dark-mode');
+        if (previewIframe) previewIframe.classList.add('dark-mode');
+      } else {
+        btnDarkModeToggle.classList.remove('dark-active');
+        btnDarkModeToggle.innerHTML = '☀️ Dark Preview: OFF';
+        viewportCanvas.classList.remove('dark-mode');
+        frameWrapper.classList.remove('dark-mode');
+        if (previewIframe) previewIframe.classList.remove('dark-mode');
+      }
+
+      try {
+        const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+        if (iframeDoc && iframeDoc.head) {
+          let styleTag = iframeDoc.getElementById(DARK_MODE_STYLE_ID);
+          if (isDarkMode) {
+            if (!styleTag) {
+              styleTag = iframeDoc.createElement('style');
+              styleTag.id = DARK_MODE_STYLE_ID;
+              styleTag.type = 'text/css';
+              styleTag.textContent = darkStyles;
+              iframeDoc.head.appendChild(styleTag);
+            }
+            if (iframeDoc.body) iframeDoc.body.classList.add('dark-mode');
+          } else {
+            if (styleTag) {
+              styleTag.remove();
+            }
+            if (iframeDoc.body) iframeDoc.body.classList.remove('dark-mode');
+          }
+        }
+      } catch (e) {
+        console.warn('Unable to access iframe content document:', e);
+      }
+    }
+
+    btnDarkModeToggle.addEventListener('click', () => {
+      isDarkMode = !isDarkMode;
+      localStorage.setItem('zosh_email_dark_preview', isDarkMode ? 'true' : 'false');
+      applyDarkPreview();
     });
+
+    previewIframe.addEventListener('load', () => {
+      applyDarkPreview();
+    });
+
+    // Run after initial mount
+    setTimeout(applyDarkPreview, 100);
 
     // Modals
     const htmlModal = document.getElementById('htmlModal');
