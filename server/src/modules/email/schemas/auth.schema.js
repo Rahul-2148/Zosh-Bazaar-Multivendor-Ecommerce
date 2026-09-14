@@ -4,7 +4,15 @@ import { emailConfig } from "../config/email.config.js";
 export function formatAuthViewModel(data = {}) {
   return {
     user: {
-      fullName: sanitizeString(data.user?.fullName || data.fullName || "Valued User"),
+      fullName: sanitizeString(
+        data.user?.fullName ||
+        data.user?.name ||
+        data.customer?.fullName ||
+        data.customer?.name ||
+        data.fullName ||
+        data.name ||
+        "Dear Customer"
+      ),
       email: sanitizeString(data.user?.email || data.email || ""),
     },
     otp: sanitizeString(data.otp || ""),

@@ -2,6 +2,7 @@ import { brandConfig } from "../../config/brand.config.js";
 
 export const sampleCustomer = {
   name: "Priya Sharma",
+  fullName: "Priya Sharma",
   email: "priya.sharma@example.com",
   phone: "+91 98765 43210",
   memberSince: "January 2024",
@@ -56,6 +57,8 @@ export const sampleOrderItems = [
 
 export const sampleOrder = {
   orderId: "ZB-892410-IN",
+  user: sampleCustomer,
+  customer: sampleCustomer,
   orderDate: "14 Sep 2026, 09:30 AM",
   createdAt: "14 Sep 2026, 09:30 AM",
   status: "CONFIRMED",
@@ -147,6 +150,7 @@ export const defaultCategoryFixtures = {
     cancellationDeadline: "14 Oct 2026, 11:59 PM",
   },
   order: {
+    user: sampleCustomer,
     customerName: sampleCustomer.name,
     customer: sampleCustomer,
     order: sampleOrder,
@@ -173,7 +177,9 @@ export const defaultCategoryFixtures = {
     timelineStep: "SHIPPED",
   },
   payment: {
+    user: sampleCustomer,
     customerName: sampleCustomer.name,
+    customer: sampleCustomer,
     orderId: sampleOrder.orderId,
     amount: sampleOrder.total,
     paymentMethod: "UPI (Google Pay)",
@@ -187,7 +193,9 @@ export const defaultCategoryFixtures = {
     estimatedDays: "2-4 business days",
   },
   return: {
+    user: sampleCustomer,
     customerName: sampleCustomer.name,
+    customer: sampleCustomer,
     orderId: sampleOrder.orderId,
     itemTitle: "Sony WH-1000XM5 Wireless Noise-Cancelling Headphones",
     returnId: "RET-77491",
@@ -199,7 +207,9 @@ export const defaultCategoryFixtures = {
     resolution: "REFUND_TO_SOURCE",
   },
   engagement: {
+    user: sampleCustomer,
     customerName: sampleCustomer.name,
+    customer: sampleCustomer,
     productTitle: "Sony WH-1000XM5 Wireless Noise-Cancelling Headphones",
     productImage: sampleOrderItems[0].imageUrl,
     productUrl: "https://zoshbazaar.com/products/sony-wh1000xm5",

@@ -68,7 +68,7 @@ class AuthService {
           : EMAIL_TEMPLATES.CUSTOMER.AUTH_LOGIN_OTP,
         recipient: email,
         data: {
-          name: user?.fullName || email.split("@")[0] || "Valued Customer",
+          name: user?.fullName || user?.name || email.split("@")[0] || "Dear Customer",
           otp,
           expiresInMinutes: 5,
           validityMinutes: 5,

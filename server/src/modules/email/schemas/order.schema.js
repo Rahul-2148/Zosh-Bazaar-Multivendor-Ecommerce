@@ -53,8 +53,30 @@ export function formatOrderViewModel(data = {}) {
     shippingAddress,
     totals,
     user: {
-      fullName: sanitizeString(data.user?.fullName || data.order?.user?.fullName || "Valued Customer"),
-      email: sanitizeString(data.user?.email || data.order?.user?.email || ""),
+      fullName: sanitizeString(
+        data.user?.fullName ||
+        data.user?.name ||
+        data.customer?.fullName ||
+        data.customer?.name ||
+        data.customerName ||
+        data.order?.user?.fullName ||
+        data.order?.user?.name ||
+        data.order?.customer?.fullName ||
+        data.order?.customer?.name ||
+        data.shippingAddress?.name ||
+        data.deliveryAddress?.name ||
+        data.name ||
+        data.fullName ||
+        "Dear Customer"
+      ),
+      email: sanitizeString(
+        data.user?.email ||
+        data.customer?.email ||
+        data.order?.user?.email ||
+        data.order?.customer?.email ||
+        data.email ||
+        ""
+      ),
     },
     cancellationReason: sanitizeString(data.cancellationReason || ""),
     refundAmount: Number(data.refundAmount || 0),
