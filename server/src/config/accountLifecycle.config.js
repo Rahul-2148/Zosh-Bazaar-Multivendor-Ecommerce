@@ -23,7 +23,7 @@ const accountLifecycleConfig = {
 
   // OTP
   OTP_COOLDOWN_SECONDS: 60,
-  OTP_TTL_SECONDS: 300, // 5 minutes
+  OTP_TTL_SECONDS: 600, // 10 minutes (Flipkart / Amazon standard)
 
   // Deletion worker
   WORKER_INTERVAL_MS: parseInt(process.env.DELETION_WORKER_INTERVAL_MS) || 6 * 60 * 60 * 1000, // 6 hours

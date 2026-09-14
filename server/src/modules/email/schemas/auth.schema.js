@@ -16,7 +16,7 @@ export function formatAuthViewModel(data = {}) {
       email: sanitizeString(data.user?.email || data.email || ""),
     },
     otp: sanitizeString(data.otp || ""),
-    validityMinutes: Number(data.validityMinutes) || 5,
+    validityMinutes: Number(data.validityMinutes) || 10,
     actionUrl: sanitizeUrl(data.actionUrl || data.resetUrl || data.verificationUrl || "#"),
     ipAddress: sanitizeString(data.ipAddress || "Unknown IP"),
     device: sanitizeString(data.device || data.userAgent || "Unknown Device"),

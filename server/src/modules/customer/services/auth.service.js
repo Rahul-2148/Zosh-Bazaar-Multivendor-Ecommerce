@@ -49,9 +49,9 @@ class AuthService {
     // Delete old OTP from DB
     await VerificationCode.findOneAndDelete({ email });
 
-    // Generate and save new OTP in Redis (5 min TTL) and cooldown (60s)
+    // Generate and save new OTP in Redis (10 min TTL - Flipkart/Amazon standard) and cooldown (60s)
     const otp = generateOTP();
-    await redisClient.set(`otp:${email}`, otp, 300);
+    await redisClient.set(`otp:${email}`, otp, 600);
     await redisClient.set(`otp_cooldown:${email}`, "1", 60);
 
     // Save in DB as persistent fallback
@@ -70,8 +70,8 @@ class AuthService {
         data: {
           name: user?.fullName || user?.name || email.split("@")[0] || "Dear Customer",
           otp,
-          expiresInMinutes: 5,
-          validityMinutes: 5,
+          expiresInMinutes: 10,
+          validityMinutes: 10,
           purpose: isNewUser ? "Account Registration" : "Account Login Authentication",
           device: "Web Browser",
           time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),

@@ -635,8 +635,8 @@ class AccountService {
         data: {
           name: user.fullName,
           otp,
-          expiresInMinutes: 5,
-          validityMinutes: 5,
+          expiresInMinutes: 10,
+          validityMinutes: 10,
           retentionDays: lifecycleConfig.GRACE_PERIOD_DAYS || 30,
         },
       });

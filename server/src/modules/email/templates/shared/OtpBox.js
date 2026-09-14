@@ -3,10 +3,10 @@
  * Ultra-high contrast, mobile-friendly, safe in both Light and Dark modes.
  *
  * @param {string|number} otp - The numeric or alphanumeric verification code
- * @param {number} [validityMinutes=5] - Expiration duration in minutes
+ * @param {number} [validityMinutes=10] - Expiration duration in minutes
  * @param {string} [label="One-Time Verification Code"] - Security header text
  */
-export function OtpBox(otp, validityMinutes = 5, label = "One-Time Verification Code") {
+export function OtpBox(otp, validityMinutes = 10, label = "One-Time Verification Code") {
   const cleanOtp = String(otp || "123456").trim();
 
   return `
