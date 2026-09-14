@@ -19,6 +19,7 @@
     "build:all": "npm --prefix client run build && npm --prefix admin run build && npm --prefix seller run build && npm --prefix logistics run build && npm --prefix delivery-partner run build",
     "build:parallel": "node scripts/build-parallel.mjs",
     "build:fast": "node scripts/build-fast.mjs",
+    "build:smart": "node scripts/build-cached.mjs",
     "typecheck:client": "npm --prefix client run typecheck",
     "typecheck:admin": "npm --prefix admin run typecheck",
     "typecheck:seller": "npm --prefix seller run typecheck",
