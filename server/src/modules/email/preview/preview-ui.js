@@ -130,14 +130,15 @@ export function renderPreviewDashboardHtml({
   subject,
   preheader,
 }) {
+  const normalizeRole = (r) => String(r || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const counts = {
     all: templates.length,
-    customer: templates.filter((t) => t.recipientRole === "customer").length,
-    seller: templates.filter((t) => t.recipientRole === "seller").length,
-    admin: templates.filter((t) => t.recipientRole === "admin").length,
-    logistics: templates.filter((t) => t.recipientRole === "logistics").length,
-    deliveryPartner: templates.filter((t) => t.recipientRole === "deliveryPartner").length,
-    system: templates.filter((t) => t.recipientRole === "system").length,
+    customer: templates.filter((t) => normalizeRole(t.recipientRole) === "CUSTOMER").length,
+    seller: templates.filter((t) => normalizeRole(t.recipientRole) === "SELLER").length,
+    admin: templates.filter((t) => normalizeRole(t.recipientRole) === "ADMIN" || normalizeRole(t.recipientRole) === "SUPERADMIN").length,
+    logistics: templates.filter((t) => normalizeRole(t.recipientRole) === "LOGISTICS").length,
+    deliveryPartner: templates.filter((t) => normalizeRole(t.recipientRole) === "DELIVERYPARTNER").length,
+    system: templates.filter((t) => normalizeRole(t.recipientRole) === "SYSTEM").length,
   };
 
   const safeTemplates = JSON.stringify(
@@ -321,9 +322,9 @@ export function renderPreviewDashboardHtml({
     }
     .role-customer { background: #0284c7; color: #fff; }
     .role-seller { background: #7c3aed; color: #fff; }
-    .role-admin { background: #dc2626; color: #fff; }
+    .role-admin, .role-superadmin { background: #dc2626; color: #fff; }
     .role-logistics { background: #059669; color: #fff; }
-    .role-deliveryPartner { background: #d97706; color: #fff; }
+    .role-deliverypartner, .role-delivery_partner, .role-deliveryPartner { background: #d97706; color: #fff; }
     .role-system { background: #4b5563; color: #fff; }
     .item-subject {
       font-size: 13px;
@@ -561,7 +562,7 @@ export function renderPreviewDashboardHtml({
             <a href="/dev/emails?template=${t.templateKey}" class="template-item ${isActive}" data-role="${t.recipientRole}" data-key="${t.templateKey}">
               <div class="item-header">
                 <span class="item-key">${t.templateKey}</span>
-                <span class="role-badge role-${t.recipientRole}">${t.recipientRole}</span>
+                <span class="role-badge role-${String(t.recipientRole || '').toLowerCase().replace(/[^a-z0-9]/g, '')}">${t.recipientRole}</span>
               </div>
               <div class="item-subject">${t.subject}</div>
             </a>
@@ -666,9 +667,12 @@ export function renderPreviewDashboardHtml({
 
     let currentSearch = '';
 
+    const cleanRole = (val) => String(val || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
     function syncFilterUI() {
+      const filterNorm = cleanRole(currentFilter);
       tabBtns.forEach(btn => {
-        if (btn.dataset.filter.toLowerCase() === currentFilter.toLowerCase()) {
+        if (cleanRole(btn.dataset.filter) === filterNorm) {
           btn.classList.add('active');
         } else {
           btn.classList.remove('active');
@@ -679,12 +683,14 @@ export function renderPreviewDashboardHtml({
 
     function filterTemplates() {
       let visibleCount = 0;
+      const filterNorm = cleanRole(currentFilter);
+
       templateItems.forEach(item => {
-        const role = item.dataset.role;
+        const role = cleanRole(item.dataset.role);
         const key = item.dataset.key.toLowerCase();
         const text = item.innerText.toLowerCase();
 
-        const matchesFilter = currentFilter === 'all' || role.toLowerCase() === currentFilter.toLowerCase();
+        const matchesFilter = filterNorm === 'all' || role === filterNorm;
         const matchesSearch = !currentSearch || key.includes(currentSearch) || text.includes(currentSearch);
 
         const isVisible = matchesFilter && matchesSearch;
@@ -700,11 +706,13 @@ export function renderPreviewDashboardHtml({
           seller: 'Seller',
           admin: 'Admin',
           logistics: 'Logistics',
+          deliverypartner: 'Partner',
+          delivery_partner: 'Partner',
           deliveryPartner: 'Partner',
           system: 'System',
         };
-        const roleLabel = roleLabels[currentFilter] || (currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1));
-        if (currentFilter === 'all' && !currentSearch) {
+        const roleLabel = roleLabels[currentFilter] || roleLabels[cleanRole(currentFilter)] || (currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1));
+        if (filterNorm === 'all' && !currentSearch) {
           countEl.textContent = templates.length + ' Active Templates';
         } else if (currentSearch) {
           countEl.textContent = visibleCount + ' of ' + templates.length + ' (' + roleLabel + ' Matching)';
