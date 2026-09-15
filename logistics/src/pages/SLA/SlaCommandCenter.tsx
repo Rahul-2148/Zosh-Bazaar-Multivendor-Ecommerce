@@ -7,18 +7,23 @@ import {
   Search,
   RefreshCw,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { logisticsApi } from "../../services/api";
+import { logisticsApi, api } from "../../services/api";
 
 export const SlaCommandCenter: React.FC = () => {
   const [shipments, setShipments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeLane, setActiveLane] = useState<"BREACHED" | "AT_RISK" | "ON_TRACK">("BREACHED");
   const [searchQuery, setSearchQuery] = useState("");
+  const [aiRiskData, setAiRiskData] = useState<any>(null);
 
   useEffect(() => {
     fetchSlaShipments();
+    api.get("/ai/logistics/risk-shipments")
+      .then((res) => setAiRiskData(res.data))
+      .catch((e) => console.error("Error fetching AI risk data:", e));
   }, []);
 
   const fetchSlaShipments = async () => {
@@ -90,6 +95,66 @@ export const SlaCommandCenter: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* AI Delay Risk & Predictive Rerouting Panel */}
+      {aiRiskData && (
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-teal-950 via-slate-900 to-indigo-950 text-white border border-teal-500/30 shadow-lg space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-teal-400/20 text-teal-300">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  AI Predictive SLA Risk Engine
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-teal-400/20 text-teal-300 border border-teal-400/30">
+                    Carrier & Route Anomaly Telemetry
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {aiRiskData.totalMonitoredShipments} shipments monitored • {aiRiskData.highRiskCount} high-probability SLA delay bottlenecks detected
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {aiRiskData.shipments?.map((item: any) => (
+              <div
+                key={item.trackingId}
+                className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-2 flex flex-col justify-between"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-teal-300">
+                      {item.trackingId}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        item.delayRisk === "HIGH"
+                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                      }`}
+                    >
+                      {Math.round(item.delayProbability * 100)}% Delay Prob
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    <strong>Route:</strong> {item.origin} → {item.destination}
+                  </p>
+                  <p className="text-[11px] text-rose-300/90 leading-tight">
+                    <strong>Anomaly:</strong> {item.reason}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-white/10 text-[11px] text-teal-200">
+                  <strong>Suggested Action:</strong> {item.suggestedAction}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 3 Interactive Urgency Banners / Lanes */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -11,28 +11,72 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-// Request Interceptor: Attach token (admin / operator / seller)
+// Request Interceptor: Attach token (logistics operator / admin)
 api.interceptors.request.use(
   (config) => {
-    const token =
+    const rawToken =
       localStorage.getItem("logistics_jwt") ||
       localStorage.getItem("admin_jwt") ||
       localStorage.getItem("jwt");
-    if (token && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${token}`;
+
+    if (
+      rawToken &&
+      rawToken.trim() &&
+      rawToken !== "undefined" &&
+      rawToken !== "null" &&
+      !config.headers.Authorization
+    ) {
+      config.headers.Authorization = `Bearer ${rawToken.trim()}`;
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor
+// Response Interceptor: Handle 401/403 with circuit breaker to prevent request storms
+let isRedirecting = false;
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status;
+
+    if (status === 401) {
+      // Clear invalid session
+      localStorage.removeItem("logistics_jwt");
+      localStorage.removeItem("logistics_operator");
+      window.dispatchEvent(new CustomEvent("logistics:unauthorized"));
+
+      // Redirect to /login if not already on the login page (debounced to avoid storms)
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.includes("/login") &&
+        !isRedirecting
+      ) {
+        isRedirecting = true;
+        setTimeout(() => {
+          window.location.href = "/login?session_expired=true";
+          isRedirecting = false;
+        }, 300);
+      }
+    }
+
     return Promise.reject(error);
   }
 );
+
+/* =========================================================
+   AUTH CONTRACTS
+   ========================================================= */
+
+export const authApi = {
+  sendLoginOtp: (email: string) =>
+    api.post("/auth/sent/login-signup-otp", { email }),
+  signin: (data: { email: string; otp?: string; password?: string }) =>
+    api.post("/auth/signin", data),
+  getProfile: () => api.get("/user/profile"),
+};
+
 
 /* =========================================================
    LOGISTICS API CONTRACTS

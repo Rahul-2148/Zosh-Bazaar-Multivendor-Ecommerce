@@ -18,6 +18,7 @@ import {
   ViewCarouselOutlined,
   ChevronLeftOutlined,
   ChevronRightOutlined,
+  AutoAwesomeOutlined,
 } from "@mui/icons-material";
 import { Tooltip } from "@mui/material";
 import { useAdminAuth } from "../../context/AdminAuthContext";
@@ -34,6 +35,7 @@ const navSections = [
     title: "Operations",
     items: [
       { path: "/", label: "Dashboard", icon: <DashboardOutlined /> },
+      { path: "/ai", label: "AI Control Center", icon: <AutoAwesomeOutlined className="text-teal-400" /> },
       { path: "/orders", label: "Orders & Fulfillment", icon: <ShoppingCartOutlined /> },
       { path: "/sellers", label: "Vendors & Sellers", icon: <StorefrontOutlined /> },
       { path: "/customers", label: "Customers", icon: <PeopleAltOutlined /> },

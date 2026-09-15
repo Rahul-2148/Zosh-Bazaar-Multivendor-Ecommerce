@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: zosh-bazaar-ai
+Version: 1.0.0
+Summary: Dedicated AI/ML and Recommendation Platform for Zosh Bazaar Multi-Vendor Marketplace
+Author: Rahul Raj Modi
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.30.0
+Requires-Dist: pydantic>=2.8.0
+Requires-Dist: pydantic-settings>=2.4.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pymongo>=4.8.0
+Requires-Dist: redis>=5.0.8
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: scipy>=1.13.0
+Requires-Dist: scikit-learn>=1.5.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: ruff>=0.5.0; extra == "dev"
+
+# Zosh Bazaar AI/ML Platform
+
+Production-grade Python AI/ML platform for **Zosh Bazaar** multi-vendor marketplace.
+Provides real-time recommendations, grounded conversational shopping assistance, semantic search, behavioral event telemetry, and multi-surface commerce intelligence.
+
+## Platform Architecture
+
+```
+                 ZOSH BAZAAR
+                      │
+      ┌───────────────┼────────────────┐
+      │               │                │
+   CLIENT          SELLER            ADMIN
+      │               │                │
+      └───────────────┼────────────────┘
+                      │
+                  SERVER/API
+                      │
+              EVENT / DATA LAYER
+                      │
+             ┌────────┴─────────┐
+             │                  │
+          ONLINE AI          OFFLINE ML
+             │                  │
+       ┌─────┼─────┐       ┌────┼─────────┐
+       │     │     │       │    │         │
+      REC   SEARCH VISION TRAIN EVAL    FEATURES
+       │     │     │       │    │         │
+       └─────┴─────┴───────┴────┴─────────┘
+                      │
+                MODEL REGISTRY
+                      │
+                EXPERIMENTATION
+                      │
+                 OBSERVABILITY
+```
+
+## Getting Started
+
+### Local Development
+```bash
+# Using uv (fastest)
+cd ai
+uv venv .venv --python 3.12
+uv pip install -r requirements/base.txt -r requirements/ml.txt -r requirements/dev.txt
+
+# Run the AI server
+uv run uvicorn ai.apps.main:app --reload --port 8000
+
+# Run automated test suite
+uv run pytest tests/ -v
+```

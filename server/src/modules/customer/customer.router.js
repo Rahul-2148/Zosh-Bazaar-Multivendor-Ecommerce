@@ -16,6 +16,7 @@ import couponRouter from "./routes/coupon.route.js";
 import notificationRouter from "./routes/notification.route.js";
 import uploadRouter from "./routes/upload.route.js";
 import accountRouter from "./routes/account.route.js";
+import aiRouter from "../ai/ai.router.js";
 
 const customerRouter = express.Router();
 
@@ -38,6 +39,8 @@ customerRouter.use("/wishlist", wishlistRouter);
 customerRouter.use("/coupon", couponRouter);
 customerRouter.use("/notifications", notificationRouter);
 customerRouter.use("/upload", uploadRouter);
+customerRouter.use("/recommendations", aiRouter);
+customerRouter.use("/ai", aiRouter);
 
 export default customerRouter;
 

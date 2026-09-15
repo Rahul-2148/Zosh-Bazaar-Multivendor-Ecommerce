@@ -8,6 +8,7 @@ import PageLoader from "./common/PageLoader";
 import { fetchUserCart } from "./Redux Toolkit/features/customer/CartSlice";
 import { getWishlist } from "./Redux Toolkit/features/customer/WishlistSlice";
 import PublicOnlyRoute from "./customer/components/RouteGuards/PublicOnlyRoute";
+import FloatingAIAssistant from "./customer/components/AI/FloatingAIAssistant";
 
 // Route-level code splitting for ultra-fast startup and small initial bundles
 const CustomerRoutes = lazy(() => import("./routes/CustomerRoutes"));
@@ -61,6 +62,7 @@ function App() {
               <Route path="/*" element={<CustomerRoutes />} />
             </Routes>
           </Suspense>
+          <FloatingAIAssistant />
         </BrowserRouter>
       </SnackbarProvider>
     </ThemeProvider>

@@ -1,0 +1,8 @@
+{
+  "venvPath": "ai",
+  "venv": ".venv",
+  "extraPaths": [
+    ".",
+    "ai"
+  ]
+}

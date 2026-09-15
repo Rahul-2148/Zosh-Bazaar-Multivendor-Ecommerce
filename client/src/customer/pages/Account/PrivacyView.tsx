@@ -12,7 +12,10 @@ import {
   LockOutlined,
   ShieldOutlined,
   CancelOutlined,
+  RestartAltOutlined,
+  AutoAwesomeOutlined,
 } from "@mui/icons-material";
+import { aiCommerceService } from "../../../services/aiCommerceService";
 import {
   Button,
   Modal,
@@ -78,6 +81,22 @@ export const PrivacyView: React.FC = () => {
   // Privacy toggles
   const [personalization, setPersonalization] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [resettingAi, setResettingAi] = useState(false);
+  const [aiResetSuccess, setAiResetSuccess] = useState(false);
+
+  const handleResetAiProfile = async () => {
+    setResettingAi(true);
+    setError(null);
+    try {
+      await aiCommerceService.resetPersonalization();
+      setAiResetSuccess(true);
+      setTimeout(() => setAiResetSuccess(false), 4000);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to reset AI profile");
+    } finally {
+      setResettingAi(false);
+    }
+  };
 
   // Deactivation
   const [deactivateOpen, setDeactivateOpen] = useState(false);
@@ -337,6 +356,57 @@ export const PrivacyView: React.FC = () => {
         >
           {downloading ? "Preparing Download..." : "Download My Data"}
         </Button>
+      </div>
+
+      {/* ── AI Personalization & Model Governance ───────── */}
+      <div className="privacy-section" style={{ marginBottom: 24 }}>
+        <div className="section-header" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <AutoAwesomeOutlined style={{ color: "#0d9488" }} />
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>AI Commerce & Personalization Brain</h3>
+        </div>
+
+        {aiResetSuccess && (
+          <Alert severity="success" sx={{ mb: 2, borderRadius: "12px" }}>
+            Personalization profile, session telemetry, and derived affinity reset successfully.
+          </Alert>
+        )}
+
+        <div style={{
+          padding: "18px 20px",
+          background: "var(--surface-bg, #f8f9fa)",
+          borderRadius: 14,
+          border: "1px solid var(--border-color, #e5e7eb)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>Reset Personalization Profile & Memory</div>
+            <p style={{ fontSize: 13, color: "var(--text-muted, #666)", margin: "4px 0 0 0", lineHeight: 1.5 }}>
+              Wipes all learned categories, brand affinities, behavioral event logs, and conversational shopping memory. You will start with a fresh neutral catalog baseline.
+            </p>
+          </div>
+
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={resettingAi ? <CircularProgress size={16} /> : <RestartAltOutlined />}
+            onClick={handleResetAiProfile}
+            disabled={resettingAi}
+            sx={{
+              alignSelf: "flex-start",
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+              fontSize: 13,
+              borderColor: "#0d9488",
+              color: "#0d9488",
+              "&:hover": { bgcolor: "rgba(13, 148, 136, 0.08)", borderColor: "#0f766e" },
+            }}
+          >
+            {resettingAi ? "Resetting Behavioral Profile..." : "Reset AI Profile"}
+          </Button>
+        </div>
       </div>
 
       {/* ── Deactivate Account ─────────────────────────── */}

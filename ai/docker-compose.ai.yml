@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  zosh-bazaar-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zosh-bazaar-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://ai-redis:6379
+      - MONGODB_URI=${MONGODB_URI}
+    depends_on:
+      - ai-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  ai-redis:
+    image: redis:7-alpine
+    container_name: zosh-bazaar-ai-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - ai_redis_data:/data
+
+volumes:
+  ai_redis_data:

@@ -63,6 +63,11 @@ const Transactions = lazy(() =>
     default: m.Transactions,
   }))
 );
+const AdminAICenter = lazy(() =>
+  import("../pages/AI/AdminAICenter").then((m) => ({
+    default: m.AdminAICenter,
+  }))
+);
 
 // RBAC Protected Route Gate
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -130,6 +135,7 @@ export const AdminRoutes = () => {
           }
         >
           <Route path="/" element={<Dashboard />} />
+          <Route path="/ai" element={<AdminAICenter />} />
           <Route path="/sellers" element={<Sellers />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/products" element={<Products />} />

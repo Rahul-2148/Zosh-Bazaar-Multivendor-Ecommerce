@@ -22,29 +22,55 @@ export const ControlTowerOverview: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { alerts, connected } = useLogisticsSocket();
+  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchMetrics = async () => {
+
+  const fetchMetrics = React.useCallback(async () => {
     try {
       setRefreshing(true);
       const res = await logisticsApi.getOverview();
       if (res.data?.data) {
         setData(res.data.data);
+        setError(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching control tower overview:", err);
+      const status = err.response?.status;
+      if (status === 401 || status === 403) {
+        setError(
+          err.response?.data?.message ||
+            "Authentication required. Please sign in to access logistics control telemetry."
+        );
+        // Circuit breaker: cancel recurring polling immediately on auth failures
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        setError("Telemetry connection interrupted. Retrying on next sync cycle.");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMetrics();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
-  }, []);
+
+    // Auto-refresh every 30 seconds with clean teardown
+    intervalRef.current = setInterval(fetchMetrics, 30000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [fetchMetrics]);
+
 
   const overview = data?.liveOverview || {
     shipmentsToday: 0,
@@ -122,6 +148,30 @@ export const ControlTowerOverview: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Telemetry Fetch / Auth Error Banner */}
+      {error && (
+        <div className="p-3.5 rounded-2xl bg-warning/10 border border-warning/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-warning font-semibold">
+            <ReportProblemOutlined fontSize="small" />
+            <span>{error}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchMetrics}
+              className="px-3 py-1 rounded-lg bg-card border border-border text-foreground font-medium text-[11px] hover:bg-surface-hover transition-colors"
+            >
+              Retry Sync
+            </button>
+            <Link
+              to="/login"
+              className="px-3 py-1 rounded-lg bg-primary text-primary-foreground font-medium text-[11px] hover:opacity-90 transition-opacity"
+            >
+              Sign In
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Critical Interventions / Attention Bar */}
       {(overview.failedDeliveries > 0 || sla.breached > 0 || network.openExceptions > 0) && (

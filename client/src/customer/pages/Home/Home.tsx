@@ -11,11 +11,16 @@ import Deal from "./Deal/Deal";
 import HomeCategory from "./HomeCategory/HomeCategory";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import { fetchMarketplaceFeed } from "../../../Redux Toolkit/features/customer/HomeCategorySlice";
+import { fetchHomeRecommendations } from "../../../services/aiRecommendationService";
+import { aiTracker } from "../../../services/aiEventTracker";
 import sellerBannerImage from "../../../assets/seller_banner_image.jpg";
 
 const Home = () => {
   const dispatch = useAppDispatch();
   const { marketplaceFeed, loading } = useAppSelector((store) => store.homeCategory);
+
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+  const [aiSubtitle, setAiSubtitle] = useState<string>("Personalized picks powered by Zosh AI");
 
   const [recentlyViewed] = useState<any[]>(() => {
     try {
@@ -28,6 +33,51 @@ const Home = () => {
 
   useEffect(() => {
     dispatch(fetchMarketplaceFeed());
+
+    // Fetch dynamic multi-stage AI recommendations for customer homepage
+    fetchHomeRecommendations(6, "home_for_you").then((res) => {
+      if (res && res.recommendations && res.recommendations.length > 0) {
+        // Normalize product objects to match ProductRail props
+        const normalized = res.recommendations.map((item) => ({
+          _id: item.productId,
+          title: item.title,
+          brand: item.brand,
+          sellingPrice: item.sellingPrice,
+          mrpPrice: item.mrpPrice,
+          discountPercent: item.discountPercent,
+          images: item.images,
+          ratings: { average: item.ratingAverage || 4.5, count: item.ratingCount || 15 },
+          countInStock: item.inStock ? 10 : 0,
+          category: { categoryId: item.categoryId || "all" },
+          recommendationContext: {
+            recommendationId: `rec_${item.productId}`,
+            requestId: res.requestId,
+            placement: res.placement,
+            modelVersion: res.modelVersion,
+          },
+        }));
+        setAiRecommendations(normalized);
+
+        const firstExplanation = res.recommendations[0]?.explanationText;
+        if (firstExplanation) {
+          setAiSubtitle(firstExplanation);
+        }
+
+        // Track recommendation impression batch
+        res.recommendations.forEach((it, idx) => {
+          aiTracker.trackRecommendationImpression(
+            {
+              recommendationId: `rec_${it.productId}`,
+              requestId: res.requestId,
+              placement: res.placement,
+              modelVersion: res.modelVersion,
+              rankPosition: idx + 1,
+            },
+            it.productId
+          );
+        });
+      }
+    });
   }, [dispatch]);
 
   if (loading && !marketplaceFeed) {
@@ -66,6 +116,17 @@ const Home = () => {
       {/* 4. Live Flash Deals Section with Countdown */}
       {feed.flashDeals && feed.flashDeals.length > 0 && (
         <FlashDealsSection deals={feed.flashDeals} />
+      )}
+
+      {/* 4.5. AI Personalized Recommender Rail */}
+      {aiRecommendations.length > 0 && (
+        <ProductRail
+          title="Recommended For You"
+          subtitle={aiSubtitle}
+          products={aiRecommendations}
+          badge="AI Powered"
+          viewAllUrl="/products"
+        />
       )}
 
       {/* 5. Top Rated Products Carousel */}

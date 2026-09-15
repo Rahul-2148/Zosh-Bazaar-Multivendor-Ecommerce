@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Store,
+  AutoAwesomeOutlined,
 } from "@mui/icons-material";
 import { Tooltip } from "@mui/material";
 import { useSocket } from "../../context/SocketContext";
@@ -46,6 +47,11 @@ export const SellerSidebar: React.FC<{
       title: "Dashboard",
       path: "/",
       icon: <DashboardOutlined fontSize="small" />,
+    },
+    {
+      title: "AI Insights",
+      path: "/ai-insights",
+      icon: <AutoAwesomeOutlined fontSize="small" className="text-teal-500" />,
     },
     {
       title: "Products",

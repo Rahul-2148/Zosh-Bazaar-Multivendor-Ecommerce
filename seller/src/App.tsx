@@ -14,6 +14,7 @@ import { OrderList } from "./pages/Orders/OrderList";
 import { ReturnsCenter } from "./pages/Returns/ReturnsCenter";
 import { FinancesPage } from "./pages/Finances/FinancesPage";
 import { StoreProfile } from "./pages/Store/StoreProfile";
+import { AIInsightsCenter } from "./pages/AIInsights/AIInsightsCenter";
 import { SellerLogin } from "./pages/Auth/SellerLogin";
 import { SellerRegister } from "./pages/Auth/SellerRegister";
 
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
                 }
               >
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/ai-insights" element={<AIInsightsCenter />} />
                 <Route path="/products" element={<ProductList />} />
                 <Route path="/products/new" element={<ProductEditor />} />
                 <Route path="/products/:id/edit" element={<ProductEditor />} />

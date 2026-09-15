@@ -15,6 +15,9 @@ import {
 } from "@mui/icons-material";
 import { Button, Alert, CircularProgress } from "@mui/material";
 import SimilarProducts from "./SimilarProducts";
+import PriceHistoryWidget from "./PriceHistoryWidget";
+import AIReviewSummary from "./AIReviewSummary";
+import { aiTracker } from "../../../../services/aiEventTracker";
 import {
   useAppDispatch,
   useAppSelector,
@@ -64,6 +67,14 @@ const ProductDetails: React.FC = () => {
           ...filtered,
         ].slice(0, 10);
         localStorage.setItem("zosh_recently_viewed", JSON.stringify(updated));
+
+        // Track AI product view event
+        aiTracker.trackProductView(
+          currentProduct._id,
+          currentProduct.category?.categoryId || currentProduct.category?._id,
+          currentProduct.brand,
+          currentProduct.sellingPrice
+        );
       } catch {
         // ignore
       }
@@ -670,6 +681,14 @@ const ProductDetails: React.FC = () => {
         </section>
       </div>
 
+      {/* Price Intelligence & Trend Chart */}
+      {currentProduct?._id && (
+        <PriceHistoryWidget
+          productId={currentProduct._id}
+          currentPrice={displaySellingPrice}
+        />
+      )}
+
       {/* Description & Dynamic Specifications Table */}
       <div className="bg-card rounded-3xl border border-border shadow-sm p-6 lg:p-10 space-y-8">
         <div>
@@ -723,6 +742,11 @@ const ProductDetails: React.FC = () => {
             </button>
           )}
         </div>
+
+        {/* AI Aspect-Based Review Summary */}
+        {currentProduct?._id && (
+          <AIReviewSummary productId={currentProduct._id} />
+        )}
 
         {/* Review Submission Form */}
         {showReviewForm && (
@@ -850,7 +874,7 @@ const ProductDetails: React.FC = () => {
       {/* Similar Products */}
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-bold text-foreground">Similar Products You May Like</h2>
-        <SimilarProducts />
+        <SimilarProducts productId={currentProduct?._id || productId} />
       </section>
 
       {/* Mobile Sticky Bottom Commerce Bar */}

@@ -1,5 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { LogisticsLogin } from "./pages/Auth/LogisticsLogin";
 import { LogisticsLayout } from "./components/layout/LogisticsLayout";
 import { ControlTowerOverview } from "./pages/Overview/ControlTowerOverview";
 import { LiveOperationsBoard } from "./pages/Operations/LiveOperationsBoard";
@@ -21,7 +23,18 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LogisticsLayout />}>
+        {/* Public Authentication Route */}
+        <Route path="/login" element={<LogisticsLogin />} />
+
+        {/* Protected Control Tower Suite */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <LogisticsLayout />
+            </ProtectedRoute>
+          }
+        >
           {/* Mission Control */}
           <Route index element={<ControlTowerOverview />} />
           <Route path="operations" element={<LiveOperationsBoard />} />

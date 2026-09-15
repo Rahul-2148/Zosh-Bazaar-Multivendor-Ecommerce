@@ -15,6 +15,7 @@ import {
   NotificationsNoneOutlined,
   AdminPanelSettingsOutlined,
   KeyboardArrowDown,
+  CameraAltOutlined,
 } from "@mui/icons-material";
 import {
   Avatar,
@@ -40,6 +41,7 @@ import CategorySheet from "./CategorySheet";
 import LocationSelector from "./LocationSelector";
 import NotificationsPopover from "./NotificationsPopover";
 import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
+import VisualSearchLensModal from "../components/AI/VisualSearchLensModal";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../Redux Toolkit/Store";
 import { performLogout } from "../../Redux Toolkit/features/Auth/AuthSlice";
@@ -102,6 +104,7 @@ const Navbar = () => {
 
   const { mode, isDark, setTheme } = useAppTheme();
   const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
+  const [lensModalOpen, setLensModalOpen] = useState(false);
 
   const handleOpenThemeMenu = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -426,6 +429,16 @@ const Navbar = () => {
               <IconButton type="submit" size="small" aria-label="Search" className="p-1">
                 <Search sx={{ fontSize: 19 }} className="text-muted-foreground group-focus-within:text-primary transition-colors" />
               </IconButton>
+              <Tooltip title="Search by image (Visual Lens)">
+                <IconButton
+                  size="small"
+                  onClick={() => setLensModalOpen(true)}
+                  aria-label="Visual Search Lens"
+                  className="p-1 text-teal-600 dark:text-teal-400 hover:text-teal-700"
+                >
+                  <CameraAltOutlined sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
             </div>
           </form>
 
@@ -858,6 +871,7 @@ const Navbar = () => {
           )}
         </Box>
       </Drawer>
+      <VisualSearchLensModal isOpen={lensModalOpen} onClose={() => setLensModalOpen(false)} />
     </header>
     {/* Structural layout spacer to prevent page content from being obscured underneath fixed header */}
     <div className="h-[106px] md:h-[110px] shrink-0 pointer-events-none" aria-hidden="true" />
