@@ -30,6 +30,7 @@ pnpm-debug.log*
 
 # IDE and OS files
 .vscode/*
+!.vscode/settings.json
 !.vscode/extensions.json
 .idea/
 .DS_Store
@@ -37,3 +38,21 @@ Thumbs.db
 
 # Build Cache
 .build-cache/
+
+# Python & AI
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+env/
+venv/
+ENV/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+
