@@ -18,6 +18,7 @@ import wishlistReducer from "./features/customer/WishlistSlice";
 import categoryReducer from "./features/customer/CategorySlice";
 import reviewReducer from "./features/customer/ReviewSlice";
 import locationReducer from "./features/customer/LocationSlice";
+import aiAssistantReducer from "./features/customer/AiAssistantSlice";
 
 // RTK Query client API
 import { clientApi } from "./api/clientApiSlice";
@@ -35,6 +36,7 @@ const rootReducer = combineReducers({
   homeCategory: homeCategoryReducer,
   wishlist: wishlistReducer,
   location: locationReducer,
+  aiAssistant: aiAssistantReducer,
 });
 
 const store = configureStore({

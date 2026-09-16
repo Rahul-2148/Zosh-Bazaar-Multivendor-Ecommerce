@@ -18,8 +18,10 @@ import {
   LocationOnOutlined,
   Close,
   TimelineOutlined,
+  AutoAwesome,
 } from "@mui/icons-material";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
+import { openAssistant } from "../../../Redux Toolkit/features/customer/AiAssistantSlice";
 import { useEffect, useState } from "react";
 import {
   fetchOrderById,
@@ -190,6 +192,78 @@ const OrderDetails = () => {
               Request Return
             </Button>
           )}
+        </div>
+      </div>
+
+      {/* AI Order Help Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent border border-teal-500/20 rounded-2xl">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <AutoAwesome sx={{ fontSize: 20 }} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-foreground">Need quick help with this order?</h4>
+            <p className="text-xs text-muted-foreground">
+              Track live transit, ask why delivery is delayed, or check refund and return conditions.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              dispatch(
+                openAssistant({
+                  context: {
+                    page: "order",
+                    orderId: currentOrder._id,
+                    orderStatus: currentOrder.orderStatus,
+                  },
+                  initialMessage: "Where is my order?",
+                })
+              );
+            }}
+            sx={{
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: "0.6rem",
+              fontSize: "12px",
+              borderColor: "rgba(0, 146, 124, 0.4)",
+              color: "#00927c",
+            }}
+          >
+            Where is my order?
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => {
+              dispatch(
+                openAssistant({
+                  context: {
+                    page: "order",
+                    orderId: currentOrder._id,
+                    orderStatus: currentOrder.orderStatus,
+                  },
+                  initialMessage: "Can I return or cancel this order?",
+                })
+              );
+            }}
+            startIcon={<AutoAwesome sx={{ fontSize: 16 }} />}
+            sx={{
+              bgcolor: "#00927c",
+              "&:hover": { bgcolor: "#007a68" },
+              textTransform: "none",
+              fontWeight: 600,
+              borderRadius: "0.6rem",
+              fontSize: "12px",
+              px: 2,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Ask Order AI
+          </Button>
         </div>
       </div>
 

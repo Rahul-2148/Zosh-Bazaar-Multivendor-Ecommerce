@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import AccountRoutes from "../../components/AccountRoutes";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   DashboardOutlined,
   ShoppingBagOutlined,
@@ -351,7 +350,7 @@ export const Profile: React.FC = () => {
 
         {/* Main Content Area (9 cols) */}
         <main className="lg:col-span-9 border border-border/80 bg-card rounded-2xl p-3.5 sm:p-6 shadow-xs min-w-0">
-          <AccountRoutes />
+          <Outlet />
         </main>
       </div>
 

@@ -16,6 +16,7 @@ import {
   AdminPanelSettingsOutlined,
   KeyboardArrowDown,
   CameraAltOutlined,
+  AutoAwesome,
 } from "@mui/icons-material";
 import {
   Avatar,
@@ -42,6 +43,7 @@ import LocationSelector from "./LocationSelector";
 import NotificationsPopover from "./NotificationsPopover";
 import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
 import VisualSearchLensModal from "../components/AI/VisualSearchLensModal";
+import { openAssistant } from "../../Redux Toolkit/features/customer/AiAssistantSlice";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../Redux Toolkit/Store";
 import { performLogout } from "../../Redux Toolkit/features/Auth/AuthSlice";
@@ -437,6 +439,23 @@ const Navbar = () => {
                   className="p-1 text-teal-600 dark:text-teal-400 hover:text-teal-700"
                 >
                   <CameraAltOutlined sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Ask AI Shopping Assistant (Alt+A)">
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    dispatch(
+                      openAssistant({
+                        context: { searchQuery: searchQuery || undefined },
+                        initialMessage: searchQuery ? `Tell me about ${searchQuery}` : undefined,
+                      })
+                    )
+                  }
+                  aria-label="Ask AI Assistant"
+                  className="p-1 text-teal-600 dark:text-teal-400 hover:text-teal-700"
+                >
+                  <AutoAwesome sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             </div>

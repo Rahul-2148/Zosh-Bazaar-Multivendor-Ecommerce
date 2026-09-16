@@ -124,18 +124,120 @@ export interface BuyingGuideResponse {
 }
 
 export const aiCommerceService = {
-  // 1. Conversational Shopping Assistant 2.0
+  // 1. Conversational Shopping Assistant 3.0 (REST & SSE Stream)
   async chatAssistant(
     messages: Array<{ role: string; content: string }>,
     persistedContext: Record<string, any> = {}
   ): Promise<AssistantChatResponse> {
     const sessionId = aiTracker.getSessionId();
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content || "";
     const res = await Api.post("/ai/assistant/chat", {
       messages,
+      message: lastUserMsg,
       sessionId,
       persistedContext,
+      currentProductId: persistedContext.currentProductId,
+      cartProductIds: persistedContext.cartProductIds,
     });
     return res.data;
+  },
+
+  async chatAssistantStream(
+    messages: Array<{ role: string; content: string }>,
+    persistedContext: Record<string, any> = {},
+    callbacks: {
+      onToken?: (token: string) => void;
+      onStep?: (step: ExecutionStep) => void;
+      onPayload?: (payload: Partial<AssistantChatResponse>) => void;
+      onDone?: () => void;
+      onError?: (err: any) => void;
+    }
+  ): Promise<void> {
+    const sessionId = aiTracker.getSessionId();
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+    const token = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
+    const authHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token && token !== "undefined" && token !== "null") {
+      authHeaders.Authorization = `Bearer ${token.trim()}`;
+    }
+
+    const API_BASE = (Api.defaults.baseURL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+
+    try {
+      const response = await fetch(`${API_BASE}/ai/assistant/stream`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          messages,
+          message: lastUserMsg,
+          sessionId,
+          persistedContext,
+          currentProductId: persistedContext.currentProductId,
+          cartProductIds: persistedContext.cartProductIds,
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Streaming failed with HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const jsonStr = trimmed.slice(5).trim();
+          if (!jsonStr) continue;
+
+          try {
+            const eventData = JSON.parse(jsonStr);
+            if (eventData.type === "token") {
+              callbacks.onToken?.(eventData.token);
+            } else if (eventData.type === "step") {
+              callbacks.onStep?.(eventData.step);
+            } else if (eventData.type === "payload") {
+              callbacks.onPayload?.(eventData);
+            } else if (eventData.type === "done") {
+              callbacks.onDone?.();
+            } else if (eventData.type === "error") {
+              callbacks.onError?.(eventData.message);
+            }
+          } catch {
+            // Ignore malformed chunk
+          }
+        }
+      }
+      callbacks.onDone?.();
+    } catch (streamErr) {
+      console.warn("Streaming unavailable, falling back to synchronous assistant response:", streamErr);
+      try {
+        const res = await this.chatAssistant(messages, persistedContext);
+        if (res.executionSteps) {
+          for (const step of res.executionSteps) {
+            callbacks.onStep?.(step);
+          }
+        }
+        if (res.reply) {
+          callbacks.onToken?.(res.reply);
+        }
+        callbacks.onPayload?.(res);
+        callbacks.onDone?.();
+      } catch (err) {
+        callbacks.onError?.(err);
+      }
+    }
   },
 
   // 2. Price Intelligence

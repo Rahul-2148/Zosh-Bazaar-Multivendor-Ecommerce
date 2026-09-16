@@ -6,9 +6,11 @@ import {
   Add,
   CloudSyncOutlined,
   SelectAll,
+  AutoAwesome,
 } from "@mui/icons-material";
 import { Button } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
+import { openAssistant } from "../../../Redux Toolkit/features/customer/AiAssistantSlice";
 import {
   getWishlist,
   deleteCollection,
@@ -496,6 +498,57 @@ export const Wishlist: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Contextual AI Assistant Banner */}
+          {items.length > 1 && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent border border-teal-500/20 rounded-xl mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <AutoAwesome sx={{ fontSize: 18 }} />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                    Deciding between items?
+                  </h4>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Let Zosh AI analyze specifications, verified prices, and ratings to pick the best product.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => {
+                  dispatch(
+                    openAssistant({
+                      context: {
+                        page: "wishlist",
+                        wishlistItems: items.map((i) => ({
+                          id: i.product?._id,
+                          title: i.product?.title,
+                          price: i.product?.sellingPrice,
+                        })),
+                      },
+                      initialMessage: "Which one from my wishlist should I buy?",
+                    })
+                  );
+                }}
+                startIcon={<AutoAwesome sx={{ fontSize: 16 }} />}
+                sx={{
+                  bgcolor: "#00927c",
+                  "&:hover": { bgcolor: "#007a68" },
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderRadius: "0.5rem",
+                  fontSize: "12px",
+                  px: 2,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Compare with AI
+              </Button>
+            </div>
+          )}
 
           {/* Search, Filter & Sort Toolbar */}
           <WishlistFilters

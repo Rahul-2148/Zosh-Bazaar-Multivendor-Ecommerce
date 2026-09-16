@@ -28,6 +28,8 @@ import {
 } from "../../../Redux Toolkit/features/customer/CartSlice";
 import { saveForLater } from "../../../Redux Toolkit/features/customer/WishlistSlice";
 import { applyCoupon } from "../../../Redux Toolkit/features/customer/CouponSlice";
+import { openAssistant } from "../../../Redux Toolkit/features/customer/AiAssistantSlice";
+import { Sparkles } from "lucide-react";
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -359,6 +361,57 @@ const Cart = () => {
 
         {/* Right: Order Summary & Coupon (Sticky below 110px navbar) */}
         <div className="w-full lg:w-[380px] shrink-0 flex flex-col gap-6 lg:sticky lg:top-[128px]">
+          {/* AI Bag Assistant Helper Card */}
+          <div className="border border-teal-500/30 bg-teal-500/5 text-card-foreground rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-xs font-extrabold text-foreground">
+                AI Bag Assistant
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Ask questions about your bag, check delivery, or find complementary accessories.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  dispatch(
+                    openAssistant({
+                      context: {
+                        pageType: "cart",
+                        cartProductIds: cart?.cart?.cartItems?.map((ci: any) => ci.product?._id || ci.product?.productId),
+                      },
+                      initialMessage: "What else should I buy with this?",
+                    })
+                  )
+                }
+                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-850 border border-border text-foreground hover:border-teal-500 hover:text-teal-600 transition cursor-pointer"
+              >
+                + Add Complementary Items
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  dispatch(
+                    openAssistant({
+                      context: {
+                        pageType: "cart",
+                        cartProductIds: cart?.cart?.cartItems?.map((ci: any) => ci.product?._id || ci.product?.productId),
+                      },
+                      initialMessage: "What is in my cart?",
+                    })
+                  )
+                }
+                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-850 border border-border text-foreground hover:border-teal-500 hover:text-teal-600 transition cursor-pointer"
+              >
+                Review Cart Details
+              </button>
+            </div>
+          </div>
+
           {/* Coupon Box */}
           <div className="border border-border bg-card text-card-foreground rounded-2xl p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-3">

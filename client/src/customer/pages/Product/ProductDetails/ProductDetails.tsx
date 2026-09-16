@@ -17,6 +17,7 @@ import { Button, Alert, CircularProgress } from "@mui/material";
 import SimilarProducts from "./SimilarProducts";
 import PriceHistoryWidget from "./PriceHistoryWidget";
 import AIReviewSummary from "./AIReviewSummary";
+import ContextualPDPAskAI from "../../../components/AI/ContextualPDPAskAI";
 import { aiTracker } from "../../../../services/aiEventTracker";
 import {
   useAppDispatch,
@@ -678,6 +679,11 @@ const ProductDetails: React.FC = () => {
               <span>Secure Digital Payment</span>
             </div>
           </div>
+
+          {/* Contextual AI Shopping Assistant Section */}
+          {currentProduct && (
+            <ContextualPDPAskAI product={currentProduct} />
+          )}
         </section>
       </div>
 

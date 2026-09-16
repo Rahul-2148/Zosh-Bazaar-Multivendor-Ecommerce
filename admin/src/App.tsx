@@ -1,18 +1,8 @@
-import { BrowserRouter } from "react-router-dom";
-import { AdminAuthProvider } from "./context/AdminAuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
-import { AdminRoutes } from "./routes/AdminRoutes";
+import { RouterProvider } from "react-router-dom";
+import { router } from "./router";
 
-function App() {
-  return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AdminAuthProvider>
-          <AdminRoutes />
-        </AdminAuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  );
+export function App() {
+  return <RouterProvider router={router} />;
 }
 
 export default App;

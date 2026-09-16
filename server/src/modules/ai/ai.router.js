@@ -14,6 +14,7 @@ aiRouter.post("/events", aiController.ingestEvents);
 
 // 3. Grounded Conversational Shopping Assistant
 aiRouter.post("/assistant/chat", aiController.chatAssistant);
+aiRouter.post("/assistant/stream", aiController.streamAssistant);
 
 // 4. Price Intelligence & Price Drop Alerts
 aiRouter.get("/pricing/history/:productId", aiController.getPriceHistory);
