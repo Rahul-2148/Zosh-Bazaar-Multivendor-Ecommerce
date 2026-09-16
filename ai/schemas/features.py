@@ -24,9 +24,26 @@ class UserFeatures(BaseModel):
     totalViews: int = 0
     totalCartAdds: int = 0
     totalPurchases: int = 0
+    purchasedProductIds: list[str] = Field(default_factory=list)
     recentlyViewedProductIds: list[str] = Field(default_factory=list)
     recentSearchQueries: list[str] = Field(default_factory=list)
     updatedAt: datetime = Field(default_factory=utc_now)
+
+    @property
+    def categoryAffinity(self) -> dict[str, float]:
+        return self.categoryAffinities
+
+    @property
+    def brandAffinity(self) -> dict[str, float]:
+        return self.brandAffinities
+
+    @property
+    def priceSensitivityTier(self) -> str:
+        if self.discountSensitivity > 0.7:
+            return "BUDGET"
+        elif self.discountSensitivity < 0.3:
+            return "PREMIUM"
+        return "MID"
 
 
 class SessionFeatures(BaseModel):

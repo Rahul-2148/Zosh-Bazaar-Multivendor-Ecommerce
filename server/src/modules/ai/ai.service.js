@@ -1,6 +1,8 @@
 import { Product } from "../../models/product.model.js";
 import { AiEvent } from "../../models/aiEvent.model.js";
 import { priceIntelligenceService } from "./priceIntelligence.service.js";
+import { aiGateway } from "./gateway/aiGateway.js";
+import { PROVIDER_SPECIFICATIONS } from "./schemas/providerCapabilities.js";
 
 class AiService {
   constructor() {
@@ -431,11 +433,30 @@ class AiService {
     };
   }
 
+  async getGatewayHealth() {
+    return aiGateway.getMeshHealth();
+  }
+
+  async getGatewayProviders() {
+    const health = aiGateway.getMeshHealth();
+    return Object.entries(PROVIDER_SPECIFICATIONS).map(([id, spec]) => ({
+      providerId: id,
+      displayName: spec.displayName,
+      capabilities: spec.capabilities,
+      configured: health[id]?.configured ?? false,
+      status: health[id]?.status ?? "UNCONFIGURED",
+      circuitBreaker: health[id]?.circuitBreaker ?? "CLOSED",
+      averageLatencyMs: health[id]?.averageLatencyMs ?? 0,
+      pricing: spec.pricing,
+    }));
+  }
+
   async getAdminObservability() {
     const aiRes = await this.fetchFromAi("/api/v1/admin/observability");
-    if (aiRes) return aiRes;
+    const meshHealth = aiGateway.getMeshHealth();
+    const telemetry = aiGateway.getTelemetryMetrics();
 
-    return {
+    const base = aiRes || {
       timestamp: new Date().toISOString(),
       aiServiceStatus: this.isCircuitOpen() ? "DEGRADED" : "ONLINE",
       avgInferenceLatencyMs: 14.2,
@@ -443,9 +464,26 @@ class AiService {
       dailyInferenceRequests: 32400,
       recommendationClickThroughRate: 0.046,
       activeModels: [
-        { modelName: "neural_two_tower_retriever", version: "v1.0.0", framework: "pytorch", stage: "Production" },
+        { modelName: "neural_two_tower_retriever", version: "v1.0.0", framework: "scikit-learn/numpy", stage: "Production" },
         { modelName: "deep_ranking_model", version: "v1.0.0", framework: "lightgbm", stage: "Production" },
       ],
+    };
+
+    return {
+      ...base,
+      meshHealth,
+      telemetry,
+      providerMesh: {
+        activeProviders: Object.values(meshHealth).filter(p => p.configured && p.status === 'HEALTHY').length,
+        totalConfigured: Object.values(meshHealth).filter(p => p.configured).length,
+        totalRequests: telemetry.totalRequests,
+        requestsPerMinute: telemetry.requestsPerMinute,
+        fallbackRate: telemetry.fallbackRate,
+        averageLatencyMs: telemetry.averageLatencyMs,
+        p95LatencyMs: telemetry.p95LatencyMs,
+        totalEstimatedCostUsd: telemetry.totalEstimatedCostUsd,
+        errorBreakdown: telemetry.errorBreakdown,
+      },
     };
   }
 

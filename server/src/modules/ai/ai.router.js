@@ -41,6 +41,8 @@ aiRouter.get("/seller/inventory-forecast/:productId", aiController.forecastInven
 aiRouter.post("/admin/copilot", aiController.queryAdminCopilot);
 aiRouter.get("/admin/recommendation-explorer", aiController.getRecommendationExplorer);
 aiRouter.get("/admin/observability", aiController.getAdminObservability);
+aiRouter.get("/gateway/health", aiController.getGatewayHealth);
+aiRouter.get("/gateway/providers", aiController.getGatewayProviders);
 
 // 10. Logistics & Delivery AI
 aiRouter.get("/logistics/risk-shipments", aiController.getLogisticsRiskShipments);

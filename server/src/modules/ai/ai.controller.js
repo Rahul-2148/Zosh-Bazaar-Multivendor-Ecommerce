@@ -1,4 +1,5 @@
 import { aiService } from "./ai.service.js";
+import { aiGateway } from "./gateway/aiGateway.js";
 
 export const getHomeRecommendations = async (req, res, next) => {
   try {
@@ -104,74 +105,41 @@ export const chatAssistant = async (req, res, next) => {
 export const streamAssistant = async (req, res, _next) => {
   try {
     const userId = req.user?._id ? String(req.user._id) : req.body.userId;
-    const payload = { ...req.body, userId };
+    const userRole = req.user?.role || 'CUSTOMER';
+    const payload = { ...req.body, userId, userRole };
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Accel-Buffering", "no");
 
-    // Try streaming directly from Python AI platform
-    try {
-      if (!aiService.isCircuitOpen()) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const pythonRes = await fetch(`${aiService.aiBaseUrl}/api/v1/assistant/stream`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+    await aiGateway.streamChat(payload, (event) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
 
-        if (pythonRes.ok && pythonRes.body) {
-          const reader = pythonRes.body.getReader();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(value);
-          }
-          return res.end();
-        }
-      }
-    } catch {
-      // Python streaming failed; proceed to smart fallback
-    }
-
-    // Fallback: Generate grounded response and stream it to client
-    const fallbackRes = await aiService.chatAssistant(payload);
-
-    if (fallbackRes.executionSteps) {
-      for (const step of fallbackRes.executionSteps) {
-        res.write(`data: ${JSON.stringify({ type: "step", step })}\n\n`);
-      }
-    }
-
-    const words = (fallbackRes.reply || "").split(" ");
-    for (let i = 0; i < words.length; i++) {
-      const prefix = i === 0 ? "" : " ";
-      res.write(`data: ${JSON.stringify({ type: "token", token: prefix + words[i] })}\n\n`);
-    }
-
-    res.write(
-      `data: ${JSON.stringify({
-        type: "payload",
-        suggestedProducts: fallbackRes.suggestedProducts || [],
-        suggestedActions: fallbackRes.suggestedActions || [],
-        structuredComparison: fallbackRes.structuredComparison || null,
-        actionPayloads: fallbackRes.actionPayloads || [],
-        persistedContext: fallbackRes.persistedContext || {},
-        isGrounded: true,
-        confidence: fallbackRes.confidence || 0.9,
-      })}\n\n`
-    );
-
-    res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
     return res.end();
   } catch (err) {
     console.error("[AiController] Stream assistant error:", err);
     res.write(`data: ${JSON.stringify({ type: "error", message: "Stream temporarily degraded" })}\n\n`);
     return res.end();
+  }
+};
+
+export const getGatewayHealth = async (req, res, next) => {
+  try {
+    const health = await aiService.getGatewayHealth();
+    return res.status(200).json({ success: true, health });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getGatewayProviders = async (req, res, next) => {
+  try {
+    const providers = await aiService.getGatewayProviders();
+    return res.status(200).json({ success: true, providers });
+  } catch (err) {
+    next(err);
   }
 };
 
@@ -372,6 +340,8 @@ export default {
   getRecommendationExplorer,
   getAdminObservability,
   getLogisticsRiskShipments,
-  getDeliveryStopAssistance,
+  streamAssistant,
+  getGatewayHealth,
+  getGatewayProviders,
   resetUserProfile,
 };

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import logging
 
 from ai.feature_store.store import FeatureStore
@@ -29,9 +30,9 @@ class CandidateGenerationPipeline:
         category_id: str | None = None,
         top_k: int = 30,
     ) -> list[CandidateItem]:
-        items = self.feature_store.get_all_items()
+        items = [it for it in self.feature_store.get_all_items() if it]
         if category_id:
-            items = [it for it in items if it.categoryId == category_id]
+            items = [it for it in items if getattr(it, "categoryId", None) == category_id]
 
         # Score by sales velocity, rating average, and review count
         def pop_score(it: ItemFeatures) -> float:
@@ -66,15 +67,15 @@ class CandidateGenerationPipeline:
         if not user_features:
             return []
 
-        items = self.feature_store.get_all_items()
+        items = [it for it in self.feature_store.get_all_items() if it]
         candidates = []
 
         cat_affinities = user_features.categoryAffinities
         brand_affinities = user_features.brandAffinities
 
         for item in items:
-            cat_score = cat_affinities.get(item.categoryId, 0.0)
-            brand_score = brand_affinities.get(item.brand, 0.0)
+            cat_score = cat_affinities.get(item.categoryId, 0.0) if getattr(item, "categoryId", None) else 0.0
+            brand_score = brand_affinities.get(item.brand, 0.0) if getattr(item, "brand", None) else 0.0
             affinity = 0.6 * cat_score + 0.4 * brand_score
 
             # Price sensitivity penalty/boost
@@ -119,33 +120,38 @@ class CandidateGenerationPipeline:
     # 5. Frequently Bought Together / Complementary Candidates
     def get_frequently_bought_together(
         self,
-        anchor_product_ids: list[str],
+        anchor_product_ids: Sequence[str | None],
         top_k: int = 15,
     ) -> list[CandidateItem]:
         if not anchor_product_ids:
             return []
 
-        all_items = self.feature_store.get_all_items()
-        anchor_items = [
-            self.feature_store.get_item_features(pid)
-            for pid in anchor_product_ids
-            if self.feature_store.get_item_features(pid)
-        ]
+        all_items = [it for it in self.feature_store.get_all_items() if it]
+        anchor_items = []
+        for pid in anchor_product_ids:
+            if not pid:
+                continue
+            item = self.feature_store.get_item_features(pid)
+            if item is not None:
+                anchor_items.append(item)
 
-        anchor_categories = {it.categoryId for it in anchor_items}
-        anchor_brands = {it.brand for it in anchor_items}
+        if not anchor_items:
+            return []
+
+        anchor_categories = {it.categoryId for it in anchor_items if it and getattr(it, "categoryId", None)}
+        anchor_brands = {it.brand for it in anchor_items if it and getattr(it, "brand", None)}
 
         candidates = []
         for it in all_items:
-            if it.productId in anchor_product_ids:
+            if not it or it.productId in anchor_product_ids:
                 continue
 
             # Complementary logic: items from related categories or same ecosystem (e.g. Apple Watch -> AirPods)
             comp_score = 0.0
-            if it.brand in anchor_brands:
+            if it.brand and it.brand in anchor_brands:
                 comp_score += 0.4
             # Cross-category affinity (audio + smartwatch, sneakers + socks/blazer)
-            if it.categoryId not in anchor_categories:
+            if it.categoryId and it.categoryId not in anchor_categories:
                 comp_score += 0.5
 
             if comp_score > 0.3:
@@ -167,13 +173,21 @@ class CandidateGenerationPipeline:
             from ai.models.neural_two_tower import get_two_tower_recommender
 
             two_tower = get_two_tower_recommender()
-            all_items = self.feature_store.get_all_items()
+            all_items = [it for it in self.feature_store.get_all_items() if it]
             if not all_items:
                 return []
 
-            cat_aff = user_features.categoryAffinity if user_features else {}
-            brand_aff = user_features.brandAffinity if user_features else {}
-            price_tier = user_features.priceSensitivityTier if user_features else "MID"
+            cat_aff = (
+                getattr(user_features, "categoryAffinity", getattr(user_features, "categoryAffinities", {}))
+                if user_features
+                else {}
+            )
+            brand_aff = (
+                getattr(user_features, "brandAffinity", getattr(user_features, "brandAffinities", {}))
+                if user_features
+                else {}
+            )
+            price_tier = getattr(user_features, "priceSensitivityTier", "MID") if user_features else "MID"
             session_count = len(session_features.viewedProductIds) if session_features else 0
 
             if session_features and session_features.activeCategory:

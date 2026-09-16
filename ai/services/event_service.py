@@ -83,6 +83,9 @@ class EventService:
         if event.eventType == EventType.ORDER_PLACED:
             weight = self.settings.EVENT_WEIGHT_PURCHASE
             user_feat.totalPurchases += 1
+            if event.productId and event.productId not in user_feat.purchasedProductIds:
+                user_feat.purchasedProductIds.insert(0, event.productId)
+                user_feat.purchasedProductIds = user_feat.purchasedProductIds[:50]
         elif event.eventType == EventType.ADD_TO_CART:
             weight = self.settings.EVENT_WEIGHT_CART
             user_feat.totalCartAdds += 1

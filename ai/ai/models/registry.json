@@ -37,5 +37,21 @@
     "description": "Item semantic representation built on titles, brands, categories, and attributes",
     "createdAt": "2026-09-15T17:28:56.749194Z",
     "updatedAt": "2026-09-15T17:28:56.749194Z"
+  },
+  "neural_two_tower_retriever:v1.0.0": {
+    "name": "neural_two_tower_retriever",
+    "version": "v1.0.0",
+    "framework": "pytorch_vectorized",
+    "stage": "ACTIVE",
+    "metrics": {
+      "Precision@5": 0.0667,
+      "Recall@5": 0.3333,
+      "NDCG@5": 0.2242,
+      "MRR": 0.1889,
+      "CatalogCoverage": 0.2083
+    },
+    "description": "Two-Tower Deep Neural Candidate Retrieval model with temporal cross-entropy optimization.",
+    "createdAt": "2026-09-16T17:30:02.041405Z",
+    "updatedAt": "2026-09-16T17:30:02.040396Z"
   }
 }

@@ -133,6 +133,27 @@ class RecommendationEngine:
         ttl = self.settings.CACHE_TTL_RECOMMENDATIONS_SEC
         expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
 
+        # Determine Progressive Personalization Level (Section 10)
+        total_actions = 0
+        if user_features:
+            purchased_ids = getattr(user_features, "purchasedProductIds", [])
+            total_actions = len(user_features.recentlyViewedProductIds) + len(purchased_ids)
+        elif session_features and session_features.viewedProductIds:
+            total_actions = len(session_features.viewedProductIds)
+
+        if total_actions == 0:
+            personalization_level = "LEVEL_0_COLD_START"
+            cold_start_strategy = "trending_and_popularity_baseline"
+        elif total_actions < 10:
+            personalization_level = "LEVEL_1_SESSION_AFFINITY"
+            cold_start_strategy = "short_term_session_and_category_affinity"
+        elif total_actions < 50:
+            personalization_level = "LEVEL_2_USER_HISTORY"
+            cold_start_strategy = "collaborative_behavioral_embedding"
+        else:
+            personalization_level = "LEVEL_3_DEEP_NEURAL"
+            cold_start_strategy = "two_tower_retrieval_and_ranking"
+
         return RecommendationResponse(
             requestId=request_id,
             placement=req.placement,
@@ -144,8 +165,11 @@ class RecommendationEngine:
             expiresAt=expires_at,
             metadata={
                 "candidateCount": len(candidates),
-                "isPersonalized": bool(user_features or session_features.viewedProductIds),
+                "isPersonalized": bool(user_features or (session_features and session_features.viewedProductIds)),
                 "hasAnchor": bool(anchor_item),
+                "personalizationLevel": personalization_level,
+                "coldStartStrategy": cold_start_strategy,
+                "interactionCount": total_actions,
             },
         )
 
