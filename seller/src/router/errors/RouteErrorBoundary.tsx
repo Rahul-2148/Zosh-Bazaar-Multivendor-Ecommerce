@@ -21,6 +21,35 @@ export const RouteErrorBoundary: React.FC = () => {
     "An unexpected error occurred in the seller dashboard. Please try refreshing or return to your store overview.";
   let status = 500;
 
+  const isDynamicChunkError = React.useMemo(() => {
+    const raw = String(
+      (error as any)?.message ||
+      (error as any)?.statusText ||
+      (error as any)?.data?.message ||
+      error ||
+      ""
+    ).toLowerCase();
+
+    return (
+      raw.includes("failed to fetch dynamically imported module") ||
+      raw.includes("importing a module script failed") ||
+      raw.includes("error loading dynamically imported module") ||
+      raw.includes("dynamically imported module") ||
+      (error as any)?.name === "ChunkLoadError"
+    );
+  }, [error]);
+
+  React.useEffect(() => {
+    if (isDynamicChunkError && typeof window !== "undefined") {
+      const storageKey = `zosh_seller_boundary_${window.location.pathname}`;
+      const hasReloaded = sessionStorage.getItem(storageKey);
+      if (!hasReloaded) {
+        sessionStorage.setItem(storageKey, "true");
+        window.location.reload();
+      }
+    }
+  }, [isDynamicChunkError]);
+
   if (isRouteErrorResponse(error)) {
     status = error.status;
     if (error.status === 404) {
@@ -34,6 +63,11 @@ export const RouteErrorBoundary: React.FC = () => {
     } else {
       message = error.statusText || error.data?.message || message;
     }
+  } else if (isDynamicChunkError) {
+    title = "Portal Update Available";
+    message =
+      "A new version of the seller portal has been deployed. Please reload to access the newest management tools.";
+    status = 200;
   } else if (error instanceof Error) {
     message = error.message || message;
   }

@@ -1,37 +1,37 @@
-import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RootLayout } from "../layouts/RootLayout";
 import { MobileAppShell } from "../components/layout/MobileAppShell";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { GuestRoute } from "./guards/GuestRoute";
 import { RouteErrorBoundary } from "./errors/RouteErrorBoundary";
+import { lazyWithRetry } from "../utils/lazyWithRetry";
 
 // Lazy-loaded routes for code splitting
-const PartnerLogin = lazy(() =>
+const PartnerLogin = lazyWithRetry(() =>
   import("../pages/Auth/PartnerLogin").then((m) => ({ default: m.PartnerLogin }))
 );
-const ShiftDashboard = lazy(() =>
+const ShiftDashboard = lazyWithRetry(() =>
   import("../pages/Home/ShiftDashboard").then((m) => ({ default: m.ShiftDashboard }))
 );
-const RouteStopsList = lazy(() =>
+const RouteStopsList = lazyWithRetry(() =>
   import("../pages/Route/RouteStopsList").then((m) => ({ default: m.RouteStopsList }))
 );
-const ActiveDeliveryMode = lazy(() =>
+const ActiveDeliveryMode = lazyWithRetry(() =>
   import("../pages/ActiveStop/ActiveDeliveryMode").then((m) => ({ default: m.ActiveDeliveryMode }))
 );
-const QuickPackageScanner = lazy(() =>
+const QuickPackageScanner = lazyWithRetry(() =>
   import("../pages/Scanner/QuickPackageScanner").then((m) => ({ default: m.QuickPackageScanner }))
 );
-const EarningsTransparency = lazy(() =>
+const EarningsTransparency = lazyWithRetry(() =>
   import("../pages/Earnings/EarningsTransparency").then((m) => ({ default: m.EarningsTransparency }))
 );
-const DeliveryHistory = lazy(() =>
+const DeliveryHistory = lazyWithRetry(() =>
   import("../pages/History/DeliveryHistory").then((m) => ({ default: m.DeliveryHistory }))
 );
-const SafetySupportHelp = lazy(() =>
+const SafetySupportHelp = lazyWithRetry(() =>
   import("../pages/Safety/SafetySupportHelp").then((m) => ({ default: m.SafetySupportHelp }))
 );
-const PartnerProfile = lazy(() =>
+const PartnerProfile = lazyWithRetry(() =>
   import("../pages/Profile/PartnerProfile").then((m) => ({ default: m.PartnerProfile }))
 );
 

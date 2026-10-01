@@ -29,9 +29,9 @@ const Auth = () => {
 
   return (
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-3 sm:p-6 lg:p-10 bg-muted/20">
-      {/* Flipkart / Myntra Dual-Pane Master Card */}
+      {/* Dual-Pane Master Card */}
       <div className="w-full max-w-4xl bg-card rounded-2xl sm:rounded-3xl shadow-2xl border border-border/80 overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[580px]">
-        {/* Left Branding & Trust Panel (Flipkart / Myntra Benchmark) */}
+        {/* Left Branding & Trust Panel */}
         <div className="md:col-span-5 bg-gradient-to-br from-[#064e3b] via-[#022c22] to-[#01140e] p-6 sm:p-8 lg:p-10 flex flex-col justify-between text-white relative overflow-hidden">
           {/* Subtle Ambient Glow Effect */}
           <div className="absolute -top-20 -left-20 w-56 h-56 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
@@ -81,7 +81,7 @@ const Auth = () => {
             </div>
           </div>
 
-          {/* Bottom Trust Pillars (Flipkart / Amazon Benchmark) */}
+          {/* Bottom Trust Pillars */}
           <div className="space-y-3 pt-4 border-t border-white/10 relative z-10 text-xs text-emerald-100/90 font-medium">
             <div className="flex items-center gap-2.5">
               <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0">

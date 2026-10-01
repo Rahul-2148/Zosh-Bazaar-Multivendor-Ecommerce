@@ -93,6 +93,22 @@ class CouponService {
       message: `Coupon '${coupon.code}' applied! You saved ₹${discountAmount}`,
     };
   }
+
+  async removeCoupon(user) {
+    const userId = user._id || user;
+    const cart = await Cart.findOne({ user: userId });
+    if (!cart) throw new Error("Cart not found");
+
+    cart.couponCode = null;
+    cart.couponPrice = 0;
+    await cart.save();
+
+    const refreshedCart = await CartService.findUserCart(user);
+    return {
+      cart: refreshedCart,
+      message: "Coupon removed successfully",
+    };
+  }
 }
 
 export default new CouponService();

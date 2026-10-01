@@ -254,7 +254,7 @@ class OrderService {
       throw new Error("Unauthorized: You can only update orders assigned to your own vendor account");
     }
 
-    // Flipkart/Amazon rule: Sellers can confirm/pack/dispatch, but final delivery requires logistics/OTP
+    // Marketplace rule: Sellers can confirm/pack/dispatch, but final delivery requires logistics/OTP
     if (updatedBy === "VENDOR") {
       const allowedVendorTransitions = [
         OrderStatus.CONFIRMED,

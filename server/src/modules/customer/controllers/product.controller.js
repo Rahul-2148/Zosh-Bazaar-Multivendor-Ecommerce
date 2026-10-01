@@ -1,4 +1,5 @@
 import productService from "../services/product.service.js";
+import { searchIntelligenceService } from "../services/searchIntelligence.service.js";
 
 class ProductController {
   async getProductBySellerId(req, res, next) {
@@ -164,16 +165,47 @@ class ProductController {
 
   async searchProduct(req, res, next) {
     try {
-      const query = req.query.q || req.query.search;
-      if (!query) {
+      const rawQuery = (req.query.q || req.query.search || req.query.query || "").trim();
+      if (!rawQuery) {
         return res.status(400).json({ message: "Search query is required." });
       }
-      const result = await productService.getAllProducts({ search: query, ...req.query });
+
+      const isExact = req.query.exact === "true";
+      const processed = searchIntelligenceService.processSearchQuery(rawQuery, isExact);
+
+      const queryPayload = {
+        ...req.query,
+        search: processed.query,
+        synonyms: processed.synonyms,
+        ...(processed.inferredMaxPrice && !req.query.maxPrice ? { maxPrice: processed.inferredMaxPrice } : {}),
+      };
+      delete queryPayload.q;
+      delete queryPayload.query;
+
+      let result = await productService.getAllProducts(queryPayload);
+
+      // If zero products returned with the normalized term, try fallback
+      if ((!result.content || result.content.length === 0) && processed.isCorrected) {
+        const fallbackResult = await productService.getAllProducts({
+          ...req.query,
+          search: rawQuery,
+        });
+        if (fallbackResult.content && fallbackResult.content.length > 0) {
+          result = fallbackResult;
+        }
+      }
+
       return res.status(200).json({
         products: result.content,
         content: result.content,
         totalPages: result.totalPages,
         totalElements: result.totalElements,
+        query: processed.query,
+        originalQuery: processed.originalQuery,
+        showingResultsFor: processed.showingResultsFor,
+        isCorrected: processed.isCorrected,
+        searchInsteadUrl: processed.searchInsteadUrl,
+        curatedRails: processed.curatedRails,
         error: false,
         success: true,
       });

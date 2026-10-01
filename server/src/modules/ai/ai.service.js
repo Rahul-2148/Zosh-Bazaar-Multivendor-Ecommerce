@@ -130,93 +130,30 @@ class AiService {
       return aiRes;
     }
 
-    // ── Resilient Grounded Database Fallback ──
     try {
-      const message = (payload.message || (payload.messages && payload.messages[payload.messages.length - 1]?.content) || "").toLowerCase();
-      
-      // Parse budget
-      const budgetMatch = message.match(/(?:under|below|less than|max|₹|rs\.?)\s*(\d+)(?:k)?/i) || message.match(/(\d+)(?:k)?\s*(?:ke andar|tak|se kam)/i);
-      let maxBudget = null;
-      if (budgetMatch) {
-        let val = parseInt(budgetMatch[1], 10);
-        if (budgetMatch[0].includes("k") || val < 100) val *= 1000;
-        maxBudget = val;
-      }
-
-      // Query database
-      const filter = { status: "PUBLISHED" };
-      if (maxBudget) {
-        filter.sellingPrice = { $lte: maxBudget };
-      }
-
-      // Keyword match
-      const tokens = message.split(/\s+/).filter((t) => t.length > 2 && !["the", "and", "for", "with", "show", "bhai", "bata", "dikhao", "ke", "andar"].includes(t));
-      if (tokens.length > 0) {
-        filter.$or = tokens.map((t) => ({
-          $or: [
-            { title: { $regex: t, $options: "i" } },
-            { brand: { $regex: t, $options: "i" } },
-            { description: { $regex: t, $options: "i" } },
-          ],
-        }));
-      }
-
-      let items = await Product.find(filter)
-        .limit(4)
-        .populate("category", "name categoryId")
-        .populate("seller", "businessDetails.businessName")
-        .lean();
-
-      if (items.length === 0) {
-        items = await Product.find({ status: "PUBLISHED" })
-          .limit(3)
-          .populate("category", "name categoryId")
-          .populate("seller", "businessDetails.businessName")
-          .lean();
-      }
-
-      const recItems = items.map((p) => this._formatProductToRecItem(p, "grounded_catalog_match", "Verified marketplace product"));
-
-      const bullets = recItems.map(
-        (p, idx) => `${idx + 1}. **${p.title}** (${p.brand}) — ₹${p.sellingPrice.toLocaleString("en-IN")} (${p.discountPercent}% OFF, ${p.ratingAverage}★)`
-      );
-
-      const reply = recItems.length > 0
-        ? `I found ${recItems.length} verified products${maxBudget ? ` under ₹${maxBudget.toLocaleString("en-IN")}` : ""} in our catalog:\n\n${bullets.join("\n\n")}\n\nWould you like me to compare specifications or add any to your cart?`
-        : "I couldn't find exact matches right now, but you can explore our trending electronics, ethnic wear, and footwear collections!";
-
+      const gatewayRes = await aiGateway.chat(payload);
       return {
-        reply,
-        suggestedProducts: recItems,
-        suggestedActions: ["Compare Top Options", "Add Best to Cart", "Browse Trending"],
-        executedTools: [
-          {
-            toolName: "database_search",
-            arguments: { query: message, maxBudget },
-            resultSummary: `Found ${recItems.length} items in live inventory`,
-          },
-        ],
-        executionSteps: [
-          { stepName: "Understanding Request", status: "COMPLETED", detail: `Query '${message.slice(0, 30)}'` },
-          { stepName: "Querying Verified Inventory", status: "COMPLETED", detail: `Found ${recItems.length} active products` },
-          { stepName: "Complete", status: "COMPLETED", detail: "Ready" },
-        ],
-        actionPayloads: recItems.map((p) => ({
+        reply: gatewayRes.text,
+        suggestedProducts: gatewayRes.suggestedProducts || [],
+        suggestedActions: gatewayRes.suggestedActions || [],
+        structuredComparison: gatewayRes.structuredComparison || null,
+        executedTools: gatewayRes.executedTools || [],
+        executionSteps: gatewayRes.executionSteps || [],
+        actionPayloads: (gatewayRes.suggestedProducts || []).map((p) => ({
           actionType: "ADD_TO_CART",
           productId: p.productId,
           title: p.title,
           price: p.sellingPrice,
         })),
-        persistedContext: { ...payload.persistedContext, budget: maxBudget },
         isGrounded: true,
-        confidence: 0.88,
+        confidence: 0.95,
       };
     } catch (err) {
-      console.error("[AiService] Fallback chat assistant error:", err);
+      console.error("[AiService] Gateway chat assistant error:", err);
       return {
-        reply: "I am ready to help you discover great products! Ask me about phones, office shoes, sarees, or budget recommendations.",
+        reply: "Hello! I am your Zosh Bazaar AI Shopping Assistant. How can I help you today? You can search for products, compare specs, or track your orders.",
         suggestedProducts: [],
-        suggestedActions: ["Find phones under 20k", "Office shoes under 3000", "Top festive deals"],
+        suggestedActions: ["🔥 Today's Best Deals", "Phones under 20k", "Track my order"],
         isGrounded: true,
         confidence: 0.8,
       };

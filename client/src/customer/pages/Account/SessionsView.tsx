@@ -367,7 +367,7 @@ export const SessionsView: React.FC = () => {
         </Alert>
       )}
 
-      {/* Flipkart-grade Security Advisory Notice */}
+      {/* Security Advisory Notice */}
       <div className="p-4 rounded-2xl border border-primary/25 bg-primary/5 flex items-start gap-3.5">
         <ShieldOutlined className="text-primary mt-0.5 shrink-0" sx={{ fontSize: 22 }} />
         <div className="flex-1 text-xs leading-relaxed text-muted-foreground">
@@ -375,7 +375,7 @@ export const SessionsView: React.FC = () => {
             Signed in to {sessions.length} active {sessions.length === 1 ? "device" : "devices"}
           </p>
           <span>
-            Just like Flipkart & Amazon device protection, if you notice any unfamiliar smartphone,
+            For your account security and device protection, if you notice any unfamiliar smartphone,
             cyber café PC, or unusual location, click <strong>"Log Out"</strong> immediately to revoke access and reset your password.
           </span>
         </div>

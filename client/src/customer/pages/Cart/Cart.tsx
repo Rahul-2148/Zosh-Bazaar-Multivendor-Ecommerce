@@ -1,519 +1,465 @@
+import React, { useEffect, useState, useMemo } from "react";
+import { CircularProgress, Typography, Button } from "@mui/material";
 import {
-  Button,
-  CircularProgress,
-  Divider,
-  IconButton,
-  TextField,
-  Typography,
-  Alert,
-} from "@mui/material";
-import {
-  Add,
-  Close,
-  Remove,
   ShoppingBagOutlined,
   LocalShippingOutlined,
-  VerifiedUserOutlined,
-  FavoriteBorder,
-  ConfirmationNumberOutlined,
   StorefrontOutlined,
+  ArrowForward,
 } from "@mui/icons-material";
+import { Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import {
   deleteCartItem,
   fetchUserCart,
   updateCartItem,
 } from "../../../Redux Toolkit/features/customer/CartSlice";
-import { saveForLater } from "../../../Redux Toolkit/features/customer/WishlistSlice";
-import { applyCoupon } from "../../../Redux Toolkit/features/customer/CouponSlice";
+import { saveForLater, getWishlist } from "../../../Redux Toolkit/features/customer/WishlistSlice";
 import { openAssistant } from "../../../Redux Toolkit/features/customer/AiAssistantSlice";
-import { Sparkles } from "lucide-react";
+import CartAddressBar from "./CartAddressBar";
+import CartItemCard from "./CartItemCard";
+import SavingsZoneCard from "./SavingsZoneCard";
+import CartPriceDetails from "./CartPriceDetails";
+import CartCrossSellCarousels from "./CartCrossSellCarousels";
+import CartValidationBanner from "./CartValidationBanner";
+import FreeDeliveryProgressBar from "./FreeDeliveryProgressBar";
+import SavedForLaterSection from "./SavedForLaterSection";
 
-const Cart = () => {
+const Cart: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { cart, coupon } = useAppSelector((store) => store);
+  const { cart, coupon, wishlist } = useAppSelector((store) => store);
   const jwt = localStorage.getItem("jwt") || "";
 
-  const [couponCode, setCouponCode] = useState("");
-  const [couponError, setCouponError] = useState<string | null>(null);
+  // Dual Tab State: "bazaar" vs "saved"
+  const [activeTab, setActiveTab] = useState<"bazaar" | "saved">("bazaar");
 
   useEffect(() => {
     if (jwt) {
       dispatch(fetchUserCart(jwt));
+      dispatch(getWishlist());
     }
   }, [dispatch, jwt]);
 
   const handleQuantityChange = (cartItemId: string, newQuantity: number) => {
     if (newQuantity < 1) return;
-    dispatch(updateCartItem({ jwt, cartItemId, quantity: newQuantity }));
+    dispatch(updateCartItem({ jwt, cartItemId, quantity: newQuantity })).then(() => {
+      dispatch(fetchUserCart(jwt));
+    });
   };
 
   const handleRemoveItem = (cartItemId: string) => {
-    dispatch(deleteCartItem({ jwt, cartItemId }));
+    dispatch(deleteCartItem({ jwt, cartItemId })).then(() => {
+      dispatch(fetchUserCart(jwt));
+    });
   };
 
-  const handleMoveToWishlist = async (cartItemId: string, productId: string, variantId?: string) => {
+  const handleMoveToWishlist = async (
+    cartItemId: string,
+    productId: string,
+    variantId?: string
+  ) => {
     try {
       await dispatch(saveForLater({ cartItemId, productId, variantId })).unwrap();
       dispatch(fetchUserCart(jwt));
+      dispatch(getWishlist());
     } catch {
       // ignore
     }
   };
 
-  const handleApplyCoupon = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!couponCode.trim()) return;
-    setCouponError(null);
-
-    const action = await dispatch(
-      applyCoupon({ code: couponCode.trim(), jwt, apply: "true" })
-    );
-
-    if (applyCoupon.rejected.match(action)) {
-      setCouponError(
-        (action.payload as any)?.message || "Invalid or expired coupon code."
-      );
-    }
-  };
-
   const cartData = cart?.cart;
+  const cartItems = cartData?.cartItems || [];
+  const pricingSummary = cartData?.pricingSummary;
+  const validationWarnings = cartData?.validationWarnings || [];
+
+  const cartProductIds = useMemo(() => {
+    return cartItems.map((ci: any) => ci.product?._id || ci.product?.productId).filter(Boolean);
+  }, [cartItems]);
 
   // Group items by Seller (Multi-Vendor Packages)
-  const sellerGroups = useMemo(() => {
-    if (!cartData?.cartItems) return [];
+  const sellerPackages = useMemo(() => {
+    if (cartData?.sellerPackages && cartData.sellerPackages.length > 0) {
+      return cartData.sellerPackages;
+    }
 
-    const map = new Map<string, { seller: any; items: any[] }>();
+    if (!cartItems || cartItems.length === 0) return [];
 
-    cartData.cartItems.forEach((item: any) => {
+    const map = new Map<string, any>();
+    cartItems.forEach((item: any) => {
       const seller = item.product?.seller;
-      const sellerId = seller?._id?.toString() || "default-vendor";
+      const sellerId = seller?._id?.toString() || "zosh-fulfillment";
+      const sellerName =
+        seller?.businessDetails?.businessName ||
+        seller?.sellerName ||
+        "Zosh Certified Fulfillment";
 
       if (!map.has(sellerId)) {
+        const eta = new Date();
+        eta.setDate(eta.getDate() + 3);
+
         map.set(sellerId, {
-          seller: seller || {
-            sellerName: "Zosh Certified Fulfillment",
-            businessDetails: { businessName: "Zosh Certified Partner" },
-          },
+          sellerId,
+          sellerName,
+          fulfillmentType: "Zosh Assured Direct Fulfillment",
+          estimatedDeliveryDate: eta.toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          }),
           items: [],
+          packageMrpPrice: 0,
+          packageSellingPrice: 0,
+          packageItemsCount: 0,
         });
       }
-      map.get(sellerId)!.items.push(item);
+
+      const pkg = map.get(sellerId);
+      pkg.items.push(item);
+      pkg.packageMrpPrice += item.mrpPrice || 0;
+      pkg.packageSellingPrice += item.sellingPrice || 0;
+      pkg.packageItemsCount += item.quantity || 1;
     });
 
     return Array.from(map.values());
-  }, [cartData]);
+  }, [cartData?.sellerPackages, cartItems]);
 
+  // Loading State
   if (cart.loading && !cartData) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[60vh] space-y-3">
         <CircularProgress size={36} color="primary" />
-        <p className="text-xs text-muted-foreground font-medium">Loading your shopping bag...</p>
+        <p className="text-xs text-muted-foreground font-semibold">
+          Synchronizing your shopping cart...
+        </p>
       </div>
     );
   }
 
-  if (!cartData || !cartData.cartItems || cartData.cartItems.length === 0) {
+  // Empty Cart State
+  if (!cartData || !cartItems || cartItems.length === 0) {
     return (
-      <div className="max-w-xl mx-auto px-4 py-16 sm:py-24 flex flex-col items-center justify-center text-center gap-4">
-        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
-          <ShoppingBagOutlined sx={{ fontSize: 56 }} />
+      <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-10 sm:py-16 flex flex-col items-center justify-center text-center gap-4">
+        <div className="w-24 h-24 rounded-3xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-2 shadow-xs">
+          <ShoppingBagOutlined sx={{ fontSize: 48 }} />
         </div>
-        <Typography variant="h5" fontWeight="800" className="text-foreground tracking-tight text-xl sm:text-2xl">
-          Your Shopping Bag is Empty
+        <Typography
+          variant="h5"
+          fontWeight="900"
+          className="text-foreground tracking-tight text-xl sm:text-2xl"
+        >
+          Your Shopping Cart is Empty
         </Typography>
-        <Typography variant="body2" color="text.secondary" className="max-w-md leading-relaxed text-sm">
-          Explore millions of products across thousands of certified sellers on Zosh Bazaar with verified quality inspection and express delivery.
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          className="max-w-md leading-relaxed text-xs sm:text-sm font-medium"
+        >
+          Explore millions of genuine products across verified sellers on Zosh Bazaar with
+          Zosh Assured quality inspection and fast fulfillment.
         </Typography>
+
         <Button
           variant="contained"
-          color="primary"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/products")}
           sx={{
             mt: 2,
             px: 4,
             py: 1.3,
             borderRadius: "0.85rem",
             textTransform: "none",
-            fontWeight: 700,
+            fontWeight: 800,
             fontSize: "14px",
-            boxShadow: "0 4px 14px rgba(13, 148, 136, 0.35)",
+            bgcolor: "#2874f0",
+            "&:hover": { bgcolor: "#1259c7" },
+            boxShadow: "0 4px 14px rgba(40, 116, 240, 0.35)",
           }}
         >
-          Explore Trending Products
+          Explore Catalog
         </Button>
+
+        {/* Saved For Later items if any */}
+        <div className="w-full text-left mt-6">
+          <SavedForLaterSection />
+        </div>
+
+        {/* Cross Sell Carousels for empty cart */}
+        <div className="w-full text-left mt-6">
+          <CartCrossSellCarousels cartProductIds={[]} />
+        </div>
       </div>
     );
   }
 
-  const effectiveSellingPrice = coupon?.cart?.totalSellingPrice || cartData.totalSellingPrice || 0;
-  const effectiveDiscount =
-    (cartData.totalMrpPrice || 0) - effectiveSellingPrice;
+  // Authoritative Pricing
+  const totalItemCount = cartData.totalItem || cartItems.length;
+  const totalMrp = pricingSummary?.totalMrpPrice ?? cartData.totalMrpPrice ?? 0;
+  const totalSelling = pricingSummary?.itemSellingPrice ?? cartData.totalSellingPrice ?? 0;
+  const couponDiscount = pricingSummary?.couponDiscount ?? cartData.couponPrice ?? 0;
+  const deliveryFee = pricingSummary?.deliveryFee ?? 0;
+  const totalPayable = pricingSummary?.totalPayable ?? Math.max(0, totalSelling - couponDiscount + deliveryFee);
+  const totalSavings = pricingSummary?.totalSavings ?? Math.max(0, totalMrp - (totalSelling - couponDiscount) + (deliveryFee === 0 ? 40 : 0));
+
+  const savedCount = (wishlist.items || []).filter(
+    (i: any) =>
+      i.collection?.name === "Buy Later" ||
+      i.collectionName === "Buy Later" ||
+      i.isSavedForLater ||
+      i.collectionId === "buy-later"
+  ).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 sm:py-10 min-h-[calc(100vh-140px)] w-full">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-6 gap-2 border-b border-border">
-        <div>
-          <Typography variant="h5" fontWeight="800" className="text-foreground tracking-tight text-xl sm:text-2xl">
-            Shopping Cart ({cartData.totalItem} items)
-          </Typography>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Grouped into {sellerGroups.length} vendor {sellerGroups.length === 1 ? "package" : "packages"} for direct fulfillment
-          </p>
+    <div className="bg-background min-h-[calc(100vh-140px)] w-full">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 pb-28 sm:py-8">
+        {/* Top Dual Tabs (Zosh Bazaar & Saved for Later) */}
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab("bazaar")}
+            className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+              activeTab === "bazaar"
+                ? "bg-[#2874f0] text-white"
+                : "bg-card text-foreground border border-border hover:bg-muted/40"
+            }`}
+          >
+            <span>Zosh Bazaar</span>
+            <span className="opacity-90">({totalItemCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("saved");
+              const el = document.getElementById("saved-for-later-section");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            className={`px-5 py-2 rounded-xl text-xs sm:text-sm font-black transition cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+              activeTab === "saved"
+                ? "bg-[#2874f0] text-white"
+                : "bg-card text-foreground border border-border hover:bg-muted/40"
+            }`}
+          >
+            <span>Saved for Later</span>
+            <span className="opacity-90">({savedCount})</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className="text-xs sm:text-sm font-bold text-primary hover:underline self-start sm:self-auto cursor-pointer"
-        >
-          Continue Shopping →
-        </button>
+
+        {/* Delivery Address Snippet with Switcher */}
+        <div className="mb-4">
+          <CartAddressBar />
+        </div>
+
+        {/* Real-time Server Authoritative Validation Warnings */}
+        <CartValidationBanner warnings={validationWarnings} />
+
+        {/* Free Delivery Progress Bar */}
+        <div className="mb-4">
+          <FreeDeliveryProgressBar currentAmount={totalSelling} threshold={500} />
+        </div>
+
+        {/* 2-Column Responsive Layout */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* Left Main Column: Items + Offers + Saved + Carousels */}
+          <div className="flex-1 w-full flex flex-col gap-5 min-w-0">
+            {/* Multi-Vendor Packages Grouping */}
+            {sellerPackages.map((group: any, groupIdx: number) => (
+              <div
+                key={groupIdx}
+                className="flex flex-col gap-3.5 border border-border bg-card/60 backdrop-blur-xs rounded-2xl p-3.5 sm:p-5 shadow-2xs"
+              >
+                {/* Vendor Package Header */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border text-xs">
+                  <div className="flex items-center gap-2 text-foreground font-bold min-w-0">
+                    <StorefrontOutlined sx={{ fontSize: 18 }} className="text-primary shrink-0" />
+                    <span className="truncate">
+                      Package {groupIdx + 1} of {sellerPackages.length}: Sold by{" "}
+                      <strong className="text-primary">{group.sellerName}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                      <LocalShippingOutlined sx={{ fontSize: 14 }} />
+                      <span>Arrives: <strong>{group.estimatedDeliveryDate}</strong></span>
+                    </span>
+                    <span className="text-[10px] font-extrabold text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">
+                      {group.items.length} {group.items.length === 1 ? "item" : "items"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Items in this package */}
+                <div className="flex flex-col gap-4">
+                  {group.items.map((item: any) => (
+                    <CartItemCard
+                      key={item._id}
+                      item={item}
+                      onQuantityChange={handleQuantityChange}
+                      onRemoveItem={handleRemoveItem}
+                      onMoveToWishlist={handleMoveToWishlist}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* WOW! Savings Zone Card */}
+            <SavingsZoneCard />
+
+            {/* Mobile-Only Order Summary (Before carousels on small screens) */}
+            <div className="block lg:hidden">
+              <CartPriceDetails
+                totalItem={totalItemCount}
+                pricingSummary={pricingSummary}
+                totalMrpPrice={totalMrp}
+                totalSellingPrice={totalSelling}
+                couponSavings={couponDiscount}
+                deliveryFee={deliveryFee}
+                onProceedToCheckout={() => navigate("/checkout")}
+              />
+            </div>
+
+            {/* Dedicated Saved for Later Section */}
+            <SavedForLaterSection />
+
+            {/* Cross-Sell & Basket-Building Carousels */}
+            <CartCrossSellCarousels cartProductIds={cartProductIds} />
+          </div>
+
+          {/* Right Column: Sticky Price Details & AI Advisor (Desktop) */}
+          <div className="hidden lg:flex w-[380px] shrink-0 flex-col gap-5 sticky top-[120px]">
+            {/* Price Details Card */}
+            <CartPriceDetails
+              totalItem={totalItemCount}
+              pricingSummary={pricingSummary}
+              totalMrpPrice={totalMrp}
+              totalSellingPrice={totalSelling}
+              couponSavings={couponDiscount}
+              deliveryFee={deliveryFee}
+              onProceedToCheckout={() => navigate("/checkout")}
+            />
+
+            {/* AI Cart Advisor Contextual Helper Card */}
+            <div className="border border-blue-500/20 bg-blue-500/5 text-card-foreground rounded-2xl p-4 shadow-2xs">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-6 h-6 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-xs font-black text-foreground">
+                  Zosh AI Cart Advisor
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-3 font-medium">
+                Ask questions about your items, delivery dates, or get matched accessories.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatch(
+                      openAssistant({
+                        context: {
+                          pageType: "cart",
+                          cartProductIds,
+                        },
+                        initialMessage: "What complementary items should I add to my order?",
+                      })
+                    )
+                  }
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-card border border-border text-foreground hover:border-blue-500 hover:text-blue-600 transition cursor-pointer shadow-2xs"
+                >
+                  + Add Matching Accessories
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatch(
+                      openAssistant({
+                        context: {
+                          pageType: "cart",
+                          cartProductIds,
+                        },
+                        initialMessage: "Review my cart and check for maximum discounts",
+                      })
+                    )
+                  }
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-card border border-border text-foreground hover:border-blue-500 hover:text-blue-600 transition cursor-pointer shadow-2xs"
+                >
+                  Check Best Deals
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatch(
+                      openAssistant({
+                        context: {
+                          pageType: "cart",
+                          cartProductIds,
+                        },
+                        initialMessage: "Is my cart worth it and are there cheaper alternatives?",
+                      })
+                    )
+                  }
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-card border border-border text-foreground hover:border-blue-500 hover:text-blue-600 transition cursor-pointer shadow-2xs"
+                >
+                  Evaluate Value
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 items-start mt-6">
-        {/* Left: Multi-Vendor Seller Packages */}
-        <div className="flex-1 w-full flex flex-col gap-6 min-w-0">
-          {sellerGroups.map((group, groupIdx) => (
-            <div
-              key={groupIdx}
-              className="border border-border bg-card text-card-foreground rounded-2xl p-4 sm:p-6 shadow-sm overflow-hidden"
-            >
-              {/* Seller Package Header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-border">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <StorefrontOutlined sx={{ fontSize: 22 }} />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground truncate">
-                      Package {groupIdx + 1} of {sellerGroups.length}: Sold by{" "}
-                      <span className="text-primary font-black">
-                        {group.seller?.businessDetails?.businessName ||
-                          group.seller?.sellerName ||
-                          "Zosh Certified Vendor"}
-                      </span>
-                    </h3>
-                    <p className="text-[11px] sm:text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                      <LocalShippingOutlined sx={{ fontSize: 14 }} />
-                      <span>Direct fulfillment & quality inspection</span>
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-muted-foreground bg-muted px-3 py-1 rounded-full shrink-0 border border-border">
-                  {group.items.length} {group.items.length === 1 ? "item" : "items"}
-                </span>
-              </div>
-
-              {/* Package Items List */}
-              <div className="flex flex-col gap-4">
-                {group.items.map((item: any) => {
-                  const prod = item.product || {};
-                  const isOutOfStock = prod.countInStock !== undefined && prod.countInStock <= 0;
-
-                  return (
-                    <div
-                      key={item._id}
-                      className="flex flex-col sm:flex-row gap-4 sm:gap-5 p-4 sm:p-5 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-muted/10 transition-all shadow-xs"
-                    >
-                      {/* Product Thumbnail */}
-                      <div
-                        onClick={() =>
-                          navigate(
-                            `/product-details/${prod.category?.categoryId || "all"}/${encodeURIComponent(prod.title || "")}/${prod._id}`
-                          )
-                        }
-                        className="cursor-pointer shrink-0 self-center sm:self-start w-24 h-28 sm:w-28 sm:h-32 rounded-xl border border-border bg-muted/20 p-2 flex items-center justify-center overflow-hidden hover:opacity-90 transition-opacity"
-                      >
-                        <img
-                          className="w-full h-full object-contain"
-                          src={item.selectedVariant?.image || prod.images?.[0] || ""}
-                          alt={prod.title || "Product"}
-                        />
-                      </div>
-
-                      {/* Product Information */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between gap-3">
-                        <div>
-                          <div className="flex justify-between items-start gap-3">
-                            <div className="min-w-0 flex-1">
-                              <span className="text-[10px] sm:text-[11px] font-extrabold text-primary uppercase tracking-wider block truncate">
-                                {prod.brand || "Zosh Certified"}
-                              </span>
-                              <h4
-                                onClick={() =>
-                                  navigate(
-                                    `/product-details/${prod.category?.categoryId || "all"}/${encodeURIComponent(prod.title || "")}/${prod._id}`
-                                  )
-                                }
-                                className="text-sm sm:text-base font-bold text-foreground hover:text-primary cursor-pointer transition-colors line-clamp-2 mt-1 leading-snug"
-                              >
-                                {prod.title}
-                              </h4>
-                            </div>
-
-                            <IconButton
-                              size="small"
-                              onClick={() => handleRemoveItem(item._id)}
-                              aria-label="Remove item"
-                              sx={{
-                                color: "text.secondary",
-                                "&:hover": { color: "error.main", bgcolor: "rgba(239, 68, 68, 0.1)" },
-                              }}
-                              className="shrink-0 -mr-1 -mt-1"
-                            >
-                              <Close sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </div>
-
-                          {/* Selected Variant Information */}
-                          <div className="flex flex-wrap items-center gap-2 mt-2.5">
-                            {item.size && (
-                              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-muted text-foreground border border-border">
-                                Size: {item.size}
-                              </span>
-                            )}
-                            {item.selectedVariant?.title && (
-                              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-                                {item.selectedVariant.title}
-                              </span>
-                            )}
-                            {isOutOfStock ? (
-                              <span className="text-xs font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-md border border-destructive/20">
-                                Currently Out of Stock
-                              </span>
-                            ) : prod.countInStock <= 5 && prod.countInStock > 0 ? (
-                              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">
-                                Only {prod.countInStock} left
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        {/* Price & Quantity Controls */}
-                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-1 border-t border-border">
-                          {/* Price */}
-                          <div className="flex flex-wrap items-baseline gap-2">
-                            <span className="font-extrabold text-base sm:text-lg text-foreground">
-                              ₹{item.sellingPrice?.toLocaleString("en-IN")}
-                            </span>
-                            {item.mrpPrice > item.sellingPrice && (
-                              <>
-                                <span className="text-xs line-through text-muted-foreground font-medium">
-                                  ₹{item.mrpPrice?.toLocaleString("en-IN")}
-                                </span>
-                                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
-                                  {Math.round(
-                                    ((item.mrpPrice - item.sellingPrice) / item.mrpPrice) *
-                                      100
-                                  )}
-                                  % OFF
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Actions: Quantity + Wishlist */}
-                          <div className="flex items-center gap-3 ml-auto sm:ml-0">
-                            <button
-                              type="button"
-                              onClick={() => handleMoveToWishlist(item._id, prod._id, item.variantId)}
-                              className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-muted"
-                            >
-                              <FavoriteBorder sx={{ fontSize: 15 }} />
-                              <span className="hidden sm:inline">Save for Later</span>
-                            </button>
-
-                            <div className="flex items-center border border-border rounded-xl bg-card shadow-xs">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQuantityChange(item._id, item.quantity - 1)}
-                                disabled={item.quantity <= 1}
-                                sx={{ p: 0.75, color: "text.primary" }}
-                              >
-                                <Remove sx={{ fontSize: 14 }} />
-                              </IconButton>
-                              <span className="w-8 text-center text-xs font-bold text-foreground select-none">
-                                {item.quantity}
-                              </span>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleQuantityChange(item._id, item.quantity + 1)}
-                                disabled={prod.countInStock && item.quantity >= prod.countInStock}
-                                sx={{ p: 0.75, color: "text.primary" }}
-                              >
-                                <Add sx={{ fontSize: 14 }} />
-                              </IconButton>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+      {/* Mobile Sticky Bottom Bar (Screenshots 1-5 Benchmark) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-lg">
+        {/* Top Mini Offer Banner */}
+        <div className="bg-blue-50 dark:bg-blue-950/60 px-4 py-1.5 flex items-center justify-between text-[11px] font-bold text-blue-800 dark:text-blue-200 border-b border-blue-100 dark:border-blue-900/40">
+          <span>
+            {couponDiscount > 0
+              ? `🎉 Coupon applied: You saved ₹${couponDiscount} extra!`
+              : totalSelling < 500
+              ? `Add ₹${500 - totalSelling} more for FREE delivery`
+              : "🎉 Free Express Delivery Unlocked!"}
+          </span>
+          {totalSavings > 0 && (
+            <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">
+              Save ₹{totalSavings.toLocaleString("en-IN")}
+            </span>
+          )}
         </div>
 
-        {/* Right: Order Summary & Coupon (Sticky below 110px navbar) */}
-        <div className="w-full lg:w-[380px] shrink-0 flex flex-col gap-6 lg:sticky lg:top-[128px]">
-          {/* AI Bag Assistant Helper Card */}
-          <div className="border border-teal-500/30 bg-teal-500/5 text-card-foreground rounded-2xl p-4 shadow-xs">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-xs font-extrabold text-foreground">
-                AI Bag Assistant
+        {/* Bottom CTA Bar */}
+        <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+          {/* Price details left */}
+          <div className="flex flex-col">
+            {totalMrp > totalPayable && (
+              <span className="text-[11px] line-through text-muted-foreground font-medium">
+                ₹{totalMrp.toLocaleString("en-IN")}
               </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mb-3">
-              Ask questions about your bag, check delivery, or find complementary accessories.
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() =>
-                  dispatch(
-                    openAssistant({
-                      context: {
-                        pageType: "cart",
-                        cartProductIds: cart?.cart?.cartItems?.map((ci: any) => ci.product?._id || ci.product?.productId),
-                      },
-                      initialMessage: "What else should I buy with this?",
-                    })
-                  )
-                }
-                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-850 border border-border text-foreground hover:border-teal-500 hover:text-teal-600 transition cursor-pointer"
-              >
-                + Add Complementary Items
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  dispatch(
-                    openAssistant({
-                      context: {
-                        pageType: "cart",
-                        cartProductIds: cart?.cart?.cartItems?.map((ci: any) => ci.product?._id || ci.product?.productId),
-                      },
-                      initialMessage: "What is in my cart?",
-                    })
-                  )
-                }
-                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-850 border border-border text-foreground hover:border-teal-500 hover:text-teal-600 transition cursor-pointer"
-              >
-                Review Cart Details
-              </button>
-            </div>
-          </div>
-
-          {/* Coupon Box */}
-          <div className="border border-border bg-card text-card-foreground rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <ConfirmationNumberOutlined className="text-primary" sx={{ fontSize: 20 }} />
-              <Typography variant="subtitle2" fontWeight="700" className="text-foreground">
-                Apply Coupon Code
-              </Typography>
-            </div>
-
-            <form onSubmit={handleApplyCoupon} className="flex gap-2">
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Enter promo code (e.g. WELCOME50)"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                disabled={coupon.loading}
-                inputProps={{ style: { textTransform: "uppercase", fontSize: "13px" } }}
-              />
-              <Button
-                type="submit"
-                variant="outlined"
-                color="primary"
-                disabled={!couponCode.trim() || coupon.loading}
-                sx={{ textTransform: "none", fontWeight: 700, minWidth: "80px", borderRadius: "0.65rem" }}
-              >
-                {coupon.loading ? <CircularProgress size={16} /> : "Apply"}
-              </Button>
-            </form>
-
-            {couponError && (
-              <Alert severity="error" sx={{ mt: 2, fontSize: "12px", borderRadius: "0.5rem" }}>
-                {couponError}
-              </Alert>
             )}
-
-            {coupon.couponApplied && (
-              <Alert severity="success" sx={{ mt: 2, fontSize: "12px", borderRadius: "0.5rem" }}>
-                Coupon applied successfully!
-              </Alert>
-            )}
+            <span className="text-base sm:text-lg font-black text-foreground tracking-tight">
+              ₹{totalPayable.toLocaleString("en-IN")}
+            </span>
           </div>
 
-          {/* Pricing Breakdown */}
-          <div className="border border-border bg-card text-card-foreground rounded-2xl p-6 shadow-sm flex flex-col gap-5">
-            <Typography variant="h6" fontWeight="800" className="text-foreground tracking-tight">
-              Order Summary
-            </Typography>
-            <Divider />
-
-            <div className="flex flex-col gap-3 text-sm">
-              <div className="flex justify-between text-muted-foreground font-medium">
-                <span>Total MRP ({cartData.totalItem} items)</span>
-                <span className="text-foreground font-semibold">
-                  ₹{cartData.totalMrpPrice?.toLocaleString("en-IN")}
-                </span>
-              </div>
-
-              {effectiveDiscount > 0 && (
-                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
-                  <span>Promotional & Coupon Savings</span>
-                  <span>-₹{effectiveDiscount.toLocaleString("en-IN")}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-muted-foreground font-medium">
-                <span>Standard Express Delivery</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">FREE</span>
-              </div>
-
-              <Divider />
-
-              <div className="flex justify-between items-baseline pt-1">
-                <span className="font-extrabold text-base text-foreground">Total Payable</span>
-                <span className="text-primary font-black text-2xl tracking-tight">
-                  ₹{effectiveSellingPrice.toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={() => navigate("/checkout/address")}
-              sx={{
-                py: 1.5,
-                borderRadius: "0.85rem",
-                fontWeight: 800,
-                fontSize: "14px",
-                textTransform: "none",
-                boxShadow: "0 4px 14px rgba(13, 148, 136, 0.35)",
-              }}
-            >
-              Proceed to Checkout →
-            </Button>
-
-            <div className="flex items-center justify-center gap-2 pt-1 text-[11px] text-muted-foreground font-medium">
-              <VerifiedUserOutlined sx={{ fontSize: 15 }} className="text-primary" />
-              <span>Safe & Secure 256-Bit Encrypted Payments</span>
-            </div>
-          </div>
+          {/* Yellow CTA Button */}
+          <Button
+            variant="contained"
+            onClick={() => navigate("/checkout")}
+            sx={{
+              bgcolor: "#ffc200",
+              color: "#111827",
+              "&:hover": { bgcolor: "#f5b700" },
+              px: 3.5,
+              py: 1.1,
+              borderRadius: "0.75rem",
+              fontWeight: 900,
+              fontSize: "13px",
+              textTransform: "none",
+              boxShadow: "0 2px 8px rgba(255, 194, 0, 0.4)",
+            }}
+          >
+            Proceed to buy
+          </Button>
         </div>
       </div>
     </div>

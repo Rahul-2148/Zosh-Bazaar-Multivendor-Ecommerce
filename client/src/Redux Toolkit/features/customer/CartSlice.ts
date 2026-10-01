@@ -126,7 +126,6 @@ const cartSlice = createSlice({
       state.loading = true;
       state.error = null;
       state.message = null;
-      state.cart = null;
     });
     builder.addCase(fetchUserCart.fulfilled, (state, action) => {
       state.loading = false;
@@ -137,7 +136,6 @@ const cartSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
       state.message = action.payload?.message || "Failed to fetch cart";
-      state.cart = null;
     });
 
     // add item to cart
@@ -148,14 +146,40 @@ const cartSlice = createSlice({
     });
     builder.addCase(addItemToCart.fulfilled, (state, action) => {
       state.loading = false;
-      if (state.cart) {
-        state.cart = {
-          ...state.cart,
-          cartItems: [
-            ...state.cart.cartItems,
-            action.payload.cartItem as ICartItem,
-          ],
-        };
+      const newItem = action.payload.cartItem as ICartItem;
+      if (newItem) {
+        if (state.cart) {
+          const existingIdx = state.cart.cartItems.findIndex(
+            (ci) =>
+              ci._id === newItem._id ||
+              (ci.product?._id &&
+                newItem.product?._id &&
+                ci.product._id === newItem.product._id &&
+                ci.variantId === newItem.variantId)
+          );
+          if (existingIdx >= 0) {
+            state.cart.cartItems[existingIdx] = newItem;
+          } else {
+            state.cart.cartItems.push(newItem);
+          }
+          state.cart.totalItem = state.cart.cartItems.reduce(
+            (acc, it) => acc + (it.quantity || 1),
+            0
+          );
+        } else {
+          state.cart = {
+            _id:
+              (typeof newItem.cart === "string"
+                ? newItem.cart
+                : (newItem.cart as any)?._id) || "cart_temp",
+            user: newItem.userId,
+            cartItems: [newItem],
+            totalMrpPrice: newItem.mrpPrice || 0,
+            totalSellingPrice: newItem.sellingPrice || 0,
+            totalItem: newItem.quantity || 1,
+            discount: 0,
+          };
+        }
       }
       state.message = action.payload.message || "Item added to cart";
     });

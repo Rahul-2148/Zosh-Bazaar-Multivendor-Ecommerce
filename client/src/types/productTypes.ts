@@ -82,6 +82,18 @@ export interface ProductState {
     categories: any[];
     brands: string[];
   };
+  searchMetadata?: {
+    showingResultsFor?: string;
+    originalQuery?: string;
+    isCorrected?: boolean;
+    searchInsteadUrl?: string;
+    curatedRails?: {
+      topBrands?: string[];
+      popularCategories?: Array<{ label: string; query: string }>;
+      dealBanner?: { title: string; subtitle: string; discountTag?: string };
+      occasionChips?: string[];
+    };
+  } | null;
   categoryFilters: CategoryFiltersData | null;
   message: string | null;
 }

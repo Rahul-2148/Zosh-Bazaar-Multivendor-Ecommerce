@@ -1,76 +1,76 @@
-import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import RootLayout from "../layouts/RootLayout";
 import CustomerLayout from "../layouts/CustomerLayout";
 import ProtectedRoute from "./guards/ProtectedRoute";
 import PublicOnlyRoute from "./guards/PublicOnlyRoute";
 import RouteErrorBoundary from "./errors/RouteErrorBoundary";
+import { lazyWithRetry } from "../utils/lazyWithRetry";
 
 // Public Storefront Pages
-const Home = lazy(() => import("../customer/pages/Home/Home"));
-const Products = lazy(() => import("../customer/pages/Product/Products"));
-const ProductDetails = lazy(
+const Home = lazyWithRetry(() => import("../customer/pages/Home/Home"));
+const Products = lazyWithRetry(() => import("../customer/pages/Product/Products"));
+const ProductDetails = lazyWithRetry(
   () => import("../customer/pages/Product/ProductDetails/ProductDetails")
 );
-const Cart = lazy(() => import("../customer/pages/Cart/Cart"));
-const SearchResults = lazy(
+const Cart = lazyWithRetry(() => import("../customer/pages/Cart/Cart"));
+const SearchResults = lazyWithRetry(
   () => import("../customer/pages/Search/SearchResults")
 );
-const Wishlist = lazy(() => import("../customer/pages/Wishlist/Wishlist"));
-const SharedCollectionView = lazy(
+const Wishlist = lazyWithRetry(() => import("../customer/pages/Wishlist/Wishlist"));
+const SharedCollectionView = lazyWithRetry(
   () => import("../customer/pages/Wishlist/SharedCollectionView")
 );
 
 // Auth & Partner Pages
-const Auth = lazy(() => import("../Auth/Auth"));
-const BecomeSeller = lazy(() => import("../Auth/Become Seller/BecomeSeller"));
+const Auth = lazyWithRetry(() => import("../Auth/Auth"));
+const BecomeSeller = lazyWithRetry(() => import("../Auth/Become Seller/BecomeSeller"));
 
 // Protected Customer Checkout & Order Pages
-const Checkout = lazy(() => import("../customer/pages/Checkout/Checkout"));
-const Order = lazy(() => import("../customer/pages/Order/Order"));
-const OrderDetails = lazy(() => import("../customer/pages/Order/OrderDetails"));
-const PaymentSuccess = lazy(
+const Checkout = lazyWithRetry(() => import("../customer/pages/Checkout/Checkout"));
+const Order = lazyWithRetry(() => import("../customer/pages/Order/Order"));
+const OrderDetails = lazyWithRetry(() => import("../customer/pages/Order/OrderDetails"));
+const PaymentSuccess = lazyWithRetry(
   () => import("../customer/pages/Payment/PaymentSuccess")
 );
 
 // Protected Customer Account Suite
-const Profile = lazy(() => import("../customer/pages/Account/Profile"));
-const AccountOverview = lazy(
+const Profile = lazyWithRetry(() => import("../customer/pages/Account/Profile"));
+const AccountOverview = lazyWithRetry(
   () => import("../customer/pages/Account/AccountOverview")
 );
-const OrdersView = lazy(() => import("../customer/pages/Account/OrdersView"));
-const ReturnsRefundsView = lazy(
+const OrdersView = lazyWithRetry(() => import("../customer/pages/Account/OrdersView"));
+const ReturnsRefundsView = lazyWithRetry(
   () => import("../customer/pages/Account/ReturnsRefundsView")
 );
-const BuyAgainView = lazy(
+const BuyAgainView = lazyWithRetry(
   () => import("../customer/pages/Account/BuyAgainView")
 );
-const RecentlyViewedView = lazy(
+const RecentlyViewedView = lazyWithRetry(
   () => import("../customer/pages/Account/RecentlyViewedView")
 );
-const Addresses = lazy(() => import("../customer/pages/Account/Addresses"));
-const PaymentsView = lazy(
+const Addresses = lazyWithRetry(() => import("../customer/pages/Account/Addresses"));
+const PaymentsView = lazyWithRetry(
   () => import("../customer/pages/Account/PaymentsView")
 );
-const CouponsView = lazy(() => import("../customer/pages/Account/CouponsView"));
-const Notifications = lazy(
+const CouponsView = lazyWithRetry(() => import("../customer/pages/Account/CouponsView"));
+const Notifications = lazyWithRetry(
   () => import("../customer/pages/Account/Notifications")
 );
-const NotificationPreferencesView = lazy(
+const NotificationPreferencesView = lazyWithRetry(
   () => import("../customer/pages/Account/NotificationPreferencesView")
 );
-const ProfileView = lazy(() => import("../customer/pages/Account/ProfileView"));
-const SecurityView = lazy(
+const ProfileView = lazyWithRetry(() => import("../customer/pages/Account/ProfileView"));
+const SecurityView = lazyWithRetry(
   () => import("../customer/pages/Account/SecurityView")
 );
-const SessionsView = lazy(
+const SessionsView = lazyWithRetry(
   () => import("../customer/pages/Account/SessionsView")
 );
-const PrivacyView = lazy(() => import("../customer/pages/Account/PrivacyView"));
-const HelpCenterView = lazy(
+const PrivacyView = lazyWithRetry(() => import("../customer/pages/Account/PrivacyView"));
+const HelpCenterView = lazyWithRetry(
   () => import("../customer/pages/Account/HelpCenterView")
 );
-const AiAssistantView = lazy(
+const AiAssistantView = lazyWithRetry(
   () => import("../customer/pages/Account/AiAssistantView")
 );
 
@@ -114,6 +114,14 @@ export const router = createBrowserRouter([
           { path: "products/:categoryId", element: <Products /> },
           {
             path: "product-details/:categoryId/:name/:productId",
+            element: <ProductDetails />,
+          },
+          {
+            path: "product-details/:categoryId/:productId",
+            element: <ProductDetails />,
+          },
+          {
+            path: "product-details/:productId",
             element: <ProductDetails />,
           },
           { path: "cart", element: <Cart /> },

@@ -30,7 +30,8 @@ export interface RecommendationResponse {
   recommendations: RecommendationItem[];
 }
 
-const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+const rawBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1").replace(/\/+$/, "");
+const apiBase = rawBase.endsWith("/api/v1") ? rawBase : `${rawBase}/api/v1`;
 
 export const fetchRecommendations = async (
   endpoint: string,
@@ -46,7 +47,7 @@ export const fetchRecommendations = async (
       }
     }
 
-    const res = await fetch(`${apiBase}/api/v1/recommendations/${endpoint}?${query.toString()}`);
+    const res = await fetch(`${apiBase}/recommendations/${endpoint}?${query.toString()}`);
     if (!res.ok) return null;
     return await res.json();
   } catch {

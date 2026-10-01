@@ -4,6 +4,9 @@ import { Provider } from "react-redux";
 import { store } from "./store/store";
 import "./index.css";
 import App from "./App";
+import { registerDynamicImportRecovery } from "./utils/lazyWithRetry";
+
+registerDynamicImportRecovery();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

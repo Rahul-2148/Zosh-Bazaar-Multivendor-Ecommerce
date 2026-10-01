@@ -16,6 +16,7 @@ const initialState: ProductState = {
   loading: false,
   error: null,
   searchProducts: [],
+  searchMetadata: null,
   searchSuggestions: {
     products: [],
     categories: [],
@@ -201,14 +202,23 @@ const productSlice = createSlice({
       state.loading = true;
       state.error = null;
       state.message = null;
-      state.searchProducts = [];
     });
-    builder.addCase(searchProduct.fulfilled, (state, action) => {
+    builder.addCase(searchProduct.fulfilled, (state, action: any) => {
       state.loading = false;
-      state.searchProducts = action.payload.products.content;
-      state.totalElements = action.payload.products.totalElements;
-      state.totalPages = action.payload.products.totalPages;
-      state.message = action.payload.message || "Product fetched successfully";
+      const rawList = Array.isArray(action.payload?.products)
+        ? action.payload.products
+        : action.payload?.products?.content || action.payload?.content || [];
+      state.searchProducts = rawList;
+      state.totalElements = action.payload?.totalElements || rawList.length;
+      state.totalPages = action.payload?.totalPages || 1;
+      state.searchMetadata = {
+        showingResultsFor: action.payload?.showingResultsFor,
+        originalQuery: action.payload?.originalQuery,
+        isCorrected: action.payload?.isCorrected,
+        searchInsteadUrl: action.payload?.searchInsteadUrl,
+        curatedRails: action.payload?.curatedRails,
+      };
+      state.message = action.payload?.message || "Product fetched successfully";
       state.error = null;
     });
     builder.addCase(searchProduct.rejected, (state, action: any) => {
@@ -216,6 +226,7 @@ const productSlice = createSlice({
       state.error = action.payload;
       state.message = action.payload?.message || "Failed to search product";
       state.searchProducts = [];
+      state.searchMetadata = null;
     });
 
     // get all products

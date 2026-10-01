@@ -113,7 +113,7 @@ export const HelpCenterView: React.FC = () => {
         />
       </div>
 
-      {/* Recent Order Quick Help Card (Amazon/Flipkart style) */}
+      {/* Recent Order Quick Help Card */}
       {recentOrder && (
         <div className="p-5 rounded-2xl border border-border/80 bg-card space-y-4">
           <div className="flex items-center justify-between">

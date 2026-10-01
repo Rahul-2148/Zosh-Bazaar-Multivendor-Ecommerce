@@ -10,6 +10,35 @@ export const RouteErrorBoundary: React.FC = () => {
   let message = "An unexpected error occurred while loading this stop or view.";
   let statusCode: number | string = 500;
 
+  const isDynamicChunkError = React.useMemo(() => {
+    const raw = String(
+      (error as any)?.message ||
+      (error as any)?.statusText ||
+      (error as any)?.data?.message ||
+      error ||
+      ""
+    ).toLowerCase();
+
+    return (
+      raw.includes("failed to fetch dynamically imported module") ||
+      raw.includes("importing a module script failed") ||
+      raw.includes("error loading dynamically imported module") ||
+      raw.includes("dynamically imported module") ||
+      (error as any)?.name === "ChunkLoadError"
+    );
+  }, [error]);
+
+  React.useEffect(() => {
+    if (isDynamicChunkError && typeof window !== "undefined") {
+      const storageKey = `zosh_partner_boundary_${window.location.pathname}`;
+      const hasReloaded = sessionStorage.getItem(storageKey);
+      if (!hasReloaded) {
+        sessionStorage.setItem(storageKey, "true");
+        window.location.reload();
+      }
+    }
+  }, [isDynamicChunkError]);
+
   if (isRouteErrorResponse(error)) {
     statusCode = error.status;
     if (error.status === 404) {
@@ -25,6 +54,10 @@ export const RouteErrorBoundary: React.FC = () => {
       title = error.statusText || "Route Error";
       message = typeof error.data === "string" ? error.data : error.data?.message || message;
     }
+  } else if (isDynamicChunkError) {
+    title = "App Update Available";
+    message = "A new shift app bundle is available. Reload to get the latest delivery tools.";
+    statusCode = 200;
   } else if (error instanceof Error) {
     message = error.message;
   }

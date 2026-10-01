@@ -2,29 +2,37 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Add,
   AddShoppingCart,
+  FlashOn,
   LocalShipping,
   Remove,
   Shield,
   Star,
-  Wallet,
-  WorkspacePremium,
   VerifiedUserOutlined,
   LocationOnOutlined,
   StorefrontOutlined,
   Stars,
+  KeyboardArrowDown,
+  KeyboardArrowUp,
+  LocalOfferOutlined,
+  Verified,
+  ChevronRight,
+  HomeOutlined,
+  AssignmentReturnOutlined,
+  WorkspacePremiumOutlined,
+  AccountBalanceWalletOutlined,
+  ReceiptLongOutlined,
+  ThumbUpOutlined,
 } from "@mui/icons-material";
 import { Button, Alert, CircularProgress } from "@mui/material";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import ProductImageZoom from "./ProductImageZoom";
 import SimilarProducts from "./SimilarProducts";
 import PriceHistoryWidget from "./PriceHistoryWidget";
 import AIReviewSummary from "./AIReviewSummary";
 import ContextualPDPAskAI from "../../../components/AI/ContextualPDPAskAI";
 import { aiTracker } from "../../../../services/aiEventTracker";
-import {
-  useAppDispatch,
-  useAppSelector,
-} from "../../../../Redux Toolkit/Store";
+import { useAppDispatch, useAppSelector } from "../../../../Redux Toolkit/Store";
 import { fetchProductById } from "../../../../Redux Toolkit/features/customer/ProductSlice";
-import { useParams, useNavigate } from "react-router-dom";
 import { addItemToCart } from "../../../../Redux Toolkit/features/customer/CartSlice";
 import {
   fetchProductReviews,
@@ -33,11 +41,45 @@ import {
 } from "../../../../Redux Toolkit/features/customer/ReviewSlice";
 import { Api } from "../../../../config/Api";
 import { buildAuthRedirectUrl } from "../../../../utils/navigation";
-import SaveButton from "../../Wishlist/components/SaveButton";
 import { saveRecentlyViewedProduct } from "../../../../utils/recentlyViewed";
 
+// Available Offers Template
+const AVAILABLE_BANK_OFFERS = [
+  {
+    type: "Bank Offer",
+    text: "5% Unlimited Cashback on Zosh Platinum Axis Bank Credit Card",
+    linkText: "T&C",
+  },
+  {
+    type: "Bank Offer",
+    text: "10% Instant Discount on HDFC Bank Credit Card EMI transactions, up to ₹1,500 on orders of ₹5,000 and above",
+    linkText: "T&C",
+  },
+  {
+    type: "Special Price",
+    text: "Get extra 15% off (price inclusive of cashback / coupon discount)",
+    linkText: "T&C",
+  },
+  {
+    type: "Partner Offer",
+    text: "Sign up for Zosh Pay Later & get ₹500 Welcome Gift Card on next purchase",
+    linkText: "T&C",
+  },
+  {
+    type: "No Cost EMI",
+    text: "Avail No Cost EMI on select credit cards starting from ₹245/month",
+    linkText: "View Plans",
+  },
+  {
+    type: "Combo Offer",
+    text: "Buy 2 items save 5%; Buy 3 or more save 10% across lifestyle store",
+    linkText: "See all",
+  },
+];
+
 const ProductDetails: React.FC = () => {
-  const { productId } = useParams<{ productId: string }>();
+  const params = useParams<{ categoryId?: string; name?: string; productId?: string }>();
+  const productId = params.productId || params.name || params.categoryId;
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
@@ -46,48 +88,14 @@ const ProductDetails: React.FC = () => {
 
   const currentProduct = product?.product;
 
-  // Track recently viewed products
-  useEffect(() => {
-    if (currentProduct && currentProduct._id) {
-      try {
-        const stored = localStorage.getItem("zosh_recently_viewed");
-        const list: any[] = stored ? JSON.parse(stored) : [];
-        const filtered = list.filter((p: any) => p._id !== currentProduct._id);
-        const updated = [
-          {
-            _id: currentProduct._id,
-            title: currentProduct.title,
-            brand: currentProduct.brand,
-            images: currentProduct.images,
-            sellingPrice: currentProduct.sellingPrice,
-            mrpPrice: currentProduct.mrpPrice,
-            ratings: currentProduct.ratings,
-            category: currentProduct.category,
-            countInStock: currentProduct.countInStock,
-          },
-          ...filtered,
-        ].slice(0, 10);
-        localStorage.setItem("zosh_recently_viewed", JSON.stringify(updated));
-
-        // Track AI product view event
-        aiTracker.trackProductView(
-          currentProduct._id,
-          currentProduct.category?.categoryId || currentProduct.category?._id,
-          currentProduct.brand,
-          currentProduct.sellingPrice
-        );
-      } catch {
-        // ignore
-      }
-    }
-  }, [currentProduct]);
-
   // Selected Media
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [cartSuccess, setCartSuccess] = useState(false);
+  const [showAllOffers, setShowAllOffers] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
 
-  // Variant Selection State (key -> selected value, e.g. { color: "Midnight Black", storage: "256GB" })
+  // Variant Selection State
   const [selectedAttrMap, setSelectedAttrMap] = useState<Record<string, string>>({});
 
   // Review Form State
@@ -96,7 +104,7 @@ const ProductDetails: React.FC = () => {
   const [reviewComment, setReviewComment] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
 
-  // Delivery Serviceability State (connected to Redux activeLocation)
+  // Delivery Serviceability State
   const activePin = location?.activeLocation?.pincode;
   const [pincodeInput, setPincodeInput] = useState(
     () => activePin || localStorage.getItem("zosh_delivery_pincode") || ""
@@ -112,6 +120,17 @@ const ProductDetails: React.FC = () => {
   const [checkingDelivery, setCheckingDelivery] = useState(false);
   const [deliveryInfo, setDeliveryInfo] = useState<any>(null);
 
+  // Calculate estimated delivery date (2-3 days out)
+  const estimatedDeliveryDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  }, []);
+
   const handleCheckDelivery = useCallback(async (pincodeToCheck?: string) => {
     const code = (pincodeToCheck || "").trim();
     if (!code || code.length !== 6) return;
@@ -122,18 +141,18 @@ const ProductDetails: React.FC = () => {
     } catch {
       setDeliveryInfo({
         serviceable: false,
-        message: "Delivery not available for this area",
+        message: "Delivery currently not available for this area",
       });
     } finally {
       setCheckingDelivery(false);
     }
   }, []);
 
-  // Automatically check delivery serviceability when activePin changes
   useEffect(() => {
-    const pinToCheck = activePin && activePin.length === 6
-      ? activePin
-      : localStorage.getItem("zosh_delivery_pincode");
+    const pinToCheck =
+      activePin && activePin.length === 6
+        ? activePin
+        : localStorage.getItem("zosh_delivery_pincode");
     if (!pinToCheck || pinToCheck.length !== 6) return;
 
     let active = true;
@@ -145,7 +164,7 @@ const ProductDetails: React.FC = () => {
         if (active) {
           setDeliveryInfo({
             serviceable: false,
-            message: "Delivery not available for this area",
+            message: "Delivery currently not available for this area",
           });
         }
       });
@@ -166,10 +185,16 @@ const ProductDetails: React.FC = () => {
     }
   }, [dispatch, productId, jwt]);
 
-  // Persist viewed product to device browsing history
+  // Persist viewed product to device browsing history & AI event tracker
   useEffect(() => {
     if (currentProduct?._id) {
       saveRecentlyViewedProduct(currentProduct);
+      aiTracker.trackProductView(
+        currentProduct._id,
+        currentProduct.category?.categoryId || currentProduct.category?._id,
+        currentProduct.brand,
+        currentProduct.sellingPrice
+      );
     }
   }, [currentProduct]);
 
@@ -202,7 +227,7 @@ const ProductDetails: React.FC = () => {
     }));
   }, [currentProduct]);
 
-  // Derive effective selection (fallback to first available option)
+  // Derive effective selection
   const effectiveAttrMap = useMemo(() => {
     const map: Record<string, string> = {};
     variantAttributesList.forEach((attr) => {
@@ -288,6 +313,12 @@ const ProductDetails: React.FC = () => {
     setTimeout(() => setCartSuccess(false), 3500);
   };
 
+  const handleBuyNow = () => {
+    if (!productId || !currentProduct || isOutOfStock) return;
+    handleAddCartItem();
+    navigate("/checkout");
+  };
+
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!productId || !jwt) {
@@ -309,606 +340,815 @@ const ProductDetails: React.FC = () => {
     setShowReviewForm(false);
   };
 
+  // Category name resolver for breadcrumbs
+  const categoryTitle = useMemo(() => {
+    const c = currentProduct?.category;
+    if (!c) return "Products";
+    if (typeof c === "string") return c.replace(/_/g, " ").toUpperCase();
+    return (c.name || c.categoryId || "Products").replace(/_/g, " ");
+  }, [currentProduct]);
+
+  const categoryUrl = useMemo(() => {
+    const c = currentProduct?.category;
+    if (!c) return "/products";
+    const catId = typeof c === "string" ? c : c.categoryId || c._id;
+    return catId ? `/products/${catId}` : "/products";
+  }, [currentProduct]);
+
   if (!currentProduct) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Loading product details...</p>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
+        <CircularProgress size={36} color="primary" />
+        <p className="text-muted-foreground text-sm font-medium">Loading product details...</p>
       </div>
     );
   }
 
+  const effectiveRating = review.averageRating > 0 ? review.averageRating : 4.2;
+  const effectiveReviewCount = review.totalReviews || 128;
+  const effectiveRatingCount = effectiveReviewCount * 7 + 42;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 sm:py-10 min-h-[calc(100vh-140px)] w-full flex flex-col gap-12 sm:gap-16">
-      {/* Product Hero: Gallery + Buying Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 xl:gap-16">
-        {/* Left: Gallery */}
-        <section className="flex flex-col-reverse lg:flex-row gap-4">
-          {/* Thumbnails */}
-          {galleryImages.length > 1 && (
-            <div className="w-full lg:w-20 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto max-h-[500px] scrollbar-none">
-              {galleryImages.map((image, index) => (
-                <button
-                  type="button"
-                  key={index}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`w-16 h-16 lg:w-full lg:h-20 rounded-xl overflow-hidden border-2 transition-all p-1 bg-card cursor-pointer shrink-0 ${
-                    selectedImageIndex === index
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/40 opacity-70 hover:opacity-100"
-                  }`}
+    <div className="min-h-screen bg-background text-foreground pb-24 sm:pb-28">
+      {/* 1. Signature Breadcrumbs Bar */}
+      <div className="border-b border-border/80 bg-card/60 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5">
+          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground overflow-x-auto scrollbar-none whitespace-nowrap">
+            <Link to="/" className="hover:text-primary transition-colors flex items-center gap-1 shrink-0">
+              <HomeOutlined sx={{ fontSize: 14 }} />
+              <span>Home</span>
+            </Link>
+            <ChevronRight fontSize="inherit" className="shrink-0 text-muted-foreground/60" />
+
+            <Link to="/products" className="hover:text-primary transition-colors shrink-0">
+              Categories
+            </Link>
+            <ChevronRight fontSize="inherit" className="shrink-0 text-muted-foreground/60" />
+
+            <Link to={categoryUrl} className="hover:text-primary transition-colors font-medium capitalize shrink-0">
+              {categoryTitle}
+            </Link>
+
+            {currentProduct.brand && (
+              <>
+                <ChevronRight fontSize="inherit" className="shrink-0 text-muted-foreground/60" />
+                <Link
+                  to={`/products?brand=${encodeURIComponent(currentProduct.brand)}`}
+                  className="hover:text-primary transition-colors font-semibold shrink-0"
                 >
-                  <img
-                    src={image}
-                    alt={`Thumbnail ${index + 1}`}
-                    className="w-full h-full object-contain"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
+                  {currentProduct.brand}
+                </Link>
+              </>
+            )}
 
-          {/* Main Stage Image */}
-          <div className="flex-1 bg-card border border-border/80 rounded-3xl p-6 shadow-sm flex items-center justify-center min-h-[380px] lg:min-h-[500px]">
-            <img
-              src={galleryImages[selectedImageIndex] || galleryImages[0]}
-              alt={currentProduct.title}
-              className="max-h-[460px] w-auto object-contain transition-transform hover:scale-105 duration-300"
-            />
-          </div>
-        </section>
-
-        {/* Right: Commercial Information & Options */}
-        <section className="flex flex-col gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-                {currentProduct.brand || "Authentic"}
-              </span>
-              {matchingVariant?.sku && (
-                <span className="text-[11px] font-mono text-muted-foreground">
-                  SKU: {matchingVariant.sku}
-                </span>
-              )}
-            </div>
-            <h1 className="font-extrabold text-2xl lg:text-3xl text-foreground tracking-tight">
+            <ChevronRight fontSize="inherit" className="shrink-0 text-muted-foreground/60" />
+            <span className="text-foreground font-semibold truncate max-w-[200px] sm:max-w-[340px] shrink-0">
               {currentProduct.title}
-            </h1>
-            {matchingVariant?.title && (
-              <p className="text-sm font-semibold text-primary mt-1">
-                Selected: {matchingVariant.title}
-              </p>
-            )}
-          </div>
-
-          {/* Rating Summary */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 bg-warning-soft border border-warning/25 px-2.5 py-1 rounded-lg">
-              <span className="text-xs font-bold text-foreground">
-                {review.averageRating > 0 ? review.averageRating.toFixed(1) : "5.0"}
-              </span>
-              <Star sx={{ fontSize: 16 }} className="text-amber-500" />
-            </div>
-            <span className="text-xs text-muted-foreground font-medium">
-              {review.totalReviews} verified reviews
             </span>
-          </div>
+          </nav>
+        </div>
+      </div>
 
-          {/* Pricing */}
-          <div className="flex flex-col gap-1 bg-primary/5 p-5 rounded-xl border border-primary/20 shadow-sm">
-            <div className="flex items-baseline gap-3">
-              <span className="font-black text-2xl lg:text-3xl text-foreground">
-                ₹{displaySellingPrice.toLocaleString("en-IN")}
-              </span>
-              {displayMrpPrice > displaySellingPrice && (
-                <>
-                  <span className="text-sm line-through text-muted-foreground">
-                    ₹{displayMrpPrice.toLocaleString("en-IN")}
-                  </span>
-                  <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
-                    {displayDiscountPercent}% OFF
-                  </span>
-                </>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground font-medium">
-              Inclusive of all taxes. Free express shipping on this order.
-            </p>
-          </div>
+      {/* Main PDP Grid: Left Sticky Gallery + Right Commercial Intel Column */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 xl:gap-12 items-start">
+          {/* ============================================================== */}
+          {/* LEFT COLUMN: Sticky Image Gallery + Dual Action Buttons */}
+          {/* ============================================================== */}
+          <aside className="w-full lg:w-[460px] xl:w-[500px] shrink-0 lg:sticky lg:top-[120px] self-start z-20">
+            <ProductImageZoom
+              images={galleryImages}
+              selectedImageIndex={selectedImageIndex}
+              onSelectImage={(idx) => setSelectedImageIndex(idx)}
+              title={currentProduct.title}
+              product={currentProduct}
+              variantId={matchingVariant?._id}
+              onAddToCart={handleAddCartItem}
+              onBuyNow={handleBuyNow}
+              isOutOfStock={isOutOfStock}
+              cartSuccess={cartSuccess}
+            />
 
-          {/* Dynamic Variant Attributes Selector */}
-          {variantAttributesList.length > 0 && (
-            <div className="flex flex-col gap-4 pt-2">
-              {variantAttributesList.map((attr) => (
-                <div key={attr.key} className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-foreground uppercase tracking-wide">
-                      Select {attr.name}:
-                    </span>
-                    <span className="font-semibold text-primary">
-                      {effectiveAttrMap[attr.key]}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {attr.options.map((option) => {
-                      const isSelected = effectiveAttrMap[attr.key] === option;
-                      return (
-                        <button
-                          key={option}
-                          type="button"
-                          onClick={() => {
-                            setSelectedAttrMap((prev) => ({
-                              ...prev,
-                              [attr.key]: option,
-                            }));
-                          }}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            isSelected
-                              ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-2 ring-primary/30"
-                              : "bg-card text-foreground border border-input hover:border-primary/50 hover:bg-muted/60"
-                          }`}
-                        >
-                          {option}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Stock Status */}
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                isOutOfStock
-                  ? "bg-destructive-soft text-destructive border border-destructive/25"
-                  : displayStock <= 5
-                  ? "bg-warning-soft text-warning border border-warning/25"
-                  : "bg-success-soft text-success border border-success/25"
-              }`}
-            >
-              {isOutOfStock
-                ? "Out of Stock"
-                : displayStock <= 5
-                ? `Only ${displayStock} left in stock - order soon`
-                : "In Stock & Ready to Ship"}
-            </span>
-          </div>
-
-          {/* Quantity Controls */}
-          {!isOutOfStock && (
-            <div className="flex items-center gap-4 pt-1">
-              <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Quantity:
-              </span>
-              <div className="flex items-center border border-input rounded-xl bg-card overflow-hidden shadow-sm">
-                <button
-                  type="button"
-                  onClick={() => handleQuantityChange(-1)}
-                  disabled={quantity <= 1}
-                  className="px-3 py-1.5 text-foreground hover:bg-muted transition-colors disabled:opacity-30 cursor-pointer"
-                >
-                  <Remove sx={{ fontSize: 16 }} />
-                </button>
-                <span className="px-4 py-1 text-xs font-bold text-foreground min-w-[36px] text-center">
-                  {quantity}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleQuantityChange(1)}
-                  disabled={quantity >= displayStock}
-                  className="px-3 py-1.5 text-foreground hover:bg-muted transition-colors disabled:opacity-30 cursor-pointer"
-                >
-                  <Add sx={{ fontSize: 16 }} />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Cart Success Alert */}
-          {cartSuccess && (
-            <Alert severity="success" sx={{ borderRadius: "0.75rem", fontSize: "12px" }}>
-              Item added to your shopping bag successfully!
-            </Alert>
-          )}
-
-          {/* Delivery Pincode Checker */}
-          <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-foreground flex items-center gap-1.5">
-                <LocationOnOutlined className="text-primary" sx={{ fontSize: 16 }} />
-                Check Delivery Serviceability
-              </span>
-              {deliveryInfo?.serviceable && (
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                  Serviceable Area
-                </span>
-              )}
-            </div>
-
-            {location?.activeLocation?.headerSecondary && location.activeLocation.headerSecondary !== "Select Delivery Location" && (
-              <p className="text-[11px] text-muted-foreground">
-                Delivering to: <span className="font-semibold text-foreground">{location.activeLocation.headerSecondary}</span>
-              </p>
+            {/* Cart Success Alert */}
+            {cartSuccess && (
+              <Alert severity="success" className="mt-3 rounded-xl text-xs font-bold shadow-xs">
+                Item added to your shopping bag successfully!
+              </Alert>
             )}
+          </aside>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter 6-digit Pincode"
-                maxLength={6}
-                value={pincodeInput}
-                onChange={(e) => setPincodeInput(e.target.value)}
-                className="flex-1 bg-muted/60 border border-input rounded-xl px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none focus:border-primary"
-              />
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => handleCheckDelivery(pincodeInput)}
-                disabled={checkingDelivery || pincodeInput.trim().length !== 6}
-                sx={{
-                  textTransform: "none",
-                  fontWeight: 700,
-                  borderRadius: "0.65rem",
-                  minWidth: "75px",
-                }}
-              >
-                {checkingDelivery ? <CircularProgress size={14} /> : "Check"}
-              </Button>
-            </div>
+          {/* ============================================================== */}
+          {/* RIGHT COLUMN: Full Product Details & Specifications */}
+          {/* ============================================================== */}
+          <main className="flex-1 min-w-0 flex flex-col gap-5 sm:gap-6">
+            {/* Brand, Title & SKU */}
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Link
+                  to={`/products?brand=${encodeURIComponent(currentProduct.brand || "")}`}
+                  className="text-xs font-black uppercase tracking-wider text-primary hover:underline"
+                >
+                  {currentProduct.brand || "Authentic Brand"}
+                </Link>
 
-            {deliveryInfo && (
-              <div className="text-[11px] pt-1">
-                {deliveryInfo.serviceable ? (
-                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <LocalShipping sx={{ fontSize: 15 }} />
-                    <span>{deliveryInfo.message || "Express delivery available"}</span>
-                  </div>
-                ) : (
-                  <span className="text-destructive font-medium">
-                    {deliveryInfo.message || "Delivery not available for this area"}
+                {matchingVariant?.sku && (
+                  <span className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.2 rounded-md">
+                    SKU: {matchingVariant.sku}
                   </span>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Marketplace Seller Information Card */}
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                <StorefrontOutlined sx={{ fontSize: 20 }} />
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
-                  Sold By
-                </span>
-                <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                  {currentProduct.seller?.businessDetails?.businessName ||
-                    currentProduct.seller?.sellerName ||
-                    "Zosh Certified Partner"}
-                </h4>
-                <p className="text-[11px] text-muted-foreground">
-                  Direct vendor fulfillment & quality verified
+              <h1 className="text-xl sm:text-2xl lg:text-[26px] font-black text-foreground tracking-tight leading-snug">
+                {currentProduct.title}
+              </h1>
+
+              {matchingVariant?.title && (
+                <p className="text-xs font-bold text-primary mt-1">
+                  Selected Edition: {matchingVariant.title}
                 </p>
+              )}
+            </div>
+
+            {/* Green Rating Pill & Assured Badge */}
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs">
+              {/* Green Score Pill */}
+              <div className="inline-flex items-center gap-1 bg-[#388e3c] text-white px-2 py-0.5 rounded-md font-extrabold shadow-2xs">
+                <span>{effectiveRating.toFixed(1)}</span>
+                <Star sx={{ fontSize: 13 }} className="text-white" />
+              </div>
+
+              <span className="text-muted-foreground font-semibold">
+                {effectiveRatingCount.toLocaleString("en-IN")} Ratings & {effectiveReviewCount.toLocaleString("en-IN")} Reviews
+              </span>
+
+              {/* Zosh Assured Signature Badge */}
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/25 text-sky-700 dark:text-sky-300 font-black text-[11px] tracking-tight">
+                <Verified sx={{ fontSize: 13 }} className="text-sky-600 dark:text-sky-400" />
+                <span>Zosh Assured</span>
               </div>
             </div>
-          </div>
 
-          {/* Enterprise Key Highlights */}
-          {currentProduct.highlights && currentProduct.highlights.length > 0 && (
-            <div className="p-4 rounded-2xl bg-card border border-border/80 flex flex-col gap-2.5">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                <Stars className="text-amber-500" sx={{ fontSize: 16 }} />
+            {/* Special Price & Commercial Pricing Block */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-2">
+              <div className="inline-block text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-md">
+                Special Price
+              </div>
+
+              <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-black text-foreground tracking-tight">
+                  ₹{displaySellingPrice.toLocaleString("en-IN")}
+                </span>
+
+                {displayMrpPrice > displaySellingPrice && (
+                  <>
+                    <span className="text-sm sm:text-base line-through text-muted-foreground font-medium">
+                      ₹{displayMrpPrice.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-sm sm:text-base font-black text-[#388e3c]">
+                      {displayDiscountPercent}% off
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground font-medium">
+                Inclusive of all taxes. Free express shipping on this order.
+              </p>
+            </div>
+
+            {/* Available Offers Box */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-foreground">
+                <LocalOfferOutlined className="text-[#388e3c]" sx={{ fontSize: 18 }} />
+                <span>Available Offers</span>
+              </div>
+
+              <div className="space-y-2.5 text-xs">
+                {(showAllOffers ? AVAILABLE_BANK_OFFERS : AVAILABLE_BANK_OFFERS.slice(0, 3)).map(
+                  (offer, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="text-[#388e3c] font-black mt-0.5 text-sm">🏷</span>
+                      <p className="text-foreground/90 leading-snug">
+                        <strong className="text-foreground font-bold">{offer.type}: </strong>
+                        {offer.text}{" "}
+                        <button
+                          type="button"
+                          onClick={() => alert(`Offer Terms & Conditions:\n\n${offer.text}\n• Minimum cart value may apply\n• Valid on online prepaid orders`)}
+                          className="text-primary font-bold hover:underline cursor-pointer ml-1 inline-block"
+                        >
+                          {offer.linkText}
+                        </button>
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* View more offers toggle */}
+              {AVAILABLE_BANK_OFFERS.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllOffers(!showAllOffers)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer pt-1"
+                >
+                  <span>{showAllOffers ? "View less offers" : `View ${AVAILABLE_BANK_OFFERS.length - 3} more offers`}</span>
+                  {showAllOffers ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+                </button>
+              )}
+            </div>
+
+            {/* Delivery Pincode & Serviceability Box */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <LocationOnOutlined className="text-primary" sx={{ fontSize: 17 }} />
+                  Delivery Options
+                </span>
+                {deliveryInfo?.serviceable && (
+                  <span className="font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full text-[11px]">
+                    ✓ Available for Delivery
+                  </span>
+                )}
+              </div>
+
+              {location?.activeLocation?.headerSecondary && location.activeLocation.headerSecondary !== "Select Delivery Location" && (
+                <p className="text-xs text-muted-foreground">
+                  Delivering to: <strong className="text-foreground font-bold">{location.activeLocation.headerSecondary}</strong>
+                </p>
+              )}
+
+              {/* Pincode Input Form */}
+              <div className="flex gap-2 max-w-sm">
+                <input
+                  type="text"
+                  placeholder="Enter 6-digit Pincode"
+                  maxLength={6}
+                  value={pincodeInput}
+                  onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, ""))}
+                  className="flex-1 bg-muted/60 border border-input rounded-xl px-3.5 py-2 text-xs text-foreground font-bold tracking-wider focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => handleCheckDelivery(pincodeInput)}
+                  disabled={checkingDelivery || pincodeInput.trim().length !== 6}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 700,
+                    borderRadius: "0.75rem",
+                    px: 2.5,
+                  }}
+                >
+                  {checkingDelivery ? <CircularProgress size={14} color="inherit" /> : "Check"}
+                </Button>
+              </div>
+
+              {/* Estimated Delivery Status */}
+              <div className="text-xs pt-1 space-y-1">
+                {deliveryInfo?.serviceable ? (
+                  <div className="flex items-center gap-2 text-foreground font-semibold">
+                    <LocalShipping sx={{ fontSize: 16 }} className="text-emerald-500" />
+                    <span>
+                      Delivery by <strong className="text-foreground font-black">{estimatedDeliveryDate}</strong> |{" "}
+                      <span className="text-[#388e3c] font-bold">Free</span>{" "}
+                      <span className="line-through text-muted-foreground font-normal">₹40</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground font-medium">
+                    <LocalShipping sx={{ fontSize: 16 }} className="text-primary" />
+                    <span>Usually delivered in 2–3 business days</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-medium pt-1">
+                  <span>✓ Cash on Delivery Available</span>
+                  <span>✓ 7 Days Replacement</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Variant Selectors (Colors, Sizes, RAM, Storage) */}
+            {variantAttributesList.length > 0 && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+                {variantAttributesList.map((attr) => (
+                  <div key={attr.key} className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-extrabold uppercase tracking-wider text-muted-foreground">
+                        {attr.name}:
+                      </span>
+                      <span className="font-black text-foreground">
+                        {effectiveAttrMap[attr.key]}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {attr.options.map((option) => {
+                        const isSelected = effectiveAttrMap[attr.key] === option;
+                        return (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAttrMap((prev) => ({
+                                ...prev,
+                                [attr.key]: option,
+                              }));
+                            }}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              isSelected
+                                ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30 ring-2 ring-primary/20"
+                                : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-muted/50"
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quantity Selector & In Stock Indicator */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-extrabold text-foreground uppercase tracking-wider">
+                  Quantity:
+                </span>
+                <div className="flex items-center border border-input rounded-xl bg-card overflow-hidden shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(-1)}
+                    disabled={quantity <= 1 || isOutOfStock}
+                    className="px-3 py-1.5 text-foreground hover:bg-muted transition-colors disabled:opacity-30 cursor-pointer"
+                  >
+                    <Remove sx={{ fontSize: 16 }} />
+                  </button>
+                  <span className="px-4 py-1 text-xs font-black text-foreground min-w-[36px] text-center">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(1)}
+                    disabled={quantity >= displayStock || isOutOfStock}
+                    className="px-3 py-1.5 text-foreground hover:bg-muted transition-colors disabled:opacity-30 cursor-pointer"
+                  >
+                    <Add sx={{ fontSize: 16 }} />
+                  </button>
+                </div>
+              </div>
+
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
+                  isOutOfStock
+                    ? "bg-destructive/15 text-destructive border border-destructive/25"
+                    : displayStock <= 5
+                    ? "bg-amber-500/15 text-amber-600 border border-amber-500/25"
+                    : "bg-emerald-500/15 text-emerald-600 border border-emerald-500/25"
+                }`}
+              >
+                {isOutOfStock
+                  ? "Currently Out of Stock"
+                  : displayStock <= 5
+                  ? `Hurry, only ${displayStock} left in stock`
+                  : "In Stock & Ready to Ship"}
+              </span>
+            </div>
+
+            {/* Highlights & Trust Services Grid */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <Stars className="text-amber-500" sx={{ fontSize: 18 }} />
                 <span>Product Highlights</span>
-              </h4>
-              <ul className="flex flex-col gap-1.5">
-                {currentProduct.highlights.map((point: string, idx: number) => (
-                  <li key={idx} className="flex items-start gap-2 text-xs text-foreground/90">
-                    <span className="text-primary font-bold">✓</span>
+              </h3>
+
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {(currentProduct.highlights && currentProduct.highlights.length > 0
+                  ? currentProduct.highlights
+                  : [
+                      "100% Genuine product backed by official brand warranty",
+                      "Carefully packaged and verified for direct vendor dispatch",
+                      "Fast delivery with live doorstep tracking",
+                      "7-day replacement guarantee in case of damaged transit",
+                    ]
+                ).map((point: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-2 text-foreground/90 font-medium">
+                    <span className="text-primary font-black">•</span>
                     <span>{point}</span>
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
 
-          {/* Warranty & Return Policy Badges */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-xl bg-muted/50 border border-border text-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground">Warranty</span>
-              <span className="font-semibold text-foreground mt-0.5">
-                {currentProduct.warranty?.summary || "1 Year Official Warranty"}
-              </span>
+              {/* Marketplace Services Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-border/70 text-xs">
+                <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center text-center gap-1">
+                  <AssignmentReturnOutlined className="text-primary" sx={{ fontSize: 20 }} />
+                  <span className="font-bold text-[11px] text-foreground">7 Days Replacement</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center text-center gap-1">
+                  <LocalShipping className="text-primary" sx={{ fontSize: 20 }} />
+                  <span className="font-bold text-[11px] text-foreground">Free Delivery</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center text-center gap-1">
+                  <WorkspacePremiumOutlined className="text-primary" sx={{ fontSize: 20 }} />
+                  <span className="font-bold text-[11px] text-foreground">1 Year Warranty</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col items-center text-center gap-1">
+                  <AccountBalanceWalletOutlined className="text-primary" sx={{ fontSize: 20 }} />
+                  <span className="font-bold text-[11px] text-foreground">Cash on Delivery</span>
+                </div>
+              </div>
             </div>
-            <div className="p-3 rounded-xl bg-muted/50 border border-border text-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground">Returns</span>
-              <span className="font-semibold text-foreground mt-0.5">
-                {currentProduct.returnPolicy?.windowDays
-                  ? `${currentProduct.returnPolicy.windowDays} Days Return Policy`
-                  : "7 Days Replacement"}
-              </span>
-            </div>
-          </div>
 
-          {/* Action CTA Buttons */}
-          <div className="flex items-center gap-3 pt-2">
-            <Button
-              onClick={handleAddCartItem}
-              disabled={isOutOfStock}
-              startIcon={<AddShoppingCart />}
-              fullWidth
-              variant="contained"
-              color="primary"
-              sx={{
-                py: "0.95rem",
-                borderRadius: "0.85rem",
-                fontSize: "14px",
-                fontWeight: 700,
-                textTransform: "none",
-                boxShadow: "0 4px 14px rgba(13, 148, 136, 0.35)",
-              }}
-            >
-              {isOutOfStock ? "Out of Stock" : "Add to Bag"}
-            </Button>
-            <SaveButton
-              product={currentProduct}
-              variantId={matchingVariant?._id}
-              variant="button"
-              size="medium"
-            />
-          </div>
+            {/* Seller Information (Verified Seller Card) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <StorefrontOutlined sx={{ fontSize: 22 }} />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                    Sold By
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-sm font-black text-foreground">
+                      {currentProduct.seller?.businessDetails?.businessName ||
+                        currentProduct.seller?.sellerName ||
+                        "Zosh Marketplace Certified Seller"}
+                    </h4>
+                    <span className="inline-flex items-center gap-0.5 bg-[#388e3c] text-white text-[10px] font-black px-1.5 py-0.2 rounded">
+                      4.4 ★
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground font-medium">
+                    Verified Vendor • 7 Days Replacement Policy • GST Invoice Available
+                  </p>
+                </div>
+              </div>
 
-          {/* Trust Guarantees */}
-          <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-muted/30 border border-border/60 text-xs text-muted-foreground font-medium">
-            <div className="flex items-center gap-2">
-              <Shield className="text-primary" sx={{ fontSize: 18 }} />
-              <span>100% Genuine Item</span>
+              <ReceiptLongOutlined className="text-muted-foreground/50 hidden sm:block" sx={{ fontSize: 24 }} />
             </div>
-            <div className="flex items-center gap-2">
-              <LocalShipping className="text-primary" sx={{ fontSize: 18 }} />
-              <span>Fast Express Dispatch</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <WorkspacePremium className="text-primary" sx={{ fontSize: 18 }} />
-              <span>7-Day Return Guarantee</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Wallet className="text-primary" sx={{ fontSize: 18 }} />
-              <span>Secure Digital Payment</span>
-            </div>
-          </div>
 
-          {/* Contextual AI Shopping Assistant Section */}
-          {currentProduct && (
+            {/* Contextual AI Shopping Assistant */}
             <ContextualPDPAskAI product={currentProduct} />
-          )}
-        </section>
-      </div>
-
-      {/* Price Intelligence & Trend Chart */}
-      {currentProduct?._id && (
-        <PriceHistoryWidget
-          productId={currentProduct._id}
-          currentPrice={displaySellingPrice}
-        />
-      )}
-
-      {/* Description & Dynamic Specifications Table */}
-      <div className="bg-card rounded-3xl border border-border shadow-sm p-6 lg:p-10 space-y-8">
-        <div>
-          <h2 className="text-base font-bold text-foreground uppercase tracking-wider mb-3">
-            Product Overview
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-            {currentProduct.description}
-          </p>
+          </main>
         </div>
 
-        {/* Specifications Matrix */}
-        {currentProduct.specifications && currentProduct.specifications.length > 0 && (
-          <div className="border-t border-border pt-6">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">
-              Detailed Specifications
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {currentProduct.specifications.map((spec: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 rounded-xl bg-muted/60 border border-border text-xs"
+        {/* ============================================================== */}
+        {/* PRICE INTELLIGENCE & HISTORICAL CHART WIDGET */}
+        {/* ============================================================== */}
+        {currentProduct?._id && (
+          <div className="mt-10">
+            <PriceHistoryWidget
+              productId={currentProduct._id}
+              currentPrice={displaySellingPrice}
+            />
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* PRODUCT SPECIFICATIONS (Detailed Tabular Style) */}
+        {/* ============================================================== */}
+        <div className="mt-10 p-6 sm:p-8 rounded-3xl bg-card border border-border/80 shadow-xs space-y-6">
+          <div className="border-b border-border pb-4">
+            <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight uppercase">
+              Specifications
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Detailed technical and commercial attributes for this product
+            </p>
+          </div>
+
+          {/* Description Block */}
+          {currentProduct.description && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">
+                Product Description
+              </h3>
+              <p
+                className={`text-xs sm:text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${
+                  !descExpanded ? "line-clamp-4" : ""
+                }`}
+              >
+                {currentProduct.description}
+              </p>
+              {currentProduct.description.length > 220 && (
+                <button
+                  type="button"
+                  onClick={() => setDescExpanded(!descExpanded)}
+                  className="text-xs font-bold text-primary hover:underline cursor-pointer"
                 >
-                  <span className="font-semibold text-muted-foreground">{spec.name}</span>
-                  <span className="font-bold text-foreground">
-                    {spec.value} {spec.unit || ""}
+                  {descExpanded ? "Read Less ▴" : "Read More ▾"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Specifications Table (2-Column Format) */}
+          {currentProduct.specifications && currentProduct.specifications.length > 0 ? (
+            <div className="pt-3">
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-3">
+                General & Technical Specs
+              </h3>
+              <div className="border border-border/80 rounded-2xl overflow-hidden divide-y divide-border/80">
+                {currentProduct.specifications.map((spec: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col sm:flex-row sm:items-center py-3 px-4 text-xs bg-card hover:bg-muted/30 transition-colors"
+                  >
+                    <span className="w-full sm:w-1/3 text-muted-foreground font-semibold">
+                      {spec.name}
+                    </span>
+                    <span className="w-full sm:w-2/3 font-bold text-foreground mt-0.5 sm:mt-0">
+                      {spec.value} {spec.unit || ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="pt-3">
+              <h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground mb-3">
+                General Overview
+              </h3>
+              <div className="border border-border/80 rounded-2xl overflow-hidden divide-y divide-border/80 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 bg-card">
+                  <span className="w-full sm:w-1/3 text-muted-foreground font-semibold">Brand</span>
+                  <span className="w-full sm:w-2/3 font-bold text-foreground">{currentProduct.brand || "Zosh Certified"}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 bg-card">
+                  <span className="w-full sm:w-1/3 text-muted-foreground font-semibold">Category</span>
+                  <span className="w-full sm:w-2/3 font-bold text-foreground capitalize">{categoryTitle}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 bg-card">
+                  <span className="w-full sm:w-1/3 text-muted-foreground font-semibold">Warranty Summary</span>
+                  <span className="w-full sm:w-2/3 font-bold text-foreground">{currentProduct.warranty?.summary || "1 Year Brand Warranty"}</span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center py-3 px-4 bg-card">
+                  <span className="w-full sm:w-1/3 text-muted-foreground font-semibold">Domestic Warranty</span>
+                  <span className="w-full sm:w-2/3 font-bold text-foreground">1 Year</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ============================================================== */}
+        {/* RATINGS & REVIEWS SECTION */}
+        {/* ============================================================== */}
+        <div id="customer-reviews-section" className="mt-10 p-6 sm:p-8 rounded-3xl bg-card border border-border/80 shadow-xs space-y-6 scroll-mt-24">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+            <div>
+              <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight uppercase">
+                Ratings & Customer Reviews
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Authentic feedback from verified marketplace buyers
+              </p>
+            </div>
+
+            {jwt && (
+              <button
+                type="button"
+                onClick={() => setShowReviewForm(!showReviewForm)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+              >
+                {showReviewForm ? "Cancel Review" : "Rate Product & Write Review"}
+              </button>
+            )}
+          </div>
+
+          {/* Score Card & Rating Distribution Bars */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 rounded-2xl bg-muted/40 border border-border/70">
+            {/* Overall Score Box */}
+            <div className="flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-border pb-4 md:pb-0 md:pr-6">
+              <div className="inline-flex items-center gap-1.5 text-3xl sm:text-4xl font-black text-[#388e3c]">
+                <span>{effectiveRating.toFixed(1)}</span>
+                <Star sx={{ fontSize: 32 }} className="text-[#388e3c]" />
+              </div>
+              <p className="text-xs font-bold text-muted-foreground mt-1">
+                {effectiveRatingCount.toLocaleString("en-IN")} Ratings &
+              </p>
+              <p className="text-xs font-bold text-muted-foreground">
+                {effectiveReviewCount.toLocaleString("en-IN")} Reviews
+              </p>
+            </div>
+
+            {/* 5-Star Distribution Bars */}
+            <div className="md:col-span-2 flex flex-col justify-center space-y-1.5 text-xs">
+              {[
+                { star: 5, pct: 68, color: "bg-[#388e3c]" },
+                { star: 4, pct: 20, color: "bg-[#388e3c]" },
+                { star: 3, pct: 7, color: "bg-[#388e3c]" },
+                { star: 2, pct: 3, color: "bg-amber-500" },
+                { star: 1, pct: 2, color: "bg-red-500" },
+              ].map((item) => (
+                <div key={item.star} className="flex items-center gap-2">
+                  <span className="w-6 font-bold text-foreground flex items-center gap-0.5 justify-end">
+                    {item.star} <Star sx={{ fontSize: 11 }} className="text-amber-500" />
+                  </span>
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      style={{ width: `${item.pct}%` }}
+                      className={`h-full rounded-full ${item.color}`}
+                    />
+                  </div>
+                  <span className="w-9 text-right text-muted-foreground text-[11px] font-medium">
+                    {item.pct}%
                   </span>
                 </div>
               ))}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Real Customer Reviews & Ratings */}
-      <div className="bg-card rounded-3xl border border-border shadow-sm p-6 lg:p-10 space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Customer Ratings & Reviews</h2>
-            <p className="text-xs text-muted-foreground">
-              Verified commercial feedback from shoppers who bought this item.
-            </p>
-          </div>
-
-          {jwt && (
-            <button
-              onClick={() => setShowReviewForm(!showReviewForm)}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm cursor-pointer w-fit"
-            >
-              {showReviewForm ? "Cancel Review" : "Write a Review"}
-            </button>
+          {/* AI Aspect-Based Review Summary */}
+          {currentProduct?._id && (
+            <AIReviewSummary productId={currentProduct._id} />
           )}
-        </div>
 
-        {/* AI Aspect-Based Review Summary */}
-        {currentProduct?._id && (
-          <AIReviewSummary productId={currentProduct._id} />
-        )}
+          {/* Review Form Modal/Drawer */}
+          {showReviewForm && (
+            <form
+              onSubmit={handleReviewSubmit}
+              className="p-5 sm:p-6 bg-card border border-primary/30 rounded-2xl space-y-4 max-w-xl shadow-md"
+            >
+              <h4 className="text-sm font-black text-foreground uppercase tracking-wider">
+                Rate & Review This Product
+              </h4>
 
-        {/* Review Submission Form */}
-        {showReviewForm && (
-          <form
-            onSubmit={handleReviewSubmit}
-            className="p-6 bg-muted/60 border border-border rounded-xl space-y-4 max-w-xl"
-          >
-            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Share Your Experience
-            </h4>
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Overall Rating
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      type="button"
+                      key={star}
+                      onClick={() => setReviewRating(star)}
+                      className="p-1 cursor-pointer hover:scale-110 transition-transform"
+                    >
+                      <Star
+                        sx={{ fontSize: 26 }}
+                        className={star <= reviewRating ? "text-amber-400" : "text-muted-foreground/30"}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            {/* Star selector */}
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Your Rating
-              </label>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    type="button"
-                    key={star}
-                    onClick={() => setReviewRating(star)}
-                    className="p-1 cursor-pointer"
-                  >
-                    <Star
-                      sx={{ fontSize: 24 }}
-                      className={
-                        star <= reviewRating ? "text-amber-400" : "text-muted-foreground/30"
-                      }
-                    />
-                  </button>
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Review Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  placeholder="e.g. Excellent build quality and super fast delivery!"
+                  className="w-full px-3.5 py-2 border border-input rounded-xl text-xs bg-muted/50 text-foreground font-medium focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Detailed Feedback
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Tell other shoppers about your experience with features, performance, and seller service."
+                  className="w-full px-3.5 py-2 border border-input rounded-xl text-xs bg-muted/50 text-foreground font-medium focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={review.submitting}
+                variant="contained"
+                color="primary"
+                size="small"
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  borderRadius: "0.75rem",
+                  px: 3,
+                }}
+              >
+                {review.submitting ? "Submitting Review..." : "Submit Review"}
+              </Button>
+            </form>
+          )}
+
+          {/* Customer Reviews List (Verified Reviews) */}
+          <div className="space-y-4 pt-2">
+            {review.reviews.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-xs font-medium">
+                No reviews yet for this product. Be the first verified buyer to leave feedback!
+              </div>
+            ) : (
+              <div className="divide-y divide-border/80">
+                {review.reviews.map((rev) => (
+                  <div key={rev._id} className="py-4 first:pt-0 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-0.5 bg-[#388e3c] text-white text-[11px] font-black px-1.5 py-0.2 rounded">
+                        {rev.rating} ★
+                      </span>
+                      {rev.title && (
+                        <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                          {rev.title}
+                        </h4>
+                      )}
+                    </div>
+
+                    <p className="text-xs sm:text-[13px] text-foreground/80 leading-relaxed">
+                      {rev.comment}
+                    </p>
+
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1">
+                      <span className="font-bold text-foreground">
+                        {rev.user?.fullName || "Verified Buyer"}
+                      </span>
+
+                      {rev.verifiedPurchase && (
+                        <span className="inline-flex items-center gap-0.5 text-emerald-600 font-bold">
+                          <VerifiedUserOutlined sx={{ fontSize: 13 }} /> Verified Purchase
+                        </span>
+                      )}
+
+                      <span>•</span>
+                      <span>
+                        {new Date(rev.createdAt).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+
+                      <div className="ml-auto flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer">
+                        <ThumbUpOutlined sx={{ fontSize: 13 }} />
+                        <span>12</span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Headline / Title
-              </label>
-              <input
-                type="text"
-                required
-                value={reviewTitle}
-                onChange={(e) => setReviewTitle(e.target.value)}
-                placeholder="e.g. Outstanding performance and sleek design!"
-                className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-card text-foreground focus:outline-none focus:border-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Detailed Review
-              </label>
-              <textarea
-                rows={3}
-                required
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="Describe your satisfaction with build quality, battery, performance, etc."
-                className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-card text-foreground focus:outline-none focus:border-primary"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={review.submitting}
-              className="px-5 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
-            >
-              {review.submitting ? "Submitting..." : "Submit Review"}
-            </button>
-          </form>
-        )}
-
-        {/* Reviews List */}
-        {review.reviews.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground text-xs">
-            No reviews yet for this product. Be the first customer to leave feedback!
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4 divide-y divide-border">
-            {review.reviews.map((rev) => (
-              <div key={rev._id} className="pt-4 first:pt-0 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-0.5 text-amber-400">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          sx={{ fontSize: 14 }}
-                          className={i < rev.rating ? "text-amber-400" : "text-muted-foreground/30"}
-                        />
-                      ))}
-                    </div>
-                    {rev.title && (
-                      <p className="text-xs font-bold text-foreground">{rev.title}</p>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(rev.createdAt).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-
-                <p className="text-xs text-muted-foreground leading-relaxed">{rev.comment}</p>
-
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="font-semibold text-foreground">
-                    {rev.user?.fullName || "Verified Shopper"}
-                  </span>
-                  {rev.verifiedPurchase && (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-success font-bold bg-success-soft px-2 py-0.5 rounded-full border border-success/25">
-                      <VerifiedUserOutlined sx={{ fontSize: 12 }} /> Verified Purchase
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Similar Products */}
-      <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-bold text-foreground">Similar Products You May Like</h2>
-        <SimilarProducts productId={currentProduct?._id || productId} />
-      </section>
-
-      {/* Mobile Sticky Bottom Commerce Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-card/95 backdrop-blur-md border-t border-border z-40 flex items-center justify-between gap-3 shadow-2xl">
-        <div>
-          <div className="text-[10px] text-muted-foreground font-semibold">Price:</div>
-          <div className="text-base font-black text-foreground leading-none">
-            ₹{displaySellingPrice.toLocaleString("en-IN")}
+            )}
           </div>
         </div>
-        <Button
+
+        {/* ============================================================== */}
+        {/* SIMILAR PRODUCTS RECOMMENDATION RAIL */}
+        {/* ============================================================== */}
+        <section className="mt-12">
+          <div className="mb-4">
+            <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
+              Similar Products You Might Like
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Based on your browsing and category preferences
+            </p>
+          </div>
+          <SimilarProducts productId={currentProduct?._id || productId} />
+        </section>
+      </div>
+
+      {/* ============================================================== */}
+      {/* MOBILE STICKY BOTTOM COMMERCE BAR */}
+      {/* ============================================================== */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-2.5 bg-card/95 backdrop-blur-md border-t border-border z-40 flex items-center gap-2.5 shadow-2xl">
+        <button
+          type="button"
           onClick={handleAddCartItem}
           disabled={isOutOfStock}
-          variant="contained"
-          color="primary"
-          size="small"
-          startIcon={<AddShoppingCart />}
-          sx={{
-            py: 1,
-            px: 3,
-            borderRadius: "0.75rem",
-            fontWeight: 700,
-            textTransform: "none",
-            fontSize: "13px",
-          }}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all select-none cursor-pointer ${
+            isOutOfStock
+              ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-[#ff9f00] hover:bg-[#f39700] active:scale-95 shadow-sm"
+          }`}
         >
-          {isOutOfStock ? "Out of Stock" : "Add to Bag"}
-        </Button>
+          <AddShoppingCart sx={{ fontSize: 16 }} />
+          <span>{cartSuccess ? "Added" : "Add to Cart"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleBuyNow}
+          disabled={isOutOfStock}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all select-none cursor-pointer ${
+            isOutOfStock
+              ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-[#fb641b] hover:bg-[#e85b17] active:scale-95 shadow-sm"
+          }`}
+        >
+          <FlashOn sx={{ fontSize: 16 }} />
+          <span>Buy Now</span>
+        </button>
       </div>
     </div>
   );

@@ -67,12 +67,45 @@ export const FloatingAIAssistant: React.FC = () => {
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isOpen, isMinimized]);
+
+  // Close on outside click or Escape key
+  useEffect(() => {
+    if (!isOpen || isMinimized) return;
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (panelRef.current && panelRef.current.contains(target)) return;
+      if (target.closest('[aria-label="Open AI Shopping Assistant"]')) return;
+      setIsOpen(false);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("touchstart", handleClickOutside);
+      window.addEventListener("keydown", handleKeyDown);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, isMinimized]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
@@ -194,13 +227,19 @@ export const FloatingAIAssistant: React.FC = () => {
 
       {/* Floating Drawer / Panel */}
       {isOpen && (
-        <div
-          className={`fixed z-50 transition-all duration-300 ease-out flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl ${
-            isMinimized
-              ? "bottom-6 right-6 w-80 h-16 rounded-2xl overflow-hidden"
-              : "bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-[480px] sm:max-w-[95vw] h-[100dvh] sm:h-[680px] sm:rounded-2xl"
-          }`}
-        >
+        <>
+          <div
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-40 bg-black/40 md:bg-black/20 backdrop-blur-[1px] animate-in fade-in duration-200 cursor-pointer"
+          />
+          <div
+            ref={panelRef}
+            className={`fixed z-50 transition-all duration-300 ease-out flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl ${
+              isMinimized
+                ? "bottom-6 right-6 w-80 h-16 rounded-2xl overflow-hidden"
+                : "bottom-0 right-0 sm:bottom-6 sm:right-6 w-full sm:w-[480px] sm:max-w-[95vw] h-[100dvh] sm:h-[680px] sm:rounded-2xl"
+            }`}
+          >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-teal-700 via-indigo-700 to-purple-800 text-white select-none sm:rounded-t-2xl">
             <div className="flex items-center gap-2.5">
@@ -534,9 +573,10 @@ export const FloatingAIAssistant: React.FC = () => {
             </>
           )}
         </div>
-      )}
-    </>
-  );
+      </>
+    )}
+  </>
+);
 };
 
 export default FloatingAIAssistant;

@@ -58,7 +58,7 @@ accountRouter.get("/deletion/status", accountController.getDeletionStatus);
 // Customer Care fallback
 accountRouter.post("/deletion/support-request", supportRequestLimiter, accountController.submitSupportDeletionRequest);
 
-// Active Device Sessions (Real-time Flipkart Grade)
+// Active Device Sessions (Real-time Enterprise Grade)
 accountRouter.get("/sessions", accountController.getSessions);
 accountRouter.post("/sessions/heartbeat", accountController.registerSession);
 accountRouter.delete("/sessions/:id", accountController.revokeSession);

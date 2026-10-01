@@ -8,8 +8,9 @@ const couponRouter = express.Router();
 // Customer: Available Coupons
 couponRouter.get("/available", authMiddleware, couponController.getAvailableCoupons);
 
-// Customer: Apply Coupon
+// Customer: Apply & Remove Coupon
 couponRouter.post("/apply", authMiddleware, couponController.applyCoupon);
+couponRouter.post("/remove", authMiddleware, couponController.removeCoupon);
 
 // Admin: Coupon Management
 couponRouter.get(

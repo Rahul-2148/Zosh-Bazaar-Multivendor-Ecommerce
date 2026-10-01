@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Bolt, TimerOutlined, ArrowForwardIos } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import ProductCard from "../Product/ProductCard";
 
 interface FlashDealsProps {
   deals: any[];
@@ -89,59 +90,14 @@ export const FlashDealsSection: React.FC<FlashDealsProps> = ({ deals }) => {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3.5">
-        {deals.slice(0, 6).map((product) => {
-          const sellingPrice = product.sellingPrice || product.mrpPrice || 0;
-          const mrpPrice = product.mrpPrice || sellingPrice;
-          const discount =
-            mrpPrice > sellingPrice
-              ? Math.round(((mrpPrice - sellingPrice) / mrpPrice) * 100)
-              : 0;
-
-          return (
-            <div
-              key={product._id}
-              onClick={() =>
-                navigate(
-                  `/product-details/${product.category?.categoryId || "all"}/${encodeURIComponent(product.title)}/${product._id}`
-                )
-              }
-              className="group bg-card border border-border/80 hover:border-amber-500/60 rounded-xl p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
-            >
-              <div className="relative w-full h-[130px] sm:h-[150px] rounded-lg bg-muted/30 overflow-hidden mb-2 p-2 flex items-center justify-center">
-                <img
-                  src={product.images?.[0] || ""}
-                  alt={product.title}
-                  className="w-full h-full object-contain group-hover:scale-106 transition-transform duration-300"
-                  loading="lazy"
-                />
-                {discount > 0 && (
-                  <span className="absolute top-2 left-2 bg-destructive text-destructive-foreground font-black text-[9px] sm:text-[10px] uppercase tracking-tight px-1.5 py-0.5 rounded-md shadow-xs">
-                    {discount}% OFF
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-0.5">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block truncate">
-                  {product.brand || "Authentic"}
-                </span>
-                <h4 className="text-xs sm:text-[13px] font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                  {product.title}
-                </h4>
-                <div className="flex items-baseline gap-1.5 pt-1">
-                  <span className="text-xs sm:text-sm font-black text-foreground">
-                    ₹{sellingPrice.toLocaleString("en-IN")}
-                  </span>
-                  {mrpPrice > sellingPrice && (
-                    <span className="text-[10px] sm:text-xs line-through text-muted-foreground font-medium">
-                      ₹{mrpPrice.toLocaleString("en-IN")}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {deals.slice(0, 6).map((product) => (
+          <ProductCard
+            key={product._id || product.productId}
+            item={product}
+            badge="Flash Deal"
+            className="border-amber-500/30 hover:border-amber-500 shadow-amber-500/5"
+          />
+        ))}
       </div>
     </section>
   );

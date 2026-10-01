@@ -961,7 +961,7 @@ class AccountService {
   }
 
   /**
-   * Device Sessions Management (Flipkart / Amazon Grade Real-Time)
+   * Device Sessions Management (Real-Time Multi-Device Security)
    */
   async getSessions(userId, currentSessionId) {
     let sessions = await UserSession.find({ user: userId, isRevoked: false })

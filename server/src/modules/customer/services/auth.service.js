@@ -49,7 +49,7 @@ class AuthService {
     // Delete old OTP from DB
     await VerificationCode.findOneAndDelete({ email });
 
-    // Generate and save new OTP in Redis (10 min TTL - Flipkart/Amazon standard) and cooldown (60s)
+    // Generate and save new OTP in Redis (10 min TTL - Marketplace standard) and cooldown (60s)
     const otp = generateOTP();
     await redisClient.set(`otp:${email}`, otp, 600);
     await redisClient.set(`otp_cooldown:${email}`, "1", 60);
@@ -200,7 +200,7 @@ class AuthService {
     let user = await User.findOne({ email });
     let isNewUser = false;
 
-    // If user does not exist, check if seller exists or auto-register as customer (Flipkart / Amazon Unified Auth)
+    // If user does not exist, check if seller exists or auto-register as customer (Unified Auth)
     if (!user) {
       const seller = await Seller.findOne({ email });
       if (seller) {

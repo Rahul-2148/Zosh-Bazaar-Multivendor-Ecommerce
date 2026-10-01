@@ -105,7 +105,7 @@ export const AIProductCard: React.FC<AIProductCardProps> = ({
     <div
       onClick={handleNavigate}
       className={`group relative rounded-2xl bg-white dark:bg-slate-850 border border-slate-200/90 dark:border-slate-800 hover:border-teal-500/60 dark:hover:border-teal-500/60 transition-all duration-200 hover:shadow-md cursor-pointer overflow-hidden flex flex-col justify-between ${
-        compact ? "p-2.5 w-64 shrink-0" : "p-3 w-full"
+        compact ? "p-2.5 w-[230px] sm:w-[245px] shrink-0 snap-start shadow-2xs" : "p-3 w-full"
       }`}
     >
       {/* Top Media & Tags */}

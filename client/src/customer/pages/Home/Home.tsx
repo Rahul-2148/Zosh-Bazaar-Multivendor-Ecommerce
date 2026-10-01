@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Storefront } from "@mui/icons-material";
+import { Link } from "react-router-dom";
+import { Storefront, CategoryOutlined, ChevronRight } from "@mui/icons-material";
 import { Button, CircularProgress } from "@mui/material";
 import HeroBannerCarousel from "./HeroBannerCarousel";
 import CategoryQuickRail from "./CategoryQuickRail";
@@ -191,14 +192,27 @@ const Home = () => {
       </section>
 
       {/* 9. Shop By Full Category Catalog */}
-      <section>
-        <div className="mx-3 sm:mx-6 lg:mx-16 xl:mx-20 mb-2">
-          <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight text-center sm:text-left">
-            Shop By Department
-          </h2>
-          <p className="text-xs text-muted-foreground text-center sm:text-left">
-            Explore curated collections across our marketplace
-          </p>
+      <section className="mx-3 sm:mx-6 lg:mx-16 xl:mx-20">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-3.5 sm:mb-4.5 pb-2.5 border-b border-border/80 gap-2">
+          <div>
+            <div className="flex items-center gap-1.5 text-primary text-xs font-black uppercase tracking-wider mb-1">
+              <CategoryOutlined sx={{ fontSize: 15 }} />
+              <span>Marketplace Collections</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+              Shop By Department
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Explore handpicked collections, top deals, and verified marketplace categories
+            </p>
+          </div>
+          <Link
+            to="/products"
+            className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-primary hover:underline group shrink-0 self-start sm:self-auto"
+          >
+            <span>View All Categories</span>
+            <ChevronRight fontSize="small" className="group-hover:translate-x-0.5 transition-transform" />
+          </Link>
         </div>
         <HomeCategory />
       </section>

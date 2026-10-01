@@ -340,6 +340,7 @@ export default {
   getRecommendationExplorer,
   getAdminObservability,
   getLogisticsRiskShipments,
+  getDeliveryStopAssistance,
   streamAssistant,
   getGatewayHealth,
   getGatewayProviders,

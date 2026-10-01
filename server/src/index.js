@@ -1,8 +1,8 @@
 const bootStartTime = Date.now();
+import "./config/env.js";
 import http from "http";
 import bodyParser from "body-parser";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import compression from "compression";
 import morgan from "morgan";
@@ -10,9 +10,6 @@ import connectDB from "./db/connectDB.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { initSocket } from "./realtime/socket.js";
 import { getAllowedOrigins } from "./config/corsConfig.js";
-const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".env";
-dotenv.config({ path: envFile, quiet: true });
-dotenv.config({ quiet: true });
 
 // importing domain modular routers
 import path from "path";
@@ -101,13 +98,22 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, async () => {
-  await connectDB();
-  startDeletionWorker();
-  startEmailWorker();
+server.listen(PORT, () => {
   const duration = Date.now() - bootStartTime;
-  console.log(`Server running on port ${PORT} [ready in ${duration}ms]`);
+  console.log(`🚀 [Server] Online & listening on port ${PORT} [ready in ${duration}ms]`);
   if (process.env.NODE_ENV !== "production") {
     console.log(`🎨 [Email Studio] Preview available at http://localhost:${PORT}/dev/emails`);
   }
+  console.log("🔌 [MongoDB] Connecting to database cluster...");
 });
+
+// Non-blocking database connection & worker startup
+connectDB()
+  .then(() => {
+    startDeletionWorker();
+    startEmailWorker();
+    console.log("⚡ [Services] Database connected & workers operational.");
+  })
+  .catch((err) => {
+    console.error("❌ [Services] Database startup failure:", err.message);
+  });

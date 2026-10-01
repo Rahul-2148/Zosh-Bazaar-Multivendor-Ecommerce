@@ -11,10 +11,40 @@ export const RouteErrorBoundary: React.FC = () => {
   const error = useRouteError();
   const navigate = useNavigate();
 
+  const isDynamicChunkError = React.useMemo(() => {
+    const raw = String(
+      (error as any)?.message ||
+      (error as any)?.statusText ||
+      (error as any)?.data?.message ||
+      error ||
+      ""
+    ).toLowerCase();
+
+    return (
+      raw.includes("failed to fetch dynamically imported module") ||
+      raw.includes("importing a module script failed") ||
+      raw.includes("error loading dynamically imported module") ||
+      raw.includes("dynamically imported module") ||
+      (error as any)?.name === "ChunkLoadError"
+    );
+  }, [error]);
+
+  // If this is a dynamic import error and we haven't reloaded yet, auto-reload once to fetch fresh assets
+  React.useEffect(() => {
+    if (isDynamicChunkError && typeof window !== "undefined") {
+      const storageKey = `zosh_route_boundary_${window.location.pathname}`;
+      const hasReloaded = sessionStorage.getItem(storageKey);
+      if (!hasReloaded) {
+        sessionStorage.setItem(storageKey, "true");
+        window.location.reload();
+      }
+    }
+  }, [isDynamicChunkError]);
+
   let title = "Unexpected Application Error";
   let message =
     "An unexpected error occurred while processing this route. Please try refreshing or return to the home page.";
-  let status = 500;
+  let status: number | string = 500;
 
   if (isRouteErrorResponse(error)) {
     status = error.status;
@@ -31,8 +61,12 @@ export const RouteErrorBoundary: React.FC = () => {
     } else {
       message = error.statusText || error.data?.message || message;
     }
+  } else if (isDynamicChunkError) {
+    title = "Application Update Available";
+    message =
+      "A newer version of this page has been published. Click Reload below to load the latest features and updates.";
+    status = 200;
   } else if (error instanceof Error) {
-    // In production, avoid leaking raw stack trace to UI
     message = error.message || message;
   }
 

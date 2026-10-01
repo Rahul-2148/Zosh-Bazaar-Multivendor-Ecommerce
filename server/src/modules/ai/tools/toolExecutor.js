@@ -140,31 +140,82 @@ export class ToolExecutor {
       filter.sellingPrice = { $lte: Number(maxBudget) };
     }
 
-    if (brand && typeof brand === 'string') {
-      filter.brand = { $regex: new RegExp(escapeRegex(brand), 'i') };
+    if (brand && typeof brand === 'string' && brand.trim()) {
+      filter.brand = { $regex: new RegExp(escapeRegex(brand.trim()), 'i') };
     }
 
-    if (category && typeof category === 'string') {
+    if (category && typeof category === 'string' && category.trim()) {
       if (isValidObjectId(category)) {
         filter.category = category;
       }
     }
 
+    const STOP_WORDS = new Set([
+      'the', 'and', 'for', 'with', 'show', 'me', 'find', 'give', 'bhai', 'batao',
+      'dikhao', 'ke', 'liye', 'chahiye', 'under', 'below', 'price', 'budget',
+      'please', 'can', 'you', 'tell', 'what', 'is', 'a', 'an', 'hi', 'hello',
+      'hey', 'mera', 'meri', 'karo', 'mujhe', 'in', 'of', 'on', 'at', 'to',
+      'some', 'any', 'good', 'best', 'top', 'latest', 'sasta', 'accha', 'achha',
+      'kuch', 'bata', 'hume', 'recommend', 'options'
+    ]);
+
+    let sort = { 'ratings.average': -1, createdAt: -1 };
+
     if (query && typeof query === 'string') {
-      const sanitized = escapeRegex(query.trim());
-      const words = sanitized.split(/\s+/).filter(w => w.length > 1);
-      if (words.length > 0) {
-        filter.$or = words.map(w => ({
-          $or: [
-            { title: { $regex: w, $options: 'i' } },
-            { brand: { $regex: w, $options: 'i' } },
-            { description: { $regex: w, $options: 'i' } },
-          ],
-        }));
+      const qLower = query.toLowerCase();
+      if (qLower.includes('sasta') || qLower.includes('cheap') || qLower.includes('lowest')) {
+        sort = { sellingPrice: 1 };
+      } else if (qLower.includes('premium') || qLower.includes('luxury') || qLower.includes('expensive')) {
+        sort = { sellingPrice: -1 };
+      }
+
+      const rawWords = query.trim().split(/\s+/);
+      const usefulTokens = rawWords
+        .map(w => w.replace(/[^a-zA-Z0-9]/g, ''))
+        .filter(w => w.length > 2 && !STOP_WORDS.has(w.toLowerCase()));
+
+      const SYNONYMS = {
+        shoe: ['shoe', 'sneaker', 'jordan', 'footwear', 'boot', 'kicks', 'loafer'],
+        shoes: ['shoe', 'sneaker', 'jordan', 'footwear', 'boot', 'kicks', 'loafer', 'nike'],
+        sneaker: ['sneaker', 'shoe', 'jordan', 'kicks', 'nike'],
+        sneakers: ['sneaker', 'shoe', 'jordan', 'kicks', 'nike'],
+        watch: ['watch', 'smartwatch', 'ultra', 'titanium', 'apple watch'],
+        watches: ['watch', 'smartwatch', 'ultra', 'titanium', 'apple watch'],
+        headphone: ['headphone', 'headset', 'earphone', 'earbuds', 'audio', 'sound', 'canceling', 'cancelling', 'sony'],
+        headphones: ['headphone', 'headset', 'earphone', 'earbuds', 'audio', 'sound', 'canceling', 'cancelling', 'sony'],
+        saree: ['saree', 'sari', 'banarasi', 'kanjivaram', 'silk', 'zari', 'tissue'],
+        sari: ['saree', 'sari', 'banarasi', 'kanjivaram', 'silk', 'zari', 'tissue'],
+        blazer: ['blazer', 'coat', 'suit', 'jacket', 'linen', 'tailored'],
+        blazers: ['blazer', 'coat', 'suit', 'jacket', 'linen', 'tailored'],
+        cloth: ['shirt', 'blazer', 'linen', 'dress', 'saree', 'suit'],
+        clothes: ['shirt', 'blazer', 'linen', 'dress', 'saree', 'suit'],
+      };
+
+      const expandedTokens = new Set();
+      for (const t of usefulTokens) {
+        const lower = t.toLowerCase();
+        expandedTokens.add(lower);
+        if (SYNONYMS[lower]) {
+          SYNONYMS[lower].forEach(syn => expandedTokens.add(syn));
+        }
+      }
+
+      if (expandedTokens.size > 0) {
+        filter.$or = Array.from(expandedTokens).map(w => {
+          const safeW = escapeRegex(w);
+          return {
+            $or: [
+              { title: { $regex: safeW, $options: 'i' } },
+              { brand: { $regex: safeW, $options: 'i' } },
+              { description: { $regex: safeW, $options: 'i' } },
+            ],
+          };
+        });
       }
     }
 
     const items = await Product.find(filter)
+      .sort(sort)
       .limit(safeLimit)
       .populate('category', 'name categoryId')
       .populate('seller', 'businessDetails.businessName')
@@ -303,12 +354,12 @@ export class ToolExecutor {
   }
 
   async _getOrder(args, userId, role) {
-    const { orderId } = args;
-    if (!orderId) {
-      throw new ToolExecutionError('Order ID required', 400, 'MISSING_ORDER_ID');
-    }
+    const { orderId } = args || {};
+    let query = {};
 
-    const query = isValidObjectId(orderId) ? { _id: orderId } : { orderId };
+    if (orderId) {
+      query = isValidObjectId(orderId) ? { _id: orderId } : { orderId };
+    }
 
     // Authorization & Ownership check: Unless admin/support, user can ONLY view their own orders
     if (role !== 'ROLE_ADMIN' && role !== 'ADMIN') {
@@ -316,19 +367,22 @@ export class ToolExecutor {
     }
 
     const order = await Order.findOne(query)
+      .sort({ createdAt: -1 })
       .populate('orderItems.product', 'title images sellingPrice')
       .populate('shippingAddress')
       .lean();
 
     if (!order) {
-      throw new ToolExecutionError(
-        'Order not found or you do not have permission to view this order.',
-        404,
-        'ORDER_NOT_FOUND'
-      );
+      return {
+        hasOrder: false,
+        message: orderId
+          ? `Order #${orderId} was not found or you do not have permission to view it.`
+          : 'You do not have any active or past orders on your Zosh Bazaar account.',
+      };
     }
 
     return {
+      hasOrder: true,
       orderId: order.orderId || String(order._id),
       orderStatus: order.orderStatus,
       totalAmount: order.totalSellingPrice || order.totalAmount,
@@ -343,38 +397,46 @@ export class ToolExecutor {
   }
 
   async _getDeliveryStatus(args, userId, role) {
-    const { orderId, trackingId } = args;
+    const { orderId, trackingId } = args || {};
     let shipment = null;
 
     if (trackingId) {
       shipment = await Shipment.findOne({ trackingNumber: trackingId }).lean();
-    } else if (orderId) {
-      const orderQuery = isValidObjectId(orderId) ? { _id: orderId } : { orderId };
+    } else {
+      const orderQuery = {};
+      if (orderId) {
+        if (isValidObjectId(orderId)) orderQuery._id = orderId;
+        else orderQuery.orderId = orderId;
+      }
       if (role !== 'ROLE_ADMIN' && role !== 'ADMIN') {
         orderQuery.user = userId;
       }
-      const order = await Order.findOne(orderQuery).lean();
+      const order = await Order.findOne(orderQuery).sort({ createdAt: -1 }).lean();
       if (!order) {
-        throw new ToolExecutionError('Order not found or unauthorized', 404, 'ORDER_NOT_FOUND');
+        return {
+          hasOrder: false,
+          status: 'NOT_FOUND',
+          message: 'No orders found to track.',
+        };
       }
       shipment = await Shipment.findOne({ order: order._id }).lean();
       if (!shipment) {
         return {
-          orderId,
+          hasOrder: true,
+          orderId: order.orderId || String(order._id),
           status: order.orderStatus,
-          message: `Order status is currently ${order.orderStatus}. Tracking details will update once dispatched.`,
+          message: `Order #${order.orderId || order._id} is currently ${order.orderStatus}. Tracking details will update once dispatched by courier.`,
         };
       }
-    } else {
-      throw new ToolExecutionError('Either orderId or trackingId must be provided', 400, 'MISSING_PARAM');
     }
 
     return {
-      trackingNumber: shipment?.trackingNumber || trackingId || 'TRK_PENDING',
-      currentStatus: shipment?.status || 'IN_TRANSIT',
-      estimatedDeliveryDate: shipment?.estimatedDeliveryDate || new Date(Date.now() + 86400000 * 2),
-      carrier: shipment?.carrier || 'Zosh Express Delivery',
-      currentHub: shipment?.currentHub || 'Regional Distribution Center',
+      hasOrder: true,
+      trackingNumber: shipment?.trackingNumber || 'Pending Assignment',
+      carrier: shipment?.carrier || 'Zosh Express Logistics',
+      status: shipment?.status || 'IN_TRANSIT',
+      estimatedDelivery: shipment?.estimatedDelivery || '2-4 business days',
+      currentLocation: shipment?.currentLocation || 'Distribution Center',
     };
   }
 

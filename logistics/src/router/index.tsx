@@ -1,58 +1,58 @@
-import { lazy } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { RootLayout } from "../layouts/RootLayout";
 import { LogisticsLayout } from "../components/layout/LogisticsLayout";
 import { ProtectedRoute } from "./guards/ProtectedRoute";
 import { GuestRoute } from "./guards/GuestRoute";
 import { RouteErrorBoundary } from "./errors/RouteErrorBoundary";
+import { lazyWithRetry } from "../utils/lazyWithRetry";
 
 // Lazy-loaded routes for code splitting
-const LogisticsLogin = lazy(() =>
+const LogisticsLogin = lazyWithRetry(() =>
   import("../pages/Auth/LogisticsLogin").then((m) => ({ default: m.LogisticsLogin }))
 );
-const ControlTowerOverview = lazy(() =>
+const ControlTowerOverview = lazyWithRetry(() =>
   import("../pages/Overview/ControlTowerOverview").then((m) => ({ default: m.ControlTowerOverview }))
 );
-const LiveOperationsBoard = lazy(() =>
+const LiveOperationsBoard = lazyWithRetry(() =>
   import("../pages/Operations/LiveOperationsBoard").then((m) => ({ default: m.LiveOperationsBoard }))
 );
-const LiveMapControlTower = lazy(() =>
+const LiveMapControlTower = lazyWithRetry(() =>
   import("../pages/Operations/LiveMapControlTower").then((m) => ({ default: m.LiveMapControlTower }))
 );
-const PackageScanner = lazy(() =>
+const PackageScanner = lazyWithRetry(() =>
   import("../pages/Operations/PackageScanner").then((m) => ({ default: m.PackageScanner }))
 );
-const ShipmentList = lazy(() =>
+const ShipmentList = lazyWithRetry(() =>
   import("../pages/Shipments/ShipmentList").then((m) => ({ default: m.ShipmentList }))
 );
-const ShipmentDetail = lazy(() =>
+const ShipmentDetail = lazyWithRetry(() =>
   import("../pages/Shipments/ShipmentDetail").then((m) => ({ default: m.ShipmentDetail }))
 );
-const HubsManagement = lazy(() =>
+const HubsManagement = lazyWithRetry(() =>
   import("../pages/Network/HubsManagement").then((m) => ({ default: m.HubsManagement }))
 );
-const DeliveryZones = lazy(() =>
+const DeliveryZones = lazyWithRetry(() =>
   import("../pages/Network/DeliveryZones").then((m) => ({ default: m.DeliveryZones }))
 );
-const ManifestsHub = lazy(() =>
+const ManifestsHub = lazyWithRetry(() =>
   import("../pages/Network/ManifestsHub").then((m) => ({ default: m.ManifestsHub }))
 );
-const DeliveryAgentsList = lazy(() =>
+const DeliveryAgentsList = lazyWithRetry(() =>
   import("../pages/Fleet/DeliveryAgentsList").then((m) => ({ default: m.DeliveryAgentsList }))
 );
-const RoutePlanner = lazy(() =>
+const RoutePlanner = lazyWithRetry(() =>
   import("../pages/Fleet/RoutePlanner").then((m) => ({ default: m.RoutePlanner }))
 );
-const ExceptionsCenter = lazy(() =>
+const ExceptionsCenter = lazyWithRetry(() =>
   import("../pages/Exceptions/ExceptionsCenter").then((m) => ({ default: m.ExceptionsCenter }))
 );
-const SlaCommandCenter = lazy(() =>
+const SlaCommandCenter = lazyWithRetry(() =>
   import("../pages/SLA/SlaCommandCenter").then((m) => ({ default: m.SlaCommandCenter }))
 );
-const ReturnsHub = lazy(() =>
+const ReturnsHub = lazyWithRetry(() =>
   import("../pages/Returns/ReturnsHub").then((m) => ({ default: m.ReturnsHub }))
 );
-const LogisticsAnalytics = lazy(() =>
+const LogisticsAnalytics = lazyWithRetry(() =>
   import("../pages/Analytics/LogisticsAnalytics").then((m) => ({ default: m.LogisticsAnalytics }))
 );
 

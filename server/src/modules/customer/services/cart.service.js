@@ -1,6 +1,7 @@
 import { Cart } from "../../../models/cart.model.js";
 import { CartItem } from "../../../models/cartItem.model.js";
 import { Product } from "../../../models/product.model.js";
+import { Coupon } from "../../../models/coupon.model.js";
 import { calculateDiscountPercentage } from "../../../utils/calculateDiscountPercentage.js";
 
 class CartService {
@@ -23,26 +24,213 @@ class CartService {
     let totalPrice = 0;
     let totalDiscountedPrice = 0;
     let totalItems = 0;
+    const validationWarnings = [];
+    const validCartItems = [];
 
-    if (cartItems && cartItems.length > 0) {
-      cartItems.forEach((item) => {
-        totalItems += item.quantity;
-        totalPrice += item.mrpPrice;
-        totalDiscountedPrice += item.sellingPrice;
-      });
+    const now = new Date();
+
+    // 1. Authoritative Validation per item against current Product and Variant catalog
+    for (const item of cartItems) {
+      const prod = item.product;
+
+      // Clean up orphaned cart items if product was removed from marketplace
+      if (!prod) {
+        await CartItem.findByIdAndDelete(item._id);
+        validationWarnings.push({
+          type: "ITEM_UNAVAILABLE",
+          message: "An item in your cart is no longer available and was removed.",
+        });
+        continue;
+      }
+
+      let currentUnitMrp = prod.mrpPrice;
+      let currentUnitSelling = prod.sellingPrice;
+      let currentStock = prod.countInStock || 0;
+      let isVariantActive = true;
+
+      if (item.variantId && prod.hasVariants && Array.isArray(prod.variants)) {
+        const variant = prod.variants.id(item.variantId);
+        if (variant) {
+          currentUnitMrp = variant.mrpPrice;
+          currentUnitSelling = variant.sellingPrice;
+          currentStock = variant.countInStock || 0;
+          if (variant.status && variant.status !== "ACTIVE") {
+            isVariantActive = false;
+          }
+        } else {
+          isVariantActive = false;
+        }
+      }
+
+      // Check if price changed since item was added
+      const prevUnitSelling = Math.round(item.sellingPrice / Math.max(1, item.quantity));
+      if (currentUnitSelling !== prevUnitSelling) {
+        const priceDiff = currentUnitSelling - prevUnitSelling;
+        validationWarnings.push({
+          type: "PRICE_CHANGED",
+          productId: prod._id,
+          title: prod.title,
+          oldPrice: prevUnitSelling,
+          newPrice: currentUnitSelling,
+          diff: priceDiff,
+          message: `Price for "${prod.title}" changed from ₹${prevUnitSelling.toLocaleString("en-IN")} to ₹${currentUnitSelling.toLocaleString("en-IN")}.`,
+        });
+
+        item.sellingPrice = item.quantity * currentUnitSelling;
+        item.mrpPrice = item.quantity * currentUnitMrp;
+        await item.save();
+      }
+
+      // Stock intelligence status
+      let stockStatus = "IN_STOCK";
+      let stockWarning = null;
+
+      if (!isVariantActive || currentStock <= 0) {
+        stockStatus = "OUT_OF_STOCK";
+        stockWarning = "Currently Out of Stock";
+      } else if (currentStock < item.quantity) {
+        stockStatus = "LOW_STOCK";
+        stockWarning = `Only ${currentStock} units available in stock.`;
+      } else if (currentStock <= 5) {
+        stockStatus = "LOW_STOCK";
+        stockWarning = `Only ${currentStock} left in stock.`;
+      }
+
+      // Attach authoritative live metadata to item for client presentation
+      const itemObj = item.toObject();
+      itemObj.unitSellingPrice = currentUnitSelling;
+      itemObj.unitMrpPrice = currentUnitMrp;
+      itemObj.stockStatus = stockStatus;
+      itemObj.availableStock = currentStock;
+      itemObj.stockWarning = stockWarning;
+
+      validCartItems.push(itemObj);
+
+      totalItems += item.quantity;
+      totalPrice += item.mrpPrice;
+      totalDiscountedPrice += item.sellingPrice;
     }
 
+    // 2. Authoritative Coupon Re-validation
+    let appliedCouponPrice = 0;
+    if (cart.couponCode) {
+      const activeCoupon = await Coupon.findOne({ code: cart.couponCode.toUpperCase() });
+      const isValidCoupon =
+        activeCoupon &&
+        activeCoupon.isActive &&
+        (!activeCoupon.validityEndDate || new Date(activeCoupon.validityEndDate) >= now) &&
+        (!activeCoupon.validityStartDate || new Date(activeCoupon.validityStartDate) <= now);
+
+      if (isValidCoupon) {
+        if (totalDiscountedPrice >= (activeCoupon.minimumOrderValue || 0)) {
+          appliedCouponPrice = Math.round(
+            (totalDiscountedPrice * activeCoupon.discountPercentage) / 100
+          );
+          cart.couponPrice = appliedCouponPrice;
+        } else {
+          // Total dropped below coupon minimum
+          validationWarnings.push({
+            type: "COUPON_INVALIDATED",
+            code: cart.couponCode,
+            message: `Coupon '${cart.couponCode}' was removed because cart value is below ₹${activeCoupon.minimumOrderValue}.`,
+          });
+          cart.couponCode = null;
+          cart.couponPrice = 0;
+        }
+      } else {
+        validationWarnings.push({
+          type: "COUPON_EXPIRED",
+          code: cart.couponCode,
+          message: `Coupon '${cart.couponCode}' has expired and was removed.`,
+        });
+        cart.couponCode = null;
+        cart.couponPrice = 0;
+      }
+    } else {
+      cart.couponPrice = 0;
+    }
+
+    // 3. Multi-Vendor Packaging & Shipment Breakdown
+    const vendorMap = new Map();
+    validCartItems.forEach((item) => {
+      const seller = item.product?.seller;
+      const sellerId = seller?._id?.toString() || "zosh-fulfillment";
+      const sellerName =
+        seller?.businessDetails?.businessName ||
+        seller?.sellerName ||
+        "Zosh Certified Fulfillment";
+
+      if (!vendorMap.has(sellerId)) {
+        // Calculate estimated delivery date: 3 business days from now
+        const eta = new Date();
+        eta.setDate(eta.getDate() + 3);
+
+        vendorMap.set(sellerId, {
+          sellerId,
+          sellerName,
+          businessDetails: seller?.businessDetails || null,
+          fulfillmentType: "Zosh Assured Direct Fulfillment",
+          estimatedDeliveryDate: eta.toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          }),
+          items: [],
+          packageMrpPrice: 0,
+          packageSellingPrice: 0,
+          packageItemsCount: 0,
+        });
+      }
+
+      const pkg = vendorMap.get(sellerId);
+      pkg.items.push(item);
+      pkg.packageMrpPrice += item.mrpPrice;
+      pkg.packageSellingPrice += item.sellingPrice;
+      pkg.packageItemsCount += item.quantity;
+    });
+
+    const sellerPackages = Array.from(vendorMap.values());
+
+    // 4. Delivery Fee & Free Delivery Threshold Intelligence
+    // Threshold: Orders >= ₹500 get FREE Delivery. Below ₹500 is ₹40 flat.
+    const FREE_SHIPPING_THRESHOLD = 500;
+    const isFreeShipping = totalDiscountedPrice >= FREE_SHIPPING_THRESHOLD || totalItems === 0;
+    const deliveryFee = isFreeShipping ? 0 : 40;
+    const amountNeededForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - totalDiscountedPrice);
+
+    // 5. Compute Final Pricing Totals
+    const finalSellingPriceAfterCoupon = Math.max(0, totalDiscountedPrice - appliedCouponPrice);
+    const totalPayable = finalSellingPriceAfterCoupon + deliveryFee;
+    const totalSavings = (totalPrice - finalSellingPriceAfterCoupon) + (isFreeShipping && totalPrice > 0 ? 40 : 0);
+
     cart.totalMrpPrice = totalPrice;
-    cart.totalSellingPrice = totalDiscountedPrice;
+    cart.totalSellingPrice = finalSellingPriceAfterCoupon;
     cart.totalItem = totalItems;
     cart.discount =
       totalPrice > 0
-        ? calculateDiscountPercentage(totalPrice, totalDiscountedPrice)
+        ? calculateDiscountPercentage(totalPrice, finalSellingPriceAfterCoupon)
         : 0;
-    cart.cartItems = cartItems || [];
 
     await cart.save();
-    return cart;
+
+    // 6. Return Enriched Response Object with Full Domain Intelligence
+    const responsePayload = cart.toObject();
+    responsePayload.cartItems = validCartItems;
+    responsePayload.sellerPackages = sellerPackages;
+    responsePayload.validationWarnings = validationWarnings;
+    responsePayload.pricingSummary = {
+      totalMrpPrice: totalPrice,
+      itemSellingPrice: totalDiscountedPrice,
+      couponDiscount: appliedCouponPrice,
+      deliveryFee,
+      totalPayable,
+      totalSavings,
+      isFreeDelivery: isFreeShipping,
+      freeDeliveryThreshold: FREE_SHIPPING_THRESHOLD,
+      amountNeededForFreeDelivery: amountNeededForFreeShipping,
+    };
+
+    return responsePayload;
   }
 
   async addCartItem(user, productId, variantId = null, quantity = 1, legacyAttrs = {}) {

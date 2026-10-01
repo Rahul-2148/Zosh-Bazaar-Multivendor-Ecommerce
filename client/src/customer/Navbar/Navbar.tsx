@@ -17,6 +17,7 @@ import {
   KeyboardArrowDown,
   CameraAltOutlined,
   AutoAwesome,
+  MicNoneOutlined,
 } from "@mui/icons-material";
 import {
   Avatar,
@@ -43,6 +44,8 @@ import LocationSelector from "./LocationSelector";
 import NotificationsPopover from "./NotificationsPopover";
 import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
 import VisualSearchLensModal from "../components/AI/VisualSearchLensModal";
+import VoiceSearchModal from "../components/AI/VoiceSearchModal";
+import { isSpeechRecognitionSupported } from "../../utils/speechSupport";
 import { openAssistant } from "../../Redux Toolkit/features/customer/AiAssistantSlice";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../Redux Toolkit/Store";
@@ -66,6 +69,7 @@ const Navbar = () => {
   const { tree } = useAppSelector((store) => (store as any).category || { tree: [] });
   const { activeLocation } = useAppSelector((store) => store.location);
   const dispatch = useAppDispatch();
+  const hasSpeechSupport = isSpeechRecognitionSupported();
 
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
@@ -78,7 +82,6 @@ const Navbar = () => {
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -107,6 +110,7 @@ const Navbar = () => {
   const { mode, isDark, setTheme } = useAppTheme();
   const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
   const [lensModalOpen, setLensModalOpen] = useState(false);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
   const handleOpenThemeMenu = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -335,7 +339,7 @@ const Navbar = () => {
       saveRecentSearch(searchQuery.trim());
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
       setShowSuggestions(false);
-      setSearchOpen(false);
+      setMobileMenuOpen(false);
     }
   };
 
@@ -345,7 +349,14 @@ const Navbar = () => {
     setMobileMenuOpen(false);
   };
 
-  const cartItemCount = cart?.cart?.cartItems?.length || 0;
+  const cartItemCount =
+    cart?.cart?.cartItems?.reduce(
+      (total: number, item: any) => total + (Number(item?.quantity) || 1),
+      0
+    ) ||
+    cart?.cart?.totalItem ||
+    cart?.cart?.cartItems?.length ||
+    0;
   const wishlistItemCount =
     wishlist?.totalSavedCount ??
     wishlist?.savedProductIds?.length ??
@@ -365,7 +376,7 @@ const Navbar = () => {
         }}
         className="fixed top-0 left-0 right-0 w-full bg-card/95 backdrop-blur-md z-50 shadow-xs"
       >
-        <div className="flex items-center justify-between px-3 sm:px-6 lg:px-10 xl:px-16 h-[68px] border-b border-border gap-2 sm:gap-4">
+        <div className="flex items-center justify-between px-3 sm:px-6 lg:px-10 xl:px-16 h-[58px] sm:h-[68px] border-b border-border gap-2 sm:gap-4">
         {/* Left: Mobile Menu + Logo + Delivery Location */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           {!isLargeScreen && (
@@ -401,7 +412,7 @@ const Navbar = () => {
         </div>
 
 
-        {/* Center: Large Intelligent Search Bar */}
+        {/* Center: Large Intelligent Search Bar (Desktop / Tablet >= sm) */}
         <div ref={searchContainerRef} className="relative flex-1 max-w-[540px] hidden sm:block">
           <form onSubmit={handleSearch} className="relative group">
             <div className="flex items-center h-[40px] w-full bg-muted/60 dark:bg-surface/80 hover:bg-muted dark:hover:bg-surface border border-border dark:border-border-strong hover:border-primary/50 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-card rounded-full px-3.5 transition-all duration-150">
@@ -431,6 +442,18 @@ const Navbar = () => {
               <IconButton type="submit" size="small" aria-label="Search" className="p-1">
                 <Search sx={{ fontSize: 19 }} className="text-muted-foreground group-focus-within:text-primary transition-colors" />
               </IconButton>
+              {hasSpeechSupport && (
+                <Tooltip title="Search by voice (Hindi/English)">
+                  <IconButton
+                    size="small"
+                    onClick={() => setVoiceModalOpen(true)}
+                    aria-label="Voice Search"
+                    className="p-1 text-primary hover:text-primary/80"
+                  >
+                    <MicNoneOutlined sx={{ fontSize: 19 }} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <Tooltip title="Search by image (Visual Lens)">
                 <IconButton
                   size="small"
@@ -439,23 +462,6 @@ const Navbar = () => {
                   className="p-1 text-teal-600 dark:text-teal-400 hover:text-teal-700"
                 >
                   <CameraAltOutlined sx={{ fontSize: 18 }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Ask AI Shopping Assistant (Alt+A)">
-                <IconButton
-                  size="small"
-                  onClick={() =>
-                    dispatch(
-                      openAssistant({
-                        context: { searchQuery: searchQuery || undefined },
-                        initialMessage: searchQuery ? `Tell me about ${searchQuery}` : undefined,
-                      })
-                    )
-                  }
-                  aria-label="Ask AI Assistant"
-                  className="p-1 text-teal-600 dark:text-teal-400 hover:text-teal-700"
-                >
-                  <AutoAwesome sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
             </div>
@@ -483,12 +489,6 @@ const Navbar = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Mobile search toggle */}
-          <div className="sm:hidden">
-            <IconButton onClick={() => setSearchOpen(!searchOpen)} aria-label="Search" size="small">
-              <Search sx={{ fontSize: 22 }} className="text-foreground" />
-            </IconButton>
-          </div>
 
           {/* User Account */}
           {user.user ? (
@@ -656,7 +656,23 @@ const Navbar = () => {
           {/* Cart */}
           <Tooltip title={`Cart (${cartItemCount} items)`} placement="bottom">
             <IconButton onClick={() => navigate("/cart")} aria-label="Cart" size="small">
-              <Badge badgeContent={cartItemCount} color="primary" max={99}>
+              <Badge
+                badgeContent={cartItemCount}
+                color="error"
+                max={99}
+                sx={{
+                  "& .MuiBadge-badge": {
+                    fontWeight: 900,
+                    fontSize: "11px",
+                    height: "19px",
+                    minWidth: "19px",
+                    padding: "0 4px",
+                    backgroundColor: "#ef4444",
+                    color: "#ffffff",
+                    boxShadow: "0 2px 5px rgba(239, 68, 68, 0.4)",
+                  },
+                }}
+              >
                 <AddShoppingCart sx={{ fontSize: 22 }} className="text-foreground" />
               </Badge>
             </IconButton>
@@ -700,7 +716,7 @@ const Navbar = () => {
         </button>
       </div>
 
-      {/* Category Nav Strip (Desktop) - Flipkart UI Benchmark: Clean, centered, and uncluttered */}
+      {/* Category Nav Strip (Desktop) - Clean, centered, and uncluttered */}
       {isLargeScreen && (
         <div
           ref={navContainerRef}
@@ -736,7 +752,7 @@ const Navbar = () => {
                     }`}
                     sx={{ fontSize: 16 }}
                   />
-                  {/* Flipkart-style bottom active underline indicator */}
+                  {/* Bottom active underline indicator */}
                   <span
                     className={`absolute bottom-0 left-2 right-2 h-[2.5px] rounded-t-full bg-primary transition-all duration-200 ${
                       isSelected
@@ -785,27 +801,75 @@ const Navbar = () => {
         onUnreadCountChange={(count: number) => setUnreadNotifCount(count)}
       />
 
-      {/* Mobile Search Bar */}
-      {searchOpen && !isLargeScreen && (
-        <div className="px-4 py-2 border-b border-border bg-card">
-          <form onSubmit={handleSearch} className="flex items-center h-[36px] bg-muted/70 dark:bg-surface/80 border border-border dark:border-border-strong focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-card rounded-full px-3 transition-all">
-            <InputBase
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 text-[13px] text-foreground"
-              autoFocus
-              inputProps={{ "aria-label": "Search products" }}
-            />
-            <IconButton type="submit" size="small" aria-label="Search" className="p-0.5">
+      {/* Permanent Mobile Search Bar (< sm) */}
+      <div className="sm:hidden px-3 py-1.5 border-b border-border bg-card/95">
+        <form onSubmit={handleSearch} className="relative">
+          <div className="flex items-center h-[38px] w-full bg-muted/60 dark:bg-surface/80 border border-border dark:border-border-strong focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-card rounded-full px-3 transition-all">
+            <IconButton type="submit" size="small" aria-label="Search" className="p-1">
               <Search sx={{ fontSize: 18 }} className="text-muted-foreground" />
             </IconButton>
-            <IconButton size="small" onClick={() => setSearchOpen(false)} aria-label="Close search" className="p-0.5">
-              <Close sx={{ fontSize: 17 }} className="text-muted-foreground hover:text-foreground" />
+            <InputBase
+              placeholder="Search products, brands, deals..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              className="flex-1 text-[13px] text-foreground font-medium"
+              inputProps={{ "aria-label": "Search products" }}
+            />
+            {searchQuery && (
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setSearchQuery("");
+                  dispatch(clearSearchSuggestions());
+                }}
+                className="p-0.5"
+              >
+                <Close sx={{ fontSize: 16 }} className="text-muted-foreground" />
+              </IconButton>
+            )}
+            {hasSpeechSupport && (
+              <IconButton
+                size="small"
+                onClick={() => setVoiceModalOpen(true)}
+                aria-label="Search by voice"
+                className="p-1 text-primary hover:text-primary/80"
+              >
+                <MicNoneOutlined sx={{ fontSize: 18 }} />
+              </IconButton>
+            )}
+            <IconButton
+              size="small"
+              onClick={() => setLensModalOpen(true)}
+              aria-label="Search by photo"
+              className="p-1 text-teal-600 dark:text-teal-400"
+            >
+              <CameraAltOutlined sx={{ fontSize: 18 }} />
             </IconButton>
-          </form>
-        </div>
-      )}
+          </div>
+          {showSuggestions && (
+            <SearchSuggestionsDropdown
+              suggestions={searchSuggestions}
+              recentSearches={recentSearches}
+              onSelectSearch={(query) => {
+                setSearchQuery(query);
+                setShowSuggestions(false);
+                saveRecentSearch(query);
+                navigate(`/search?q=${encodeURIComponent(query)}`);
+              }}
+              onClearRecent={() => {
+                setRecentSearches([]);
+                localStorage.removeItem("zosh_recent_searches");
+              }}
+              loading={false}
+              searchQuery={searchQuery}
+            />
+          )}
+        </form>
+      </div>
 
       {/* Backdrop Scrim for Mega Menu */}
       {showSheet && isLargeScreen && (
@@ -891,9 +955,18 @@ const Navbar = () => {
         </Box>
       </Drawer>
       <VisualSearchLensModal isOpen={lensModalOpen} onClose={() => setLensModalOpen(false)} />
+      <VoiceSearchModal
+        isOpen={voiceModalOpen}
+        onClose={() => setVoiceModalOpen(false)}
+        onTranscript={(transcript) => {
+          setSearchQuery(transcript);
+          saveRecentSearch(transcript);
+          navigate(`/search?q=${encodeURIComponent(transcript)}`);
+        }}
+      />
     </header>
     {/* Structural layout spacer to prevent page content from being obscured underneath fixed header */}
-    <div className="h-[106px] md:h-[110px] shrink-0 pointer-events-none" aria-hidden="true" />
+    <div className="h-[142px] sm:h-[100px] md:h-[68px] lg:h-[110px] shrink-0 pointer-events-none" aria-hidden="true" />
   </>
   );
 };

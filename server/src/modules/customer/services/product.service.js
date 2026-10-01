@@ -333,10 +333,10 @@ class ProductService {
       }
 
       // Price range
-      if (req.minPrice !== undefined || req.maxPrice !== undefined) {
+      if ((req.minPrice !== undefined && req.minPrice !== "") || (req.maxPrice !== undefined && req.maxPrice !== "")) {
         filterQuery.sellingPrice = {};
-        if (req.minPrice !== undefined) filterQuery.sellingPrice.$gte = Number(req.minPrice);
-        if (req.maxPrice !== undefined) filterQuery.sellingPrice.$lte = Number(req.maxPrice);
+        if (req.minPrice !== undefined && req.minPrice !== "") filterQuery.sellingPrice.$gte = Number(req.minPrice);
+        if (req.maxPrice !== undefined && req.maxPrice !== "") filterQuery.sellingPrice.$lte = Number(req.maxPrice);
       }
 
       // Discount filter
@@ -349,6 +349,14 @@ class ProductService {
         filterQuery.countInStock = { $gt: 0 };
       }
 
+      // Customer Rating filter (e.g. 4★ & above)
+      if (req.rating || req.minRating) {
+        const ratingVal = Number(req.rating || req.minRating);
+        if (!isNaN(ratingVal) && ratingVal > 0) {
+          filterQuery["ratings.average"] = { $gte: ratingVal };
+        }
+      }
+
       // Dynamic Variant & Specification Attribute filtering
       // e.g. ram=8GB, storage=256GB, color=Black
       const reservedKeys = [
@@ -358,13 +366,18 @@ class ProductService {
         "maxPrice",
         "minDiscount",
         "inStock",
+        "rating",
+        "minRating",
         "search",
         "q",
+        "query",
         "sort",
         "pageNumber",
         "pageSize",
         "status",
         "adminView",
+        "synonyms",
+        "exact",
       ];
 
       const attributeFilters = [];
@@ -401,15 +414,50 @@ class ProductService {
       }
 
       // Search keyword
-      const searchQuery = req.search || req.q;
+      const searchQuery = req.search || req.q || req.query;
       if (searchQuery) {
-        const searchRegex = new RegExp(searchQuery, "i");
-        filterQuery.$or = [
-          { title: searchRegex },
-          { brand: searchRegex },
-          { description: searchRegex },
-          { tags: searchRegex },
+        const cleanQuery = String(searchQuery).trim();
+        const tokens = cleanQuery
+          .split(/\s+/)
+          .filter((t) => t.length > 1)
+          .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+        const orConditions = [
+          { title: new RegExp(cleanQuery, "i") },
+          { brand: new RegExp(cleanQuery, "i") },
+          { description: new RegExp(cleanQuery, "i") },
+          { tags: new RegExp(cleanQuery, "i") },
         ];
+
+        // Match individual tokens if multiple words
+        if (tokens.length > 1) {
+          for (const token of tokens) {
+            const tokenRegex = new RegExp(token, "i");
+            orConditions.push(
+              { title: tokenRegex },
+              { brand: tokenRegex },
+              { tags: tokenRegex }
+            );
+          }
+        }
+
+        // Match synonyms if provided by Search Intelligence
+        if (Array.isArray(req.synonyms) && req.synonyms.length > 0) {
+          for (const syn of req.synonyms) {
+            const cleanSyn = String(syn).trim();
+            if (cleanSyn && cleanSyn.toLowerCase() !== cleanQuery.toLowerCase()) {
+              const synRegex = new RegExp(cleanSyn, "i");
+              orConditions.push(
+                { title: synRegex },
+                { brand: synRegex },
+                { description: synRegex },
+                { tags: synRegex }
+              );
+            }
+          }
+        }
+
+        filterQuery.$or = orConditions;
       }
 
       // Sorting

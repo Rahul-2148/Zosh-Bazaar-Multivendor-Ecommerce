@@ -43,7 +43,7 @@ export interface LocationSelectorProps {
 }
 
 /**
- * Responsive Location Selector (Flipkart/Amazon marketplace standards).
+ * Responsive Location Selector (Production marketplace standards).
  * - Desktop: Compact, accessible Popover anchored to header location control.
  * - Mobile: Native-grade Bottom Sheet with safe-area padding.
  * - Enforces Priority Rule: Default Saved Address > Selected Address > Explicit GPS > Manual Pincode.

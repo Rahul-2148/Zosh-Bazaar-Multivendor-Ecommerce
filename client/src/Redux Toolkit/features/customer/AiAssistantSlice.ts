@@ -54,13 +54,13 @@ const initialWelcomeMessage: ChatMessage = {
   id: "msg_init",
   role: "assistant",
   content:
-    "Hello! I am your **Zosh Bazaar AI Shopping Partner 3.0**.\n\nI can compare verified specs, find deals within your budget, check live inventory, analyze real customer reviews, and prepare your cart.",
+    "### Welcome to Zosh Bazaar AI 👋\n\nI am your **Personal Shopping Assistant**! I can help you find products within your budget, compare specifications side-by-side, track active shipments, and answer questions about returns and deals.\n\n**Tap any topic below to get started or ask me anything:**",
   timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   suggestedActions: [
-    "Best phone under 20000 for gaming",
-    "Office shoes under 3000",
-    "Compare noise cancelling headphones",
-    "Find complete outfit under ₹5000",
+    "🔥 Today's Best Deals",
+    "👟 Trending Sneakers",
+    "📦 Where is my order?",
+    "🔄 Return policy",
   ],
 };
 

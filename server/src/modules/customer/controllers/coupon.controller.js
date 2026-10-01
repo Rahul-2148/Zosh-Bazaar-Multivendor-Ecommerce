@@ -76,6 +76,20 @@ class CouponController {
     }
   }
 
+  async removeCoupon(req, res, next) {
+    try {
+      const user = req.user;
+      const result = await couponService.removeCoupon(user);
+      return res.status(200).json({
+        ...result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getAvailableCoupons(req, res, next) {
     try {
       const now = new Date();

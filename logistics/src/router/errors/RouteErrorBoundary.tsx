@@ -10,6 +10,35 @@ export const RouteErrorBoundary: React.FC = () => {
   let message = "An unexpected error occurred in the logistics operations control unit.";
   let statusCode: number | string = 500;
 
+  const isDynamicChunkError = React.useMemo(() => {
+    const raw = String(
+      (error as any)?.message ||
+      (error as any)?.statusText ||
+      (error as any)?.data?.message ||
+      error ||
+      ""
+    ).toLowerCase();
+
+    return (
+      raw.includes("failed to fetch dynamically imported module") ||
+      raw.includes("importing a module script failed") ||
+      raw.includes("error loading dynamically imported module") ||
+      raw.includes("dynamically imported module") ||
+      (error as any)?.name === "ChunkLoadError"
+    );
+  }, [error]);
+
+  React.useEffect(() => {
+    if (isDynamicChunkError && typeof window !== "undefined") {
+      const storageKey = `zosh_logistics_boundary_${window.location.pathname}`;
+      const hasReloaded = sessionStorage.getItem(storageKey);
+      if (!hasReloaded) {
+        sessionStorage.setItem(storageKey, "true");
+        window.location.reload();
+      }
+    }
+  }, [isDynamicChunkError]);
+
   if (isRouteErrorResponse(error)) {
     statusCode = error.status;
     if (error.status === 404) {
@@ -25,6 +54,10 @@ export const RouteErrorBoundary: React.FC = () => {
       title = error.statusText || "Operational Route Fault";
       message = typeof error.data === "string" ? error.data : error.data?.message || message;
     }
+  } else if (isDynamicChunkError) {
+    title = "Logistics Terminal Update Available";
+    message = "A newer version of the logistics control board has been deployed. Reloading to get the latest telemetry...";
+    statusCode = 200;
   } else if (error instanceof Error) {
     message = error.message;
   }

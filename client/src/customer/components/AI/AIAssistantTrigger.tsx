@@ -26,7 +26,7 @@ export const AIAssistantTrigger: React.FC = () => {
   return (
     <aside
       aria-label="AI Shopping Assistant Shortcut"
-      className="fixed bottom-5 right-5 z-40 group"
+      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 group pb-[env(safe-area-inset-bottom)]"
     >
       <button
         type="button"

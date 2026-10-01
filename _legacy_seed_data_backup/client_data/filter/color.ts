@@ -42,7 +42,7 @@ export const colors = [
   { name: "Charcoal", hex: "#36454F" },
   { name: "Bronze", hex: "#CD7F32" },
 
-  // 🔽 Extra colors added to make it complete (like Flipkart / Amazon / Myntra)
+  // 🔽 Extended color palette for catalog filtering
   { name: "Sky Blue", hex: "#87CEEB" },
   { name: "Mint Green", hex: "#98FF98" },
   { name: "Ivory", hex: "#FFFFF0" },

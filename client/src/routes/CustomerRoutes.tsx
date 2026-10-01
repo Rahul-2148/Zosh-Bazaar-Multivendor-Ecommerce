@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import Footer from "../customer/Footer/Footer";
 import Navbar from "../customer/Navbar/Navbar";
@@ -6,27 +6,28 @@ import Home from "../customer/pages/Home/Home";
 import PageLoader from "../common/PageLoader";
 import ProtectedRoute from "../customer/components/RouteGuards/ProtectedRoute";
 import { MobileBottomNav } from "../customer/Navbar/MobileBottomNav";
+import { lazyWithRetry } from "../utils/lazyWithRetry";
 
-const Products = lazy(() => import("../customer/pages/Product/Products"));
-const ProductDetails = lazy(
+const Products = lazyWithRetry(() => import("../customer/pages/Product/Products"));
+const ProductDetails = lazyWithRetry(
   () => import("../customer/pages/Product/ProductDetails/ProductDetails")
 );
-const Cart = lazy(() => import("../customer/pages/Cart/Cart"));
-const Checkout = lazy(() => import("../customer/pages/Checkout/Checkout"));
-const Profile = lazy(() => import("../customer/pages/Account/Profile"));
-const Order = lazy(() => import("../customer/pages/Order/Order"));
-const OrderDetails = lazy(() => import("../customer/pages/Order/OrderDetails"));
-const Wishlist = lazy(() => import("../customer/pages/Wishlist/Wishlist"));
-const SharedCollectionView = lazy(
+const Cart = lazyWithRetry(() => import("../customer/pages/Cart/Cart"));
+const Checkout = lazyWithRetry(() => import("../customer/pages/Checkout/Checkout"));
+const Profile = lazyWithRetry(() => import("../customer/pages/Account/Profile"));
+const Order = lazyWithRetry(() => import("../customer/pages/Order/Order"));
+const OrderDetails = lazyWithRetry(() => import("../customer/pages/Order/OrderDetails"));
+const Wishlist = lazyWithRetry(() => import("../customer/pages/Wishlist/Wishlist"));
+const SharedCollectionView = lazyWithRetry(
   () => import("../customer/pages/Wishlist/SharedCollectionView")
 );
-const SearchResults = lazy(
+const SearchResults = lazyWithRetry(
   () => import("../customer/pages/Search/SearchResults")
 );
-const PaymentSuccess = lazy(
+const PaymentSuccess = lazyWithRetry(
   () => import("../customer/pages/Payment/PaymentSuccess")
 );
-const Auth = lazy(() => import("../Auth/Auth"));
+const Auth = lazyWithRetry(() => import("../Auth/Auth"));
 
 const CustomerRoutes = () => {
   return (

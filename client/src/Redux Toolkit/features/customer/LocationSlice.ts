@@ -93,7 +93,7 @@ const initialState: LocationState = {
 };
 
 /**
- * Priority Resolution Helper (Flipkart/Amazon Standard)
+ * Priority Resolution Helper (Marketplace Standard)
  * - Authenticated with default address: Header displays default address
  * - Authenticated with explicitly selected saved address: Header displays selected address
  * - Explicit GPS: Only if user clicked "Use current location"
@@ -288,16 +288,16 @@ const locationSlice = createSlice({
      */
     applyManualPincode: (
       state,
-      action: PayloadAction<{ pincode: string; city?: string; locality?: string }>
+      action: PayloadAction<{ pincode: string; city?: string; locality?: string; state?: string }>
     ) => {
-      const { pincode, city, locality } = action.payload;
+      const { pincode, city, locality, state: locState } = action.payload;
       const loc = locality || city || "Area";
       state.activeLocation = {
         source: "MANUAL_PINCODE",
         pincode,
         locality: loc,
         city: city || "",
-        state: "",
+        state: locState || "",
         formattedLabel: `${loc} ${pincode}`,
         headerPrimary: "Deliver to",
         headerSecondary: `${loc} ${pincode}`,

@@ -362,7 +362,7 @@ const Checkout = () => {
                   );
                 })}
 
-                {/* Flipkart/Amazon Benchmark: Add New Address Option Card in the list */}
+                {/* Add New Address Option Card in the list */}
                 <button
                   type="button"
                   onClick={handleOpenAddAddress}
@@ -645,7 +645,7 @@ const Checkout = () => {
         </div>
       </div>
 
-      {/* Standardized Responsive Address Form Dialog (Flipkart/Amazon Benchmark) */}
+      {/* Standardized Responsive Address Form Dialog */}
       <AppDialog
         open={showAddressForm}
         onClose={() => setShowAddressForm(false)}

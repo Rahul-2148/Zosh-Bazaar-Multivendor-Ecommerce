@@ -12,7 +12,14 @@ import { useAppSelector } from "../../Redux Toolkit/Store";
 export const MobileBottomNav: React.FC = () => {
   const { cart, wishlist, user } = useAppSelector((store) => store);
 
-  const cartCount = cart.cart?.cartItems?.length || 0;
+  const cartCount =
+    cart.cart?.cartItems?.reduce(
+      (total: number, item: any) => total + (Number(item?.quantity) || 1),
+      0
+    ) ||
+    cart.cart?.totalItem ||
+    cart.cart?.cartItems?.length ||
+    0;
   const wishlistCount =
     wishlist.totalSavedCount ??
     wishlist.savedProductIds?.length ??

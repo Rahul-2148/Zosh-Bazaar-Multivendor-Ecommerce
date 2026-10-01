@@ -19,6 +19,17 @@ import { aiTelemetry } from '../telemetry/aiTelemetry.js';
 import { estimateTokenCost } from '../policies/costPolicy.js';
 import { withRetry } from '../policies/retryPolicy.js';
 
+export const ZOSH_ASSISTANT_SYSTEM_PROMPT = `You are Zosh Assistant, the intelligent personal shopping partner for Zosh Bazaar, India's premier multi-vendor online marketplace.
+
+Core Personality & Rules:
+1. Tone: Warm, polite, helpful, concise, and structured. You understand English and Hinglish seamlessly.
+2. GREETINGS: If the user says "hi", "hello", "hey", or a casual greeting, greet warmly and summarize 4 things you can do (Search Deals, Compare Specs, Track Orders, Returns/Policies) with 4 quick prompt suggestions. DO NOT hallucinate or dump random products unprompted.
+3. PRODUCT SEARCH: Present top verified products clearly with Title, Brand, Price in Indian Rupees (₹), Discount %, Ratings, and bullet points highlighting key features.
+4. COMPARISONS: When asked to compare products (e.g. "X vs Y" or "which is better"), provide a side-by-side spec breakdown and a clear buying verdict.
+5. ORDER TRACKING: Guide users on checking live delivery milestones, estimated arrival dates, and courier details.
+6. POLICIES: 7-day hassle-free return window, free doorstep pickup within 24-48 hours, refunds in 2-4 business days, free shipping above ₹499, and COD available up to ₹10,000.
+7. Always format clean markdown headers, bold prices, and bullet points. Never display internal errors or raw database IDs.`;
+
 export class AIGateway {
   constructor() {
     this.router = new CapabilityRouterEngine();
@@ -43,13 +54,20 @@ export class AIGateway {
    * Non-streaming conversational entrypoint with capability routing & fallback.
    */
   async chat(request = {}) {
+    const enrichedRequest = {
+      systemInstruction: ZOSH_ASSISTANT_SYSTEM_PROMPT,
+      includeTools: true,
+      ...request,
+      systemInstruction: request.systemInstruction || ZOSH_ASSISTANT_SYSTEM_PROMPT,
+    };
+
     const requiredCaps = [AICapability.CHAT];
-    if (request.includeTools) {
+    if (enrichedRequest.includeTools) {
       requiredCaps.push(AICapability.TOOL_CALLING);
     }
 
     const chain = this.router.resolveExecutionChain(requiredCaps);
-    const traceCtx = aiTelemetry.createTraceContext('CHAT', request.traceId);
+    const traceCtx = aiTelemetry.createTraceContext('CHAT', enrichedRequest.traceId);
 
     let lastError = null;
 
@@ -59,7 +77,7 @@ export class AIGateway {
 
       try {
         const response = await withRetry(
-          async () => provider.generate(request),
+          async () => provider.generate(enrichedRequest),
           { maxRetries: 1, baseMs: 250 }
         );
 
@@ -108,7 +126,7 @@ export class AIGateway {
     }
 
     // If all providers failed, fallback to native deterministic generation
-    const nativeRes = await this.native.generate(request);
+    const nativeRes = await this.native.generate(enrichedRequest);
     aiTelemetry.finalizeTrace(traceCtx, {
       providerId: ProviderId.ZOSH_NATIVE,
       model: this.native.spec.defaultModel,
@@ -152,9 +170,16 @@ export class AIGateway {
    * Real Streaming SSE entry point with failover before/during stream.
    */
   async streamChat(request = {}, onEvent) {
+    const enrichedRequest = {
+      systemInstruction: ZOSH_ASSISTANT_SYSTEM_PROMPT,
+      includeTools: true,
+      ...request,
+      systemInstruction: request.systemInstruction || ZOSH_ASSISTANT_SYSTEM_PROMPT,
+    };
+
     const requiredCaps = [AICapability.CHAT, AICapability.STREAMING];
     const chain = this.router.resolveExecutionChain(requiredCaps);
-    const traceCtx = aiTelemetry.createTraceContext('STREAM_CHAT', request.traceId);
+    const traceCtx = aiTelemetry.createTraceContext('STREAM_CHAT', enrichedRequest.traceId);
 
     onEvent({
       type: AIStreamEventType.START,
@@ -180,7 +205,7 @@ export class AIGateway {
           });
         }
 
-        const streamResult = await provider.stream(request, (chunk) => {
+        const streamResult = await provider.stream(enrichedRequest, (chunk) => {
           streamStarted = true;
           onEvent(chunk);
         });
@@ -191,7 +216,7 @@ export class AIGateway {
 
         // Execute any authoritative tools returned
         if (streamResult.toolCalls && streamResult.toolCalls.length > 0) {
-          const toolResults = await this._executeTools(streamResult.toolCalls, request, traceCtx);
+          const toolResults = await this._executeTools(streamResult.toolCalls, enrichedRequest, traceCtx);
           for (const tr of toolResults) {
             onEvent({
               type: AIStreamEventType.TOOL_RESULT,
@@ -237,7 +262,7 @@ export class AIGateway {
 
     // Guaranteed Zosh Native fallback stream
     const nativeStart = Date.now();
-    await this.native.stream(request, (chunk) => onEvent(chunk));
+    await this.native.stream(enrichedRequest, (chunk) => onEvent(chunk));
     aiTelemetry.finalizeTrace(traceCtx, {
       providerId: ProviderId.ZOSH_NATIVE,
       model: this.native.spec.defaultModel,
