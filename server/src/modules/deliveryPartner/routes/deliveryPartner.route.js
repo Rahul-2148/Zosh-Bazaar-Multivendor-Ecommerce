@@ -1,6 +1,7 @@
 import express from "express";
 import deliveryPartnerController from "../controllers/deliveryPartner.controller.js";
 import deliveryPartnerAuthMiddleware from "../../../middlewares/deliveryPartnerAuthMiddleware.js";
+import uploadRouter from "../../customer/routes/upload.route.js";
 
 const deliveryPartnerRouter = express.Router();
 
@@ -9,6 +10,9 @@ deliveryPartnerRouter.post("/auth/login", deliveryPartnerController.login);
 
 // Protected Delivery Partner Execution Endpoints
 deliveryPartnerRouter.use(deliveryPartnerAuthMiddleware);
+
+// Operations: File & POD Photo Upload
+deliveryPartnerRouter.use("/upload", uploadRouter);
 
 // 2. Profile & Shift Operations
 deliveryPartnerRouter.get("/profile", deliveryPartnerController.getProfile);

@@ -81,29 +81,10 @@ export const uploadToCloudinary = async (
     console.warn("[Upload] Backend server upload failed:", serverErr.message);
   }
 
-  // 3. Section 17: In production, upload failure MUST throw error, never silently fall back to base64
-  if (!import.meta.env.DEV) {
-    throw new Error(
-      "Image upload failed: Storage service is unavailable. Please verify network or Cloudinary configuration."
-    );
-  }
-
-  // Development-only offline preview fallback with explicit console warning
-  console.warn(
-    "⚠️ [Dev Mock Upload] Development offline preview fallback active. This will NOT be permitted in production builds."
+  // 3. Throw authoritative error if both upload paths fail
+  throw new Error(
+    "Image upload failed: Storage service is unavailable. Please verify network or Cloudinary configuration."
   );
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve({ secure_url: reader.result });
-      } else {
-        reject(new Error("Failed to generate preview data URL"));
-      }
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
 };
 
 export const uploadMultipleFiles = async (

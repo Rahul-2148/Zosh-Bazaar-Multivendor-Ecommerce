@@ -3,12 +3,16 @@ import sellerController from "../../seller/controllers/seller.controller.js";
 import adminController from "../controllers/admin.controller.js";
 import authMiddleware from "../../../middlewares/authMiddleware.js";
 import { adminOnly } from "../../../middlewares/rbac.middleware.js";
+import uploadRouter from "../../customer/routes/upload.route.js";
 
 const adminRouter = express.Router();
 
 // All admin routes require authentication + admin privileges
 adminRouter.use(authMiddleware);
 adminRouter.use(adminOnly);
+
+// Operations: File & Media Upload
+adminRouter.use("/upload", uploadRouter);
 
 // Analytics & Dashboard Summary
 adminRouter.get("/analytics/summary", adminController.getDashboardSummary);

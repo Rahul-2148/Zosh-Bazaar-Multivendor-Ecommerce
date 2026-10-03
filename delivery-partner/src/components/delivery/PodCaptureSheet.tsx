@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { X, Camera, CheckCircle2, UserCheck, ShieldCheck } from "lucide-react";
 import { SignatureCanvas } from "./SignatureCanvas";
+import { api } from "../../api/apiConfig";
 
 interface PodCaptureSheetProps {
   isOpen: boolean;
@@ -23,7 +24,8 @@ export const PodCaptureSheet: React.FC<PodCaptureSheetProps> = ({
   const [recipientName, setRecipientName] = useState(defaultCustomerName);
   const [relationship, setRelationship] = useState("SELF");
   const [signatureUrl, setSignatureUrl] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -34,11 +36,8 @@ export const PodCaptureSheet: React.FC<PodCaptureSheetProps> = ({
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPhotoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
     }
   };
 
@@ -51,11 +50,26 @@ export const PodCaptureSheet: React.FC<PodCaptureSheetProps> = ({
     try {
       setLoading(true);
       setErrorMsg("");
+
+      let uploadedPhotoUrl = "";
+      if (photoFile) {
+        const formData = new FormData();
+        formData.append("images", photoFile);
+        formData.append("folderType", "pod");
+        const uploadRes = await api.post("/upload/cloudinary", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        uploadedPhotoUrl =
+          uploadRes.data?.data?.[0]?.secureUrl ||
+          uploadRes.data?.data?.[0]?.url ||
+          "";
+      }
+
       await onComplete({
         recipientName: recipientName.trim(),
         relationship,
         signatureUrl,
-        photoUrl,
+        photoUrl: uploadedPhotoUrl,
       });
       onClose();
     } catch (err: unknown) {
@@ -134,9 +148,9 @@ export const PodCaptureSheet: React.FC<PodCaptureSheetProps> = ({
               onChange={handlePhotoUpload}
             />
 
-            {photoUrl ? (
+            {photoPreview ? (
               <div className="relative rounded-2xl overflow-hidden border border-border aspect-video bg-black flex items-center justify-center">
-                <img src={photoUrl} alt="POD Proof" className="w-full h-full object-cover" />
+                <img src={photoPreview} alt="POD Proof" className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
