@@ -13,7 +13,7 @@ export const uploadMediaFile = async (
   file: File,
   folder = "zosh_bazaar_products"
 ): Promise<MediaUploadResult> => {
-  // 1. Authoritative server upload route (streams to Cloudinary or deterministic storage)
+  // Authoritative server upload route (POST /api/v1/seller/upload/cloudinary)
   try {
     const token = localStorage.getItem("seller_jwt") || localStorage.getItem("jwt");
     const formData = new FormData();
@@ -32,46 +32,28 @@ export const uploadMediaFile = async (
       withCredentials: true,
     });
 
-    if (serverRes.data?.secure_url) {
+    const item = serverRes.data?.data?.[0];
+    const secureUrl = serverRes.data?.secure_url || item?.secureUrl || item?.url;
+
+    if (secureUrl) {
       return {
-        secure_url: serverRes.data.secure_url,
-        public_id: serverRes.data.public_id,
-        format: serverRes.data.format,
-        width: serverRes.data.width,
-        height: serverRes.data.height,
+        secure_url: secureUrl,
+        public_id: serverRes.data?.public_id || item?.publicId,
+        format: serverRes.data?.format || item?.format,
+        width: serverRes.data?.width || item?.width,
+        height: serverRes.data?.height || item?.height,
       };
     }
-  } catch (serverErr) {
-    console.warn("Server upload endpoint error, trying direct upload preset fallback:", serverErr);
+
+    throw new Error(serverRes.data?.message || "Invalid server response");
+  } catch (serverErr: any) {
+    const message =
+      serverErr.response?.data?.message ||
+      serverErr.message ||
+      "Unable to upload media. Please verify server connectivity or authentication.";
+    console.error("[Seller Media Upload] Failure:", message);
+    throw new Error(message);
   }
-
-  // 2. Direct Cloudinary upload preset fallback
-  const cloud_name = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-  const upload_preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-
-  if (cloud_name && upload_preset) {
-    try {
-      const url = `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`;
-      const data = new FormData();
-      data.append("file", file);
-      data.append("upload_preset", upload_preset);
-      data.append("folder", folder);
-
-      const response = await axios.post(url, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      return {
-        secure_url: response.data.secure_url,
-        public_id: response.data.public_id,
-        format: response.data.format,
-      };
-    } catch (err) {
-      console.warn("Direct Cloudinary upload failed:", err);
-    }
-  }
-
-  throw new Error("Unable to upload image. Please verify server connectivity or Cloudinary credentials.");
 };
 
 export const uploadMultipleMedia = async (

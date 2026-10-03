@@ -1,6 +1,7 @@
 import express from "express";
 import uploadController from "../controllers/upload.controller.js";
-import { uploadProductImages, uploadMediaMemory } from "../../../middlewares/upload.middleware.js";
+import { uploadProductImages, uploadFlexibleMediaMemory } from "../../../middlewares/upload.middleware.js";
+import { mediaUploadLimiter } from "../../../middlewares/rateLimiter.middleware.js";
 
 const uploadRouter = express.Router();
 
@@ -11,13 +12,14 @@ const uploadRouter = express.Router();
 uploadRouter.get("/signature", uploadController.getUploadSignature);
 
 /**
- * Direct Cloudinary multi-media stream upload with structured metadata & folder organization
+ * Authoritative Cloudinary multi-media stream upload with structured metadata & folder organization
  * POST /api/v1/upload/cloudinary
- * Form field: "images" (multiple)
+ * Form fields supported: "images", "image", "file", "files", "photo" (up to 12 files, max 25MB each)
  */
 uploadRouter.post(
   "/cloudinary",
-  uploadMediaMemory.array("images", 12),
+  mediaUploadLimiter,
+  uploadFlexibleMediaMemory,
   uploadController.uploadToCloudinary
 );
 

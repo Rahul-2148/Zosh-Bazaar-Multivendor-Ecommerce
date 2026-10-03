@@ -48,6 +48,24 @@ const errorHandler = (err, req, res, _next) => {
     message = "Authentication token has expired";
   }
 
+  // Multer & Media upload errors
+  if (err.name === "MulterError") {
+    statusCode = 400;
+    if (err.code === "LIMIT_FILE_SIZE") {
+      message = "File size exceeds the 25MB marketplace limit.";
+    } else if (err.code === "LIMIT_FILE_COUNT") {
+      message = "Too many files uploaded at once (maximum 12).";
+    } else if (err.code === "LIMIT_UNEXPECTED_FILE") {
+      message = `Unexpected upload field: ${err.field || "unknown"}`;
+    } else {
+      message = `Upload error: ${err.message}`;
+    }
+  }
+
+  if (err.message && err.message.includes("Unsupported file format")) {
+    statusCode = 400;
+  }
+
   // Log error in development
   if (process.env.NODE_ENV !== "production") {
     console.error(`[ERROR] ${statusCode} - ${message}`);

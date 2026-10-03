@@ -7,10 +7,14 @@ import { redisClient } from "../config/redis.service.js";
 export const createRateLimiter = ({ windowSeconds = 3600, maxRequests = 3, keyPrefix = "rl" }) => {
   return async (req, res, next) => {
     try {
-      const userId = req.user?._id?.toString();
-      if (!userId) return next(); // Skip if no authenticated user
+      const actorId =
+        req.user?._id?.toString() ||
+        req.seller?._id?.toString() ||
+        req.agent?._id?.toString() ||
+        req.ip ||
+        "anonymous";
 
-      const key = `${keyPrefix}:${userId}`;
+      const key = `${keyPrefix}:${actorId}`;
       const current = await redisClient.get(key);
       const count = current ? parseInt(current, 10) : 0;
 
@@ -54,4 +58,10 @@ export const supportRequestLimiter = createRateLimiter({
   windowSeconds: 3600,
   maxRequests: 2,
   keyPrefix: "rl_support_del",
+});
+
+export const mediaUploadLimiter = createRateLimiter({
+  windowSeconds: 60,
+  maxRequests: 60, // 60 uploads per minute per authenticated actor
+  keyPrefix: "rl_upload",
 });

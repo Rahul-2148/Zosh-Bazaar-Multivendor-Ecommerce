@@ -20,6 +20,18 @@ class UploadController {
    */
   async getUploadSignature(req, res, next) {
     try {
+      const user = req.user;
+      const seller = req.seller;
+      const agent = req.agent;
+
+      if (!user && !seller && !agent) {
+        return res.status(401).json({
+          success: false,
+          error: true,
+          message: "Authentication required to generate upload signature.",
+        });
+      }
+
       if (!isCloudinaryConfigured()) {
         return res.status(200).json({
           success: false,
@@ -29,21 +41,33 @@ class UploadController {
         });
       }
 
-      const { productId, folderType = "catalog", optionKey, optionValue, variantId } = req.query;
+      const { productId, folderType = "catalog", folder, optionKey, optionValue, variantId } = req.query;
+      const rawSubfolder = folderType || folder || "catalog";
+      const cleanSubfolder = sanitizeSlug(rawSubfolder) || "catalog";
 
-      // Deterministic folder organization matching enterprise marketplace standard:
-      // zosh-bazaar/products/{productId}/catalog/
-      // zosh-bazaar/products/{productId}/options/{color-blue}/
-      // zosh-bazaar/products/{productId}/variants/{variantId}/
-      const cleanProdId = sanitizeSlug(productId || "draft");
-      let folderPath = `zosh-bazaar/products/${cleanProdId}/${folderType}`;
+      // Server-enforced folder namespace isolation
+      let folderPath = "zosh-bazaar/general";
 
-      if (folderType === "options" && optionKey && optionValue) {
-        const cleanOpt = sanitizeSlug(`${optionKey}-${optionValue}`);
-        folderPath = `zosh-bazaar/products/${cleanProdId}/options/${cleanOpt}`;
-      } else if (folderType === "variants" && variantId) {
-        const cleanVar = sanitizeSlug(variantId);
-        folderPath = `zosh-bazaar/products/${cleanProdId}/variants/${cleanVar}`;
+      if (seller || user?.role === "SELLER") {
+        const sellerId = (seller?._id || user?._id).toString();
+        const cleanProdId = sanitizeSlug(productId || "draft");
+        if (cleanSubfolder === "options" && optionKey && optionValue) {
+          const cleanOpt = sanitizeSlug(`${optionKey}-${optionValue}`);
+          folderPath = `zosh-bazaar/sellers/${sellerId}/products/${cleanProdId}/options/${cleanOpt}`;
+        } else if (cleanSubfolder === "variants" && variantId) {
+          const cleanVar = sanitizeSlug(variantId);
+          folderPath = `zosh-bazaar/sellers/${sellerId}/products/${cleanProdId}/variants/${cleanVar}`;
+        } else {
+          folderPath = `zosh-bazaar/sellers/${sellerId}/products/${cleanProdId}/${cleanSubfolder}`;
+        }
+      } else if (user?.role === "ADMIN") {
+        folderPath = `zosh-bazaar/admin/${cleanSubfolder}`;
+      } else if (agent) {
+        const agentId = sanitizeSlug(agent.agentId || agent._id.toString());
+        folderPath = `zosh-bazaar/delivery/${agentId}/pod`;
+      } else if (user) {
+        const userId = user._id.toString();
+        folderPath = `zosh-bazaar/customers/${userId}/${cleanSubfolder}`;
       }
 
       const signingParams = {
@@ -68,49 +92,93 @@ class UploadController {
   }
 
   /**
-   * Authoritative server-side multi-image upload into Cloudinary or resilient disk storage
+   * Authoritative server-side multi-media upload into Cloudinary or resilient disk storage
    * POST /api/v1/upload/cloudinary
    */
   async uploadToCloudinary(req, res, next) {
     try {
-      if (!req.files || req.files.length === 0) {
+      const user = req.user;
+      const seller = req.seller;
+      const agent = req.agent;
+
+      if (!user && !seller && !agent) {
+        return res.status(401).json({
+          success: false,
+          error: true,
+          message: "Authentication required to upload media assets.",
+        });
+      }
+
+      // Collect files across all potential upload fields (single, array, or multi-field)
+      let filesToProcess = [];
+      if (Array.isArray(req.files)) {
+        filesToProcess = req.files;
+      } else if (req.files && typeof req.files === "object") {
+        filesToProcess = Object.values(req.files).flat();
+      } else if (req.file) {
+        filesToProcess = [req.file];
+      }
+
+      if (!filesToProcess || filesToProcess.length === 0) {
         return res.status(400).json({
           success: false,
           error: true,
-          message: "No image files were uploaded. Please attach at least 1 image.",
+          message: "No media files were uploaded. Please attach at least 1 image or video.",
         });
       }
 
       const {
         productId,
         productSlug,
-        folderType = "catalog",
+        folderType,
+        folder,
         optionKey = "",
         optionValue = "",
         variantId = "",
       } = req.body;
 
-      const cleanProdId = sanitizeSlug(productId || productSlug || "general");
-      let folderPath = `zosh-bazaar/products/${cleanProdId}/${folderType}`;
+      const rawSubfolder = folderType || folder || "general";
+      const cleanSubfolder = sanitizeSlug(rawSubfolder) || "general";
 
-      if (folderType === "options" && optionKey && optionValue) {
-        const cleanOpt = sanitizeSlug(`${optionKey}-${optionValue}`);
-        folderPath = `zosh-bazaar/products/${cleanProdId}/options/${cleanOpt}`;
-      } else if (folderType === "variants" && variantId) {
-        const cleanVar = sanitizeSlug(variantId);
-        folderPath = `zosh-bazaar/products/${cleanProdId}/variants/${cleanVar}`;
+      // Server-enforced folder namespace isolation
+      let folderPath = "zosh-bazaar/general";
+
+      if (seller || user?.role === "SELLER") {
+        const sellerId = (seller?._id || user?._id).toString();
+        const cleanProdId = sanitizeSlug(productId || productSlug || "general");
+        if (cleanSubfolder === "options" && optionKey && optionValue) {
+          const cleanOpt = sanitizeSlug(`${optionKey}-${optionValue}`);
+          folderPath = `zosh-bazaar/sellers/${sellerId}/products/${cleanProdId}/options/${cleanOpt}`;
+        } else if (cleanSubfolder === "variants" && variantId) {
+          const cleanVar = sanitizeSlug(variantId);
+          folderPath = `zosh-bazaar/sellers/${sellerId}/products/${cleanProdId}/variants/${cleanVar}`;
+        } else {
+          folderPath = `zosh-bazaar/sellers/${sellerId}/products/${cleanProdId}/${cleanSubfolder}`;
+        }
+      } else if (user?.role === "ADMIN") {
+        folderPath = `zosh-bazaar/admin/${cleanSubfolder}`;
+      } else if (agent) {
+        const agentId = sanitizeSlug(agent.agentId || agent._id.toString());
+        folderPath = `zosh-bazaar/delivery/${agentId}/pod`;
+      } else if (user) {
+        const userId = user._id.toString();
+        folderPath = `zosh-bazaar/customers/${userId}/${cleanSubfolder}`;
       }
 
       const results = [];
 
       if (isCloudinaryConfigured()) {
         // Genuine Cloudinary upload with full metadata
-        for (let i = 0; i < req.files.length; i++) {
-          const file = req.files[i];
+        for (let i = 0; i < filesToProcess.length; i++) {
+          const file = filesToProcess[i];
+          const resourceType =
+            file.detectedResourceType ||
+            (file.mimetype?.toLowerCase().startsWith("video/") ? "video" : "image");
+
           const uploadResult = await uploadBufferToCloudinary(file.buffer, {
             folder: folderPath,
-            resourceType: "image",
-            tags: ["zosh-bazaar", cleanProdId, folderType].filter(Boolean),
+            resourceType,
+            tags: ["zosh-bazaar", cleanSubfolder].filter(Boolean),
           });
 
           results.push({
@@ -118,7 +186,7 @@ class UploadController {
             url: uploadResult.secureUrl,
             secureUrl: uploadResult.secureUrl,
             publicId: uploadResult.publicId,
-            resourceType: uploadResult.resourceType || "image",
+            resourceType: uploadResult.resourceType || resourceType,
             format: uploadResult.format,
             width: uploadResult.width,
             height: uploadResult.height,
@@ -133,18 +201,19 @@ class UploadController {
           });
         }
       } else {
-        // Resilient disk fallback: write memory buffer to uploads/products/:cleanProdId/
-        const targetDir = path.join(UPLOADS_ROOT, "products", cleanProdId);
+        // Resilient disk fallback for local development: write memory buffer to uploads/
+        const sanitizedRelativeDir = folderPath.replace(/^zosh-bazaar\//, "");
+        const targetDir = path.join(UPLOADS_ROOT, sanitizedRelativeDir);
         if (!fs.existsSync(targetDir)) {
           fs.mkdirSync(targetDir, { recursive: true });
         }
 
-        const host = req.get("host");
+        const host = req.get("host") || "localhost:5000";
         const protocol = req.protocol || "http";
         const baseUrl = `${protocol}://${host}`;
 
-        for (let i = 0; i < req.files.length; i++) {
-          const file = req.files[i];
+        for (let i = 0; i < filesToProcess.length; i++) {
+          const file = filesToProcess[i];
           const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
           const base = path
             .basename(file.originalname, ext)
@@ -156,8 +225,11 @@ class UploadController {
 
           fs.writeFileSync(filePath, file.buffer);
 
-          const relativePath = `/uploads/products/${cleanProdId}/${filename}`;
+          const relativePath = `/uploads/${sanitizedRelativeDir}/${filename}`.replace(/\\/g, "/");
           const absoluteUrl = `${baseUrl}${relativePath}`;
+          const resourceType =
+            file.detectedResourceType ||
+            (file.mimetype?.toLowerCase().startsWith("video/") ? "video" : "image");
 
           results.push({
             mediaId: `med_${Date.now()}_${i}`,
@@ -165,8 +237,8 @@ class UploadController {
             secureUrl: absoluteUrl,
             relativePath,
             filename,
-            publicId: `local:${cleanProdId}/${filename}`,
-            resourceType: "image",
+            publicId: `local:${sanitizedRelativeDir}/${filename}`,
+            resourceType,
             format: ext.replace(".", ""),
             bytes: file.size,
             originalName: file.originalname,
@@ -183,14 +255,24 @@ class UploadController {
       return res.status(200).json({
         success: true,
         error: false,
-        message: `Successfully processed ${results.length} media assets into ${folderPath}`,
+        message: `Successfully processed ${results.length} media asset(s)`,
         folder: folderPath,
+        data: results,
         media: results,
-        // Legacy array of URLs for backward compatibility
+        secure_url: results[0]?.secureUrl || results[0]?.url,
+        url: results[0]?.secureUrl || results[0]?.url,
+        public_id: results[0]?.publicId,
+        format: results[0]?.format,
+        resource_type: results[0]?.resourceType,
         images: results.map((m) => m.secureUrl || m.url),
       });
     } catch (error) {
-      next(error);
+      console.error("[UploadController] Upload failed:", error.message || error);
+      res.status(500).json({
+        success: false,
+        error: true,
+        message: "Media upload failed. Please try again.",
+      });
     }
   }
 
@@ -200,6 +282,17 @@ class UploadController {
    */
   async uploadProductImages(req, res, next) {
     try {
+      const user = req.user;
+      const seller = req.seller;
+
+      if (!user && !seller) {
+        return res.status(401).json({
+          success: false,
+          error: true,
+          message: "Authentication required to upload product images.",
+        });
+      }
+
       if (!req.files || req.files.length === 0) {
         return res.status(400).json({
           success: false,
@@ -250,6 +343,18 @@ class UploadController {
    */
   async deleteProductImage(req, res, next) {
     try {
+      const user = req.user;
+      const seller = req.seller;
+      const agent = req.agent;
+
+      if (!user && !seller && !agent) {
+        return res.status(401).json({
+          success: false,
+          error: true,
+          message: "Authentication required to delete media assets.",
+        });
+      }
+
       const { publicId, relativePath, productSlug, filename } = req.body;
 
       // Cloudinary deletion if publicId is provided and not local:

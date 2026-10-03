@@ -45,22 +45,32 @@ const productStorage = multer.diskStorage({
   },
 });
 
-// File filter for images only
-const imageFileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp|avif|svg/;
+// Strict file filter for marketplace media (images and demonstration videos)
+export const mediaFileFilter = (req, file, cb) => {
+  const allowedImageExts = /jpeg|jpg|png|webp|avif|svg/;
+  const allowedVideoExts = /mp4|webm|mov/;
   const ext = path.extname(file.originalname).toLowerCase().replace(".", "");
-  const mime = file.mimetype;
+  const mime = (file.mimetype || "").toLowerCase();
 
-  if (allowedTypes.test(ext) && (mime.startsWith("image/") || mime === "image/svg+xml")) {
+  const isImage = allowedImageExts.test(ext) && (mime.startsWith("image/") || mime === "image/svg+xml");
+  const isVideo = allowedVideoExts.test(ext) && (mime.startsWith("video/") || mime === "video/mp4" || mime === "video/webm" || mime === "video/quicktime");
+
+  if (isImage || isVideo) {
+    file.detectedResourceType = isVideo ? "video" : "image";
     cb(null, true);
   } else {
-    cb(new Error("Only image files (JPG, PNG, WEBP, AVIF, SVG) are allowed"), false);
+    cb(
+      new Error(
+        "Unsupported file format. Only verified images (JPG, PNG, WEBP, AVIF, SVG) and videos (MP4, WEBM) are permitted."
+      ),
+      false
+    );
   }
 };
 
 export const uploadProductImages = multer({
   storage: productStorage,
-  fileFilter: imageFileFilter,
+  fileFilter: mediaFileFilter,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB per file
     files: 10, // Max 10 images at once
@@ -69,10 +79,19 @@ export const uploadProductImages = multer({
 
 export const uploadMediaMemory = multer({
   storage: multer.memoryStorage(),
-  fileFilter: imageFileFilter,
+  fileFilter: mediaFileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB per file
-    files: 12, // Max 12 images at once
+    fileSize: 25 * 1024 * 1024, // 25MB per file (accommodates short demo videos)
+    files: 12, // Max 12 files at once
   },
 });
+
+export const uploadFlexibleMediaMemory = uploadMediaMemory.fields([
+  { name: "images", maxCount: 12 },
+  { name: "image", maxCount: 12 },
+  { name: "file", maxCount: 12 },
+  { name: "files", maxCount: 12 },
+  { name: "photo", maxCount: 12 },
+]);
+
 

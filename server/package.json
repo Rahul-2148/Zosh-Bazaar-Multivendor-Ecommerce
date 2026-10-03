@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node tests/phase14Audit.test.js && node tests/phase13Hardening.test.js",
+    "test": "node tests/phase14_2MediaAudit.test.js && node tests/phase14Audit.test.js && node tests/phase13Hardening.test.js",
+    "test:media": "node tests/phase14_2MediaAudit.test.js",
     "test:audit": "node tests/phase14Audit.test.js",
     "test:hardening": "node tests/phase13Hardening.test.js",
     "dev": "nodemon src/index.js",

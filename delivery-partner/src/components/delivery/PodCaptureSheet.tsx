@@ -62,6 +62,7 @@ export const PodCaptureSheet: React.FC<PodCaptureSheetProps> = ({
         uploadedPhotoUrl =
           uploadRes.data?.data?.[0]?.secureUrl ||
           uploadRes.data?.data?.[0]?.url ||
+          uploadRes.data?.secure_url ||
           "";
       }
 

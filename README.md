@@ -217,6 +217,11 @@ EMAIL_ADDRESS=notifications@zoshbazaar.com
 EMAIL_PASSWORD=your_email_service_password
 RAZORPAY_TEST_KEY_ID=rzp_test_your_key_id
 RAZORPAY_TEST_KEY_SECRET=your_razorpay_secret
+
+# Authoritative Cloudinary Storage (Server-Only Credentials)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
 ### Frontend Configuration (`client/.env`, `seller/.env`, etc.)
@@ -233,9 +238,8 @@ VITE_SELLER_PORTAL_URL=http://localhost:5175
 VITE_ADMIN_PORTAL_URL=http://localhost:5176
 VITE_LOGISTICS_PORTAL_URL=http://localhost:5174
 
-# Cloudinary Integration (Customer & Seller)
-VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
-VITE_CLOUDINARY_UPLOAD_PRESET=your_preset_name
+# Note: All persistent media uploads are routed authoritatively through authenticated backend endpoints.
+# Unsigned client-controlled presets are strictly excluded from frontend configuration.
 ```
 
 ---
