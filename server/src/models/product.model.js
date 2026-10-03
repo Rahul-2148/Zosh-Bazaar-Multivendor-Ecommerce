@@ -268,6 +268,14 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Authoritative Derived Projection Fields (Section 14)
+    minSellingPrice: { type: Number },
+    maxSellingPrice: { type: Number },
+    minMrp: { type: Number },
+    maxMrp: { type: Number },
+    totalAvailableStock: { type: Number, default: 0 },
+    availableVariantCount: { type: Number, default: 0 },
+
     // Legacy support fields for backwards compatibility with existing fixtures/views
     color: { type: String, default: "" },
     size: { type: String, default: "" },
@@ -280,7 +288,7 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// Auto-generate slug and update inStock status before save
+// Auto-generate slug, SKU and derive synchronized price/stock projections before save (Section 14)
 productSchema.pre("save", function (next) {
   if (!this.slug && this.title) {
     this.slug = sanitizeProductSlug(this.title);
@@ -289,6 +297,35 @@ productSchema.pre("save", function (next) {
     const prefix = (this.brand || "ZB").toUpperCase().slice(0, 4).replace(/[^A-Z]/g, "Z");
     this.sku = `${prefix}-${Date.now().toString(36).toUpperCase()}`;
   }
+
+  if (this.hasVariants && Array.isArray(this.variants) && this.variants.length > 0) {
+    const activeVariants = this.variants.filter((v) => v.status === "ACTIVE");
+    const pool = activeVariants.length > 0 ? activeVariants : this.variants;
+
+    const sellingPrices = pool.map((v) => Number(v.sellingPrice) || 0);
+    const mrpPrices = pool.map((v) => Number(v.mrpPrice) || 0);
+
+    this.minSellingPrice = Math.min(...sellingPrices);
+    this.maxSellingPrice = Math.max(...sellingPrices);
+    this.minMrp = Math.min(...mrpPrices);
+    this.maxMrp = Math.max(...mrpPrices);
+
+    this.totalAvailableStock = pool.reduce((sum, v) => sum + (Number(v.countInStock) || 0), 0);
+    this.availableVariantCount = activeVariants.filter((v) => (Number(v.countInStock) || 0) > 0).length;
+
+    // Maintain catalog display baselines
+    this.sellingPrice = this.minSellingPrice;
+    this.mrpPrice = this.minMrp;
+    this.countInStock = this.totalAvailableStock;
+  } else {
+    this.minSellingPrice = this.sellingPrice;
+    this.maxSellingPrice = this.sellingPrice;
+    this.minMrp = this.mrpPrice;
+    this.maxMrp = this.mrpPrice;
+    this.totalAvailableStock = this.countInStock;
+    this.availableVariantCount = 0;
+  }
+
   this.inStock = this.countInStock > 0;
   next();
 });

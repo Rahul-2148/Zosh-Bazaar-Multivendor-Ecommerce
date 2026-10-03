@@ -1,74 +1,79 @@
 import PaymentService from "../services/payment.service.js";
-import SellerService from "../../seller/services/seller.service.js";
-import OrderService from "../services/order.service.js";
-import SellerReportService from "../../seller/services/sellerReport.service.js";
-import TransactionService from "../services/transaction.service.js";
-import { Cart } from "../../../models/cart.model.js";
-import { CartItem } from "../../../models/cartItem.model.js";
 
-// Payment success handler controller
+/**
+ * Authoritative Webhook Endpoint for Razorpay Payment Notifications (Section 3.1 & 5)
+ * POST /api/v1/payment/webhook/razorpay
+ */
+export const razorpayWebhookHandler = async (req, res) => {
+  const signature = req.headers["x-razorpay-signature"];
+  const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
+
+  try {
+    const result = await PaymentService.handleRazorpayWebhook(
+      req.body,
+      signature,
+      rawBody
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: result.message || "Webhook processed successfully",
+      duplicate: Boolean(result.duplicate),
+      eventId: result.eventId,
+    });
+  } catch (error) {
+    console.error("[PaymentWebhook Error]:", error.message);
+    const statusCode = error.statusCode || (error.message.includes("signature") ? 400 : 500);
+    return res.status(statusCode).json({
+      success: false,
+      error: true,
+      message: error.message || "Webhook processing failed",
+    });
+  }
+};
+
+/**
+ * Authoritative Client-side Payment verification callback
+ * GET /api/v1/payment/:paymentId?paymentLinkId=...
+ */
 export const paymentSuccessHandler = async (req, res) => {
   const { paymentId } = req.params;
   const { paymentLinkId } = req.query;
+
   try {
-    // Get the user from JWT token
-    const user = await req.user;
+    let paymentOrder = null;
 
-    const paymentOrder = await PaymentService.getPaymentOrderByPaymentLinkId(
-      paymentLinkId
-    );
+    if (paymentLinkId) {
+      paymentOrder = await PaymentService.getPaymentOrderByPaymentLinkId(paymentLinkId);
+    } else if (paymentId) {
+      paymentOrder = await PaymentService.getPaymentOrderById(paymentId);
+    }
 
-    const paymentSuccess = await PaymentService.proceedPaymentOrder(
+    if (!paymentOrder) {
+      return res.status(404).json({
+        success: false,
+        error: true,
+        message: "Payment order reference not found",
+      });
+    }
+
+    const verifiedOrder = await PaymentService.proceedPaymentOrder(
       paymentOrder,
       paymentId,
       paymentLinkId
     );
 
-    if (paymentSuccess) {
-      const orders = paymentOrder.orders || [];
-      for (let orderId of orders) {
-        const order = await OrderService.findOrderById(orderId);
-        if (order) {
-          // Create transaction for the order
-          await TransactionService.createTransaction(order);
-
-          // Get seller and update seller report
-          const seller = await SellerService.getSellerById(order.seller);
-          if (seller) {
-            const sellerReport = await SellerReportService.getSellerReport(seller);
-            if (sellerReport) {
-              sellerReport.totalOrders = (sellerReport.totalOrders || 0) + 1;
-              sellerReport.totalEarnings =
-                (sellerReport.totalEarnings || 0) + (order.totalSellingPrice || 0);
-              sellerReport.totalSales =
-                (sellerReport.totalSales || 0) + (order.orderItems?.length || 0);
-
-              await SellerReportService.updateSellerReport(sellerReport);
-            }
-          }
-        }
-      }
-      // Clear the cart after successful payment
-      const userCart = await Cart.findOne({ user: user._id });
-      if (userCart) {
-        await CartItem.deleteMany({ cart: userCart._id });
-        userCart.cartItems = [];
-        userCart.totalMrpPrice = 0;
-        userCart.totalSellingPrice = 0;
-        userCart.totalItem = 0;
-        userCart.discount = 0;
-        userCart.couponCode = null;
-        userCart.couponPrice = 0;
-        await userCart.save();
-      }
-
-      return res
-        .status(200)
-        .json({ message: "Payment successful", paymentOrder });
-    } else {
-      return res.status(400).json({ message: "Payment failed", paymentOrder });
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+      paymentOrder: verifiedOrder,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("[PaymentSuccessHandler Error]:", error.message);
+    return res.status(500).json({
+      success: false,
+      error: true,
+      message: error.message || "Payment verification failed",
+    });
   }
 };

@@ -12,27 +12,186 @@ export const initSocket = (httpServer) => {
     },
   });
 
+  // P1 — Socket.IO Handshake Authentication Middleware (Section 22)
+  io.use(async (socket, next) => {
+    try {
+      const authHeader =
+        socket.handshake.auth?.token ||
+        socket.handshake.headers?.authorization ||
+        socket.handshake.query?.token;
+
+      if (!authHeader) {
+        // Guests can connect to receive public catalog updates (product stock sync)
+        socket.user = { isGuest: true, role: "GUEST" };
+        return next();
+      }
+
+      const token = authHeader.startsWith("Bearer ")
+        ? authHeader.split(" ")[1]
+        : authHeader;
+
+      const secret =
+        process.env.JWT_SECRET_KEY || process.env.JWT_SECRET || "default_jwt_secret";
+      const jwt = (await import("jsonwebtoken")).default;
+      const decoded = jwt.verify(token, secret);
+
+      const email = decoded.email;
+      let authenticatedUser = null;
+
+      if (email) {
+        const { User } = await import("../models/user.model.js");
+        const user = await User.findOne({ email }).select("_id email role fullName");
+        if (user) {
+          authenticatedUser = {
+            _id: user._id.toString(),
+            email: user.email,
+            role: user.role,
+            isGuest: false,
+          };
+        } else {
+          const Seller = (await import("../models/seller.model.js")).default;
+          const seller = await Seller.findOne({ email }).select("_id email role sellerName");
+          if (seller) {
+            authenticatedUser = {
+              _id: seller._id.toString(),
+              sellerId: seller._id.toString(),
+              email: seller.email,
+              role: "ROLE_SELLER",
+              isGuest: false,
+            };
+          }
+        }
+      }
+
+      socket.user = authenticatedUser || {
+        _id: decoded._id || decoded.id,
+        email: decoded.email,
+        role: decoded.role || "ROLE_CUSTOMER",
+        isGuest: false,
+      };
+
+      next();
+    } catch (err) {
+      console.warn("[Socket.IO] Handshake authentication note:", err.message);
+      socket.user = { isGuest: true, role: "GUEST" };
+      next();
+    }
+  });
+
   io.on("connection", (socket) => {
-    // Join room based on user role and id
-    socket.on("join", ({ role, id, agentId }) => {
-      if (role === "ADMIN" || role === "LOGISTICS_OPERATOR" || role === "SUPER_ADMIN") {
+    const user = socket.user;
+
+    // Auto-join authenticated user to their verified private room
+    if (user && !user.isGuest) {
+      const role = (user.role || "").toUpperCase();
+      const isAdmin =
+        role === "ROLE_ADMIN" ||
+        role === "ROLE_SUPER_ADMIN" ||
+        role === "ADMIN" ||
+        role === "SUPER_ADMIN" ||
+        role === "LOGISTICS_OPERATOR";
+
+      const isSeller = role === "ROLE_SELLER" || role === "SELLER";
+      const isAgent = role === "ROLE_DELIVERY_AGENT" || role === "DELIVERY_AGENT";
+
+      if (isAdmin) {
         socket.join("admin_room");
         socket.join("logistics_control_tower");
-      } else if (role === "SELLER" && id) {
-        socket.join(`seller_${id}`);
-      } else if (role === "CUSTOMER" && id) {
-        socket.join(`customer_${id}`);
-      } else if (role === "DELIVERY_AGENT") {
-        if (id) socket.join(`agent_${id}`);
-        if (agentId) socket.join(`agent_${agentId}`);
+      }
+      if (isSeller && user._id) {
+        socket.join(`seller_${user._id}`);
+      }
+      if (isAgent && user._id) {
+        socket.join(`agent_${user._id}`);
         socket.join("logistics_control_tower");
+      }
+      if (!isSeller && !isAdmin && user._id) {
+        socket.join(`customer_${user._id}`);
+      }
+    }
+
+    // Explicit room join request with cryptographic authorization check
+    socket.on("join", ({ role, id, agentId }) => {
+      if (!socket.user || socket.user.isGuest) {
+        socket.emit("error:unauthorized", {
+          message: "Authentication required to join private room",
+        });
+        return;
+      }
+
+      const verifiedRole = (socket.user.role || "").toUpperCase();
+      const verifiedId = socket.user._id?.toString();
+
+      const isAdmin =
+        verifiedRole === "ROLE_ADMIN" ||
+        verifiedRole === "ROLE_SUPER_ADMIN" ||
+        verifiedRole === "ADMIN" ||
+        verifiedRole === "SUPER_ADMIN" ||
+        verifiedRole === "LOGISTICS_OPERATOR";
+
+      const isSeller = verifiedRole === "ROLE_SELLER" || verifiedRole === "SELLER";
+      const isAgent = verifiedRole === "ROLE_DELIVERY_AGENT" || verifiedRole === "DELIVERY_AGENT";
+
+      // 1. Admin Room Authorization
+      if (role === "ADMIN" || role === "LOGISTICS_OPERATOR" || role === "SUPER_ADMIN") {
+        if (isAdmin) {
+          socket.join("admin_room");
+          socket.join("logistics_control_tower");
+        } else {
+          socket.emit("error:unauthorized", {
+            message: "Unauthorized: Admin privileges required",
+          });
+        }
+      }
+      // 2. Seller Room Authorization: Never allow seller A -> seller_B
+      else if (role === "SELLER") {
+        if (isSeller || isAdmin) {
+          const targetSellerId = isSeller ? verifiedId : id;
+          if (targetSellerId) {
+            socket.join(`seller_${targetSellerId}`);
+          }
+        } else {
+          socket.emit("error:unauthorized", {
+            message: "Unauthorized: Seller room access denied",
+          });
+        }
+      }
+      // 3. Customer Room Authorization: Only own userId
+      else if (role === "CUSTOMER") {
+        const targetCustomerId = isAdmin ? id : verifiedId;
+        if (targetCustomerId) {
+          socket.join(`customer_${targetCustomerId}`);
+        }
+      }
+      // 4. Delivery Agent Room Authorization
+      else if (role === "DELIVERY_AGENT") {
+        if (isAgent || isAdmin) {
+          const targetAgentId = isAgent ? verifiedId : (agentId || id);
+          if (targetAgentId) socket.join(`agent_${targetAgentId}`);
+          socket.join("logistics_control_tower");
+        } else {
+          socket.emit("error:unauthorized", {
+            message: "Unauthorized: Delivery agent access denied",
+          });
+        }
       }
     });
 
     socket.on("join_agent", ({ agentId, id }) => {
-      if (agentId) socket.join(`agent_${agentId}`);
-      if (id) socket.join(`agent_${id}`);
-      socket.join("logistics_control_tower");
+      const verifiedRole = (socket.user?.role || "").toUpperCase();
+      const verifiedId = socket.user?._id?.toString();
+      const isAgent = verifiedRole === "ROLE_DELIVERY_AGENT" || verifiedRole === "DELIVERY_AGENT";
+      const isAdmin = verifiedRole === "ROLE_ADMIN" || verifiedRole === "ROLE_SUPER_ADMIN";
+
+      if (isAgent || isAdmin) {
+        const targetId = isAgent ? verifiedId : (agentId || id);
+        if (targetId) socket.join(`agent_${targetId}`);
+        socket.join("logistics_control_tower");
+      } else {
+        socket.emit("error:unauthorized", {
+          message: "Unauthorized: Delivery partner access denied",
+        });
+      }
     });
 
     socket.on("disconnect", () => {

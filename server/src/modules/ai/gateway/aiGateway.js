@@ -55,7 +55,6 @@ export class AIGateway {
    */
   async chat(request = {}) {
     const enrichedRequest = {
-      systemInstruction: ZOSH_ASSISTANT_SYSTEM_PROMPT,
       includeTools: true,
       ...request,
       systemInstruction: request.systemInstruction || ZOSH_ASSISTANT_SYSTEM_PROMPT,
@@ -171,7 +170,6 @@ export class AIGateway {
    */
   async streamChat(request = {}, onEvent) {
     const enrichedRequest = {
-      systemInstruction: ZOSH_ASSISTANT_SYSTEM_PROMPT,
       includeTools: true,
       ...request,
       systemInstruction: request.systemInstruction || ZOSH_ASSISTANT_SYSTEM_PROMPT,

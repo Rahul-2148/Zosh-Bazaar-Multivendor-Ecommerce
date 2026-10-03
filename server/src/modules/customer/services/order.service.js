@@ -11,6 +11,11 @@ import { emitOrderCreated, emitOrderStatusUpdated } from "../../../realtime/sock
 import { emailEvents } from "../../email/index.js";
 
 class OrderService {
+  /**
+   * P0 — Checkout Transactional Integrity & Inventory Concurrency (Section 7, 8, 9, 10, 34)
+   * Executes multi-write checkout atomically within MongoDB sessions (or transactional compensation rollback).
+   * Revalidates price, variant attributes, and stock authoritatively against live catalog data.
+   */
   async createOrder(user, shippingAddressData, cart) {
     const userId = user._id || user;
 
@@ -18,199 +23,373 @@ class OrderService {
       throw new Error("Cart is empty. Cannot place an order.");
     }
 
-    // 1. Resolve shipping address
-    let shippingAddress = null;
-    if (shippingAddressData._id) {
-      shippingAddress = await Address.findById(shippingAddressData._id);
-    }
-    if (!shippingAddress) {
-      shippingAddress = await Address.create({
-        ...shippingAddressData,
-        user: userId,
-      });
-      await User.findByIdAndUpdate(userId, {
-        $addToSet: { addresses: shippingAddress._id },
-      });
-    }
+    const session = await mongoose.startSession();
+    let isTransactionActive = false;
 
-    // 2. Pre-validate stock for every item before deducting anything
-    for (const item of cart.cartItems) {
-      const prod = await Product.findById(item.product._id);
-      if (!prod) throw new Error(`Product "${item.product.title}" is no longer available.`);
+    // Track deductions for compensation rollback if running on standalone MongoDB without replica set
+    const appliedStockDeductions = [];
+    const createdItemIds = [];
+    const createdOrderIds = [];
 
-      if (item.variantId && prod.hasVariants) {
-        const variant = prod.variants.id(item.variantId);
-        if (!variant || variant.status !== "ACTIVE") {
-          throw new Error(`Variant for "${prod.title}" is no longer active.`);
-        }
-        if (variant.countInStock < item.quantity) {
-          throw new Error(
-            `Insufficient stock for "${prod.title} (${variant.title})". Only ${variant.countInStock} left.`
-          );
-        }
-      } else {
-        if (prod.countInStock < item.quantity) {
-          throw new Error(`Insufficient stock for "${prod.title}". Only ${prod.countInStock} left.`);
-        }
+    const executeCheckoutWrites = async (sessionOption = null) => {
+      // 1. Resolve or create shipping address
+      let shippingAddress = null;
+      if (shippingAddressData._id) {
+        shippingAddress = await Address.findById(
+          shippingAddressData._id,
+          null,
+          sessionOption ? { session: sessionOption } : {}
+        );
       }
-    }
+      if (!shippingAddress) {
+        const [newAddr] = await Address.create(
+          [
+            {
+              ...shippingAddressData,
+              user: userId,
+            },
+          ],
+          sessionOption ? { session: sessionOption } : {}
+        );
+        shippingAddress = newAddr;
+        await User.findByIdAndUpdate(
+          userId,
+          { $addToSet: { addresses: shippingAddress._id } },
+          sessionOption ? { session: sessionOption } : {}
+        );
+      }
 
-    // 3. Group cart items by seller
-    const itemsBySeller = cart.cartItems.reduce((acc, item) => {
-      const sellerId = item.product.seller?._id?.toString() || item.product.seller?.toString();
-      if (!sellerId) throw new Error(`Missing vendor for product "${item.product.title}"`);
-      acc[sellerId] = acc[sellerId] || [];
-      acc[sellerId].push(item);
-      return acc;
-    }, {});
+      // 2. Authoritative Price, Stock & Commercial Revalidation (Sections 13, 34, 35)
+      // Never trust cart.sellingPrice, cart.mrpPrice or client payload
+      const validatedItems = [];
+      for (const item of cart.cartItems) {
+        const prod = await Product.findById(
+          item.product._id || item.product,
+          null,
+          sessionOption ? { session: sessionOption } : {}
+        );
+        if (!prod) {
+          throw new Error(`Product "${item.product.title || item.product}" is no longer available.`);
+        }
 
-    const createdOrders = [];
+        let authoritativeSellingPrice = prod.sellingPrice;
+        let authoritativeMrpPrice = prod.mrpPrice;
+        let authoritativeSku = prod.sku;
+        let authoritativeVariantTitle = "";
+        let authoritativeSelectedAttributes = [];
+        let authoritativeImage = prod.images?.[0] || "";
 
-    // 4. Create an order per vendor
-    for (const [sellerId, cartItems] of Object.entries(itemsBySeller)) {
-      const totalSellingPrice = cartItems.reduce((sum, i) => sum + i.sellingPrice, 0);
-      const totalMrpPrice = cartItems.reduce((sum, i) => sum + i.mrpPrice, 0);
-      const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-
-      const order = new Order({
-        user: userId,
-        seller: sellerId,
-        shippingAddress: shippingAddress._id,
-        totalMrpPrice,
-        totalSellingPrice,
-        discount: totalMrpPrice - totalSellingPrice,
-        totalItems,
-        orderStatus: OrderStatus.CONFIRMED,
-        paymentStatus: PaymentStatus.PENDING,
-        statusHistory: [
-          {
-            status: OrderStatus.CONFIRMED,
-            timestamp: new Date(),
-            note: "Order placed successfully by customer",
-            updatedBy: "CUSTOMER",
-          },
-        ],
-      });
-
-      const orderItemIds = [];
-
-      for (const item of cartItems) {
-        const prod = item.product;
-        const variantSnapshot = item.selectedVariant || {};
-
-        // Atomically deduct inventory
         if (item.variantId && prod.hasVariants) {
-          const updated = await Product.findOneAndUpdate(
-            {
-              _id: prod._id,
-              "variants._id": item.variantId,
-              "variants.countInStock": { $gte: item.quantity },
-            },
-            {
-              $inc: {
-                "variants.$.countInStock": -item.quantity,
-                countInStock: -item.quantity,
-              },
-            }
-          );
-          if (!updated) {
-            throw new Error(`Stock deduction failed for "${prod.title}". Please try again.`);
+          const variant = prod.variants.id(item.variantId);
+          if (!variant || variant.status !== "ACTIVE") {
+            throw new Error(`Selected variant for "${prod.title}" is no longer active.`);
           }
+          if (variant.countInStock < item.quantity) {
+            throw new Error(
+              `Insufficient stock for "${prod.title} (${variant.title})". Only ${variant.countInStock} available.`
+            );
+          }
+          authoritativeSellingPrice = variant.sellingPrice;
+          authoritativeMrpPrice = variant.mrpPrice;
+          authoritativeSku = variant.sku;
+          authoritativeVariantTitle = variant.title;
+          authoritativeSelectedAttributes = variant.attributes || [];
+          authoritativeImage = variant.images?.[0] || prod.images?.[0] || "";
         } else {
-          const updated = await Product.findOneAndUpdate(
-            {
-              _id: prod._id,
-              countInStock: { $gte: item.quantity },
-            },
-            {
-              $inc: { countInStock: -item.quantity },
-            }
-          );
-          if (!updated) {
-            throw new Error(`Stock deduction failed for "${prod.title}". Please try again.`);
+          if (prod.countInStock < item.quantity) {
+            throw new Error(
+              `Insufficient stock for "${prod.title}". Only ${prod.countInStock} available.`
+            );
           }
         }
 
-        // Create immutable commercial snapshot
-        const orderItem = new OrderItem({
-          product: prod._id,
+        const sellerId =
+          prod.seller?._id?.toString() ||
+          prod.seller?.toString() ||
+          item.product.seller?._id?.toString() ||
+          item.product.seller?.toString();
+
+        if (!sellerId) {
+          throw new Error(`Vendor identifier missing for product "${prod.title}"`);
+        }
+
+        validatedItems.push({
+          rawCartItem: item,
+          product: prod,
+          sellerId,
           variantId: item.variantId || null,
-          productTitle: prod.title,
-          productImage: variantSnapshot.image || prod.images?.[0] || "",
-          brand: prod.brand || "",
-          sku: variantSnapshot.sku || "",
-          variantTitle: variantSnapshot.title || "",
-          selectedAttributes: variantSnapshot.attributes || [],
           quantity: item.quantity,
-          mrpPrice: item.mrpPrice,
-          sellingPrice: item.sellingPrice,
-          seller: sellerId,
-          sellerOffer: {
-            sellerName: prod.seller?.sellerName || "",
-            businessName: prod.seller?.businessDetails?.businessName || "",
-          },
-          mediaSnapshot: {
-            url: variantSnapshot.image || prod.images?.[0] || "",
-            sku: variantSnapshot.sku || "",
-          },
-          // Legacy fields
+          mrpPrice: authoritativeMrpPrice,
+          sellingPrice: authoritativeSellingPrice,
+          sku: authoritativeSku,
+          variantTitle: authoritativeVariantTitle,
+          selectedAttributes: authoritativeSelectedAttributes,
+          image: authoritativeImage,
           size: item.size || "",
           ram: item.ram || "",
           weight: item.weight || "",
           capacity: item.capacity || "",
         });
-
-        await orderItem.save();
-        orderItemIds.push(orderItem._id);
       }
 
-      order.orderItems = orderItemIds;
-      await order.save();
+      // 3. Multi-Seller Grouping (Section 9)
+      const itemsBySeller = validatedItems.reduce((acc, item) => {
+        acc[item.sellerId] = acc[item.sellerId] || [];
+        acc[item.sellerId].push(item);
+        return acc;
+      }, {});
 
-      const populatedOrder = await Order.findById(order._id).populate([
+      const resultOrders = [];
+
+      // 4. Atomic inventory deduction & order persistence per vendor
+      for (const [sellerId, vendorItems] of Object.entries(itemsBySeller)) {
+        const totalSellingPrice = vendorItems.reduce(
+          (sum, i) => sum + i.sellingPrice * i.quantity,
+          0
+        );
+        const totalMrpPrice = vendorItems.reduce(
+          (sum, i) => sum + i.mrpPrice * i.quantity,
+          0
+        );
+        const totalItems = vendorItems.reduce((sum, i) => sum + i.quantity, 0);
+
+        const [order] = await Order.create(
+          [
+            {
+              user: userId,
+              seller: sellerId,
+              shippingAddress: shippingAddress._id,
+              totalMrpPrice,
+              totalSellingPrice,
+              discount: Math.max(0, totalMrpPrice - totalSellingPrice),
+              totalItems,
+              orderStatus: OrderStatus.CONFIRMED,
+              paymentStatus: PaymentStatus.PENDING,
+              statusHistory: [
+                {
+                  status: OrderStatus.CONFIRMED,
+                  timestamp: new Date(),
+                  note: "Order created with transactional stock lock",
+                  updatedBy: "CUSTOMER",
+                },
+              ],
+            },
+          ],
+          sessionOption ? { session: sessionOption } : {}
+        );
+
+        createdOrderIds.push(order._id);
+        const orderItemIds = [];
+
+        for (const item of vendorItems) {
+          const prod = item.product;
+
+          // Atomic stock deduction with condition $gte: requestedQuantity (Section 10)
+          let updatedProd = null;
+          if (item.variantId && prod.hasVariants) {
+            updatedProd = await Product.findOneAndUpdate(
+              {
+                _id: prod._id,
+                "variants._id": item.variantId,
+                "variants.countInStock": { $gte: item.quantity },
+              },
+              {
+                $inc: {
+                  "variants.$.countInStock": -item.quantity,
+                  countInStock: -item.quantity,
+                },
+              },
+              {
+                new: true,
+                ...(sessionOption ? { session: sessionOption } : {}),
+              }
+            );
+          } else {
+            updatedProd = await Product.findOneAndUpdate(
+              {
+                _id: prod._id,
+                countInStock: { $gte: item.quantity },
+              },
+              {
+                $inc: { countInStock: -item.quantity },
+              },
+              {
+                new: true,
+                ...(sessionOption ? { session: sessionOption } : {}),
+              }
+            );
+          }
+
+          if (!updatedProd) {
+            throw new Error(
+              `Inventory conflict: stock for "${prod.title}" changed concurrently. Please retry.`
+            );
+          }
+
+          appliedStockDeductions.push({
+            productId: prod._id,
+            variantId: item.variantId,
+            quantity: item.quantity,
+          });
+
+          // Immutable commercial OrderItem snapshot (Sections 25 & 26)
+          const [orderItem] = await OrderItem.create(
+            [
+              {
+                product: prod._id,
+                variantId: item.variantId,
+                productTitle: prod.title,
+                productImage: item.image,
+                brand: prod.brand || "",
+                sku: item.sku || "",
+                variantTitle: item.variantTitle || "",
+                selectedAttributes: item.selectedAttributes || [],
+                quantity: item.quantity,
+                mrpPrice: item.mrpPrice,
+                sellingPrice: item.sellingPrice,
+                seller: sellerId,
+                sellerOffer: {
+                  sellerName: prod.seller?.sellerName || "",
+                  businessName: prod.seller?.businessDetails?.businessName || "",
+                },
+                mediaSnapshot: {
+                  url: item.image,
+                  sku: item.sku || "",
+                },
+                size: item.size,
+                ram: item.ram,
+                weight: item.weight,
+                capacity: item.capacity,
+              },
+            ],
+            sessionOption ? { session: sessionOption } : {}
+          );
+
+          createdItemIds.push(orderItem._id);
+          orderItemIds.push(orderItem._id);
+        }
+
+        order.orderItems = orderItemIds;
+        await order.save(sessionOption ? { session: sessionOption } : {});
+        resultOrders.push(order);
+      }
+
+      // 5. Clean up purchased items from user's cart in the same transaction
+      const purchasedCartItemIds = cart.cartItems.map((i) => i._id);
+      await CartItem.deleteMany(
+        { _id: { $in: purchasedCartItemIds } },
+        sessionOption ? { session: sessionOption } : {}
+      );
+
+      return resultOrders;
+    };
+
+    let createdOrders = [];
+
+    try {
+      // Attempt native MongoDB transaction
+      try {
+        session.startTransaction();
+        isTransactionActive = true;
+        createdOrders = await executeCheckoutWrites(session);
+        await session.commitTransaction();
+        isTransactionActive = false;
+      } catch (txErr) {
+        // If MongoDB deployment does not support transactions (e.g. single node without replica set)
+        if (
+          txErr.message &&
+          (txErr.message.includes("replica set") ||
+            txErr.message.includes("Transaction numbers are only allowed on a replica set member"))
+        ) {
+          if (isTransactionActive) {
+            await session.abortTransaction();
+            isTransactionActive = false;
+          }
+          // Fallback to standalone execution with compensation rollback tracking
+          createdOrders = await executeCheckoutWrites(null);
+        } else {
+          throw txErr;
+        }
+      }
+    } catch (err) {
+      if (isTransactionActive) {
+        await session.abortTransaction();
+      } else {
+        // Standalone compensation rollback: reverse applied stock deductions & cleanup partial records
+        for (const deduction of appliedStockDeductions) {
+          try {
+            if (deduction.variantId) {
+              await Product.findOneAndUpdate(
+                { _id: deduction.productId, "variants._id": deduction.variantId },
+                {
+                  $inc: {
+                    "variants.$.countInStock": deduction.quantity,
+                    countInStock: deduction.quantity,
+                  },
+                }
+              );
+            } else {
+              await Product.findByIdAndUpdate(deduction.productId, {
+                $inc: { countInStock: deduction.quantity },
+              });
+            }
+          } catch (rollbackErr) {
+            console.error("[OrderService Rollback Error]:", rollbackErr.message);
+          }
+        }
+        if (createdItemIds.length > 0) {
+          await OrderItem.deleteMany({ _id: { $in: createdItemIds } }).catch(() => {});
+        }
+        if (createdOrderIds.length > 0) {
+          await Order.deleteMany({ _id: { $in: createdOrderIds } }).catch(() => {});
+        }
+      }
+      throw err;
+    } finally {
+      await session.endSession();
+    }
+
+    // 6. Post-commit notifications & domain events
+    const populatedOrders = [];
+    for (const ord of createdOrders) {
+      const populated = await Order.findById(ord._id).populate([
         { path: "seller", select: "sellerName email businessDetails" },
         { path: "orderItems", populate: { path: "product" } },
         { path: "shippingAddress" },
         { path: "user", select: "fullName email mobile" },
       ]);
+      if (populated) {
+        populatedOrders.push(populated);
+        emitOrderCreated(populated);
 
-      createdOrders.push(populatedOrder);
-
-      // Real-time notification to vendor & admin
-      emitOrderCreated(populatedOrder);
-
-      // Enterprise Transactional Email: emit domain events for customer & seller
-      try {
-        emailEvents.emitDomainEvent("order.created", {
-          order: populatedOrder,
-          orderId: populatedOrder.orderId || populatedOrder._id.toString(),
-          recipient: populatedOrder.user?.email,
-          customerName: populatedOrder.user?.fullName,
-          total: populatedOrder.totalSellingPrice,
-          items: populatedOrder.orderItems,
-          deliveryAddress: populatedOrder.shippingAddress,
-          estimatedDelivery: populatedOrder.deliverDate,
-        });
-
-        if (populatedOrder.seller?.email) {
-          emailEvents.emitDomainEvent("seller.order_received", {
-            order: populatedOrder,
-            orderId: populatedOrder.orderId || populatedOrder._id.toString(),
-            recipient: populatedOrder.seller.email,
-            sellerName: populatedOrder.seller.sellerName,
-            items: populatedOrder.orderItems,
+        try {
+          emailEvents.emitDomainEvent("order.created", {
+            order: populated,
+            orderId: populated.orderId || populated._id.toString(),
+            recipient: populated.user?.email,
+            customerName: populated.user?.fullName,
+            total: populated.totalSellingPrice,
+            items: populated.orderItems,
+            deliveryAddress: populated.shippingAddress,
+            estimatedDelivery: populated.deliveryDate,
           });
+
+          if (populated.seller?.email) {
+            emailEvents.emitDomainEvent("seller.order_received", {
+              order: populated,
+              orderId: populated.orderId || populated._id.toString(),
+              recipient: populated.seller.email,
+              sellerName: populated.seller.sellerName,
+              items: populated.orderItems,
+            });
+          }
+        } catch (emailErr) {
+          console.warn("[OrderService] Email event warning:", emailErr.message);
         }
-      } catch (emailErr) {
-        console.warn("[OrderService] Error emitting order email events:", emailErr.message);
       }
     }
 
-    // 5. Clean up purchased items from user's cart
-    const purchasedCartItemIds = cart.cartItems.map((i) => i._id);
-    await CartItem.deleteMany({ _id: { $in: purchasedCartItemIds } });
-
-    return createdOrders;
+    return populatedOrders;
   }
 
   async findOrderById(orderId) {
@@ -229,9 +408,22 @@ class OrderService {
     return order;
   }
 
-  async usersOrderHistory(userId) {
+  async findOrderItemById(orderItemId) {
+    if (!mongoose.Types.ObjectId.isValid(orderItemId)) {
+      throw new Error("Invalid order item ID");
+    }
+    return await OrderItem.findById(orderItemId).populate("product seller");
+  }
+
+  async usersOrderHistory(userId, options = {}) {
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(options.limit, 10) || 50));
+    const skip = (page - 1) * limit;
+
     return await Order.find({ user: userId })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate([
         { path: "seller", select: "sellerName email businessDetails" },
         { path: "orderItems", populate: { path: "product" } },
@@ -239,9 +431,15 @@ class OrderService {
       ]);
   }
 
-  async getSellersOrders(sellerId) {
+  async getSellersOrders(sellerId, options = {}) {
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(options.limit, 10) || 50));
+    const skip = (page - 1) * limit;
+
     return await Order.find({ seller: sellerId })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate([
         { path: "orderItems", populate: { path: "product" } },
         { path: "shippingAddress" },
@@ -262,7 +460,6 @@ class OrderService {
       throw new Error("Unauthorized: You can only update orders assigned to your own vendor account");
     }
 
-    // Marketplace rule: Sellers can confirm/pack/dispatch, but final delivery requires logistics/OTP
     if (updatedBy === "VENDOR") {
       const allowedVendorTransitions = [
         OrderStatus.CONFIRMED,
@@ -278,6 +475,11 @@ class OrderService {
 
     const currentStatus = order.orderStatus;
 
+    // Idempotent: If already in requested status, return safely
+    if (currentStatus === newStatus) {
+      return order;
+    }
+
     // Validate lifecycle progression
     const allowedTransitions = VALID_ORDER_TRANSITIONS[currentStatus] || [];
     if (!allowedTransitions.includes(newStatus)) {
@@ -286,7 +488,8 @@ class OrderService {
       );
     }
 
-    // Stock management on status change
+    // Atomic Restocking on Cancellation / Return (Section 38)
+    // Only restock if transition was not previously applied
     if (newStatus === OrderStatus.CANCELLED || newStatus === OrderStatus.RETURNED) {
       for (const item of order.orderItems) {
         if (item.variantId) {
@@ -362,7 +565,7 @@ class OrderService {
       user.role === "ADMIN" ||
       user.role === "SUPER_ADMIN";
 
-    if (order.user.toString() !== user._id.toString() && !isAdmin) {
+    if (order.user.toString() !== (user._id || user).toString() && !isAdmin) {
       throw new Error("You are not authorized to cancel this order");
     }
 
@@ -390,7 +593,7 @@ class OrderService {
     const order = await Order.findById(orderId);
     if (!order) throw new Error("Order not found");
 
-    if (order.user.toString() !== user._id.toString()) {
+    if (order.user.toString() !== (user._id || user).toString()) {
       throw new Error("Unauthorized to request return for this order");
     }
 
@@ -404,6 +607,10 @@ class OrderService {
       "CUSTOMER",
       `Return requested: ${reason || "Not specified"}`
     );
+  }
+
+  async deleteOrder(orderId) {
+    return await Order.findByIdAndDelete(orderId);
   }
 
   async getAllOrdersForAdmin(query = {}) {
