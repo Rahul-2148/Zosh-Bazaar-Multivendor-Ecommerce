@@ -13,6 +13,7 @@ import { Wishlist } from '../../../models/wishlist.model.js';
 import { Shipment } from '../../../models/shipment.model.js';
 import { priceIntelligenceService } from '../priceIntelligence.service.js';
 import cartService from '../../customer/services/cart.service.js';
+import productService from '../../customer/services/product.service.js';
 
 export class ToolExecutionError extends Error {
   constructor(message, statusCode = 400, code = 'TOOL_ERROR') {
@@ -49,6 +50,10 @@ export class ToolExecutor {
 
         case 'getProduct':
           result = await this._getProduct(args);
+          break;
+
+        case 'resolveVariant':
+          result = await this._resolveVariant(args);
           break;
 
         case 'compareProducts':
@@ -242,7 +247,7 @@ export class ToolExecutor {
   }
 
   async _getProduct(args) {
-    const { productId } = args;
+    const { productId, variantId, color, size, ...otherAttrs } = args;
     if (!isValidObjectId(productId)) {
       throw new ToolExecutionError('Invalid product ID format', 400, 'INVALID_ID');
     }
@@ -256,21 +261,72 @@ export class ToolExecutor {
       throw new ToolExecutionError(`Product not found with ID ${productId}`, 404, 'PRODUCT_NOT_FOUND');
     }
 
+    let resolvedState = null;
+    if (p.hasVariants && (variantId || color || size || Object.keys(otherAttrs).length > 0)) {
+      try {
+        resolvedState = await productService.resolveProductVariant(productId, {
+          variantId,
+          color,
+          size,
+          ...otherAttrs,
+        });
+      } catch {
+        // Fallback to base product info if query variant doesn't match
+      }
+    }
+
     return {
       id: String(p._id),
       title: p.title,
       description: p.description,
       brand: p.brand || 'Zosh Verified',
       category: p.category?.name || 'General',
-      sellingPrice: p.sellingPrice,
-      mrpPrice: p.mrpPrice,
-      countInStock: p.countInStock ?? 20,
-      inStock: (p.countInStock ?? 20) > 0,
+      sellingPrice: resolvedState?.pricing?.sellingPrice ?? p.sellingPrice,
+      mrpPrice: resolvedState?.pricing?.mrpPrice ?? p.mrpPrice,
+      countInStock: resolvedState?.inventory?.countInStock ?? (p.countInStock ?? 20),
+      inStock: resolvedState?.inventory?.inStock ?? ((p.countInStock ?? 20) > 0),
       ratings: p.ratings?.average || 4.5,
       ratingCount: p.ratings?.count || 10,
-      images: Array.isArray(p.images) ? p.images.map(img => typeof img === 'string' ? img : img?.url || '') : [],
+      images: resolvedState?.media?.gallery?.length
+        ? resolvedState.media.gallery
+        : Array.isArray(p.images)
+        ? p.images.map((img) => (typeof img === 'string' ? img : img?.url || ''))
+        : [],
       sellerName: p.seller?.businessDetails?.businessName || 'Zosh Official Merchant',
+      hasVariants: Boolean(p.hasVariants),
+      variants: Array.isArray(p.variants)
+        ? p.variants
+            .filter((v) => v.status !== 'INACTIVE')
+            .map((v) => ({
+              id: String(v._id),
+              sku: v.sku,
+              title: v.title,
+              attributes: v.attributes,
+              sellingPrice: v.sellingPrice,
+              mrpPrice: v.mrpPrice,
+              countInStock: v.countInStock,
+              inStock: v.countInStock > 0,
+            }))
+        : [],
+      resolvedVariant: resolvedState?.variant
+        ? {
+            id: String(resolvedState.variant._id),
+            sku: resolvedState.variant.sku,
+            title: resolvedState.variant.title,
+            attributes: resolvedState.variant.attributes,
+            sellingPrice: resolvedState.pricing.sellingPrice,
+            countInStock: resolvedState.inventory.countInStock,
+          }
+        : null,
     };
+  }
+
+  async _resolveVariant(args) {
+    const { productId, ...query } = args;
+    if (!isValidObjectId(productId)) {
+      throw new ToolExecutionError('Invalid product ID format', 400, 'INVALID_ID');
+    }
+    return await productService.resolveProductVariant(productId, query);
   }
 
   async _compareProducts(args) {
@@ -495,16 +551,62 @@ export class ToolExecutor {
   }
 
   async _addToCart(args, userId) {
-    const { productId, quantity = 1, size } = args;
+    const { productId, quantity = 1, variantId, sku, color, size, attributes } = args;
     if (!isValidObjectId(productId)) {
       throw new ToolExecutionError('Invalid product ID format', 400, 'INVALID_ID');
     }
     const safeQty = Math.max(1, Math.min(10, Number(quantity) || 1));
 
-    const item = await cartService.addCartItem(userId, productId, null, safeQty, { size });
+    let resolvedVariantId = variantId || null;
+    let selectedVariantSnapshot = null;
+
+    if (!resolvedVariantId && (sku || color || size || attributes)) {
+      const prod = await Product.findById(productId).lean();
+      if (prod?.variants?.length) {
+        let matched = null;
+        if (sku) {
+          matched = prod.variants.find((v) => v.sku?.toLowerCase() === sku.toLowerCase());
+        }
+        if (!matched && (color || size || attributes)) {
+          const targetAttrs = {
+            ...attributes,
+            ...(color ? { color } : null),
+            ...(size ? { size } : null),
+          };
+          matched = prod.variants.find((v) => {
+            if (v.status === 'INACTIVE' || !Array.isArray(v.attributes)) return false;
+            return Object.entries(targetAttrs).every(([k, val]) =>
+              v.attributes.some(
+                (a) =>
+                  a.key?.toLowerCase() === k.toLowerCase() &&
+                  String(a.value).toLowerCase() === String(val).toLowerCase()
+              )
+            );
+          });
+        }
+        if (matched) {
+          resolvedVariantId = matched._id;
+          selectedVariantSnapshot = {
+            sku: matched.sku,
+            title: matched.title,
+            attributes: matched.attributes,
+            image: matched.images?.[0] || prod.images?.[0] || '',
+          };
+        }
+      }
+    }
+
+    const item = await cartService.addCartItem(
+      userId,
+      productId,
+      resolvedVariantId,
+      safeQty,
+      selectedVariantSnapshot || (size ? { size } : {})
+    );
     return {
       added: true,
       productId,
+      variantId: resolvedVariantId ? String(resolvedVariantId) : null,
       quantity: safeQty,
       cartItemId: String(item._id),
       message: `Successfully added ${safeQty} item(s) to your cart.`,

@@ -56,6 +56,9 @@ export const ProductForm: React.FC = () => {
   // Media Configuration (Direct File Upload Primary)
   const MAX_PRODUCT_IMAGES = 8;
   const [images, setImages] = useState<string[]>([]);
+  const [mediaGroups, setMediaGroups] = useState<
+    Array<{ optionKey: string; optionValue: string; groupName: string; images: string[] }>
+  >([]);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState("");
@@ -114,6 +117,22 @@ export const ProductForm: React.FC = () => {
           setSellingPrice(prod.sellingPrice || 0);
           setCountInStock(prod.countInStock || 0);
           setImages(prod.images || []);
+          if (Array.isArray(prod.mediaGroups)) {
+            setMediaGroups(
+              prod.mediaGroups.map((mg: any) => ({
+                optionKey: mg.optionKey || "color",
+                optionValue: mg.optionValue || "",
+                groupName: mg.groupName || `${mg.optionKey}: ${mg.optionValue}`,
+                images: Array.isArray(mg.images)
+                  ? mg.images
+                      .map((img: any) =>
+                        typeof img === "object" ? img.secureUrl || img.url : img
+                      )
+                      .filter(Boolean)
+                  : [],
+              }))
+            );
+          }
           setStatus(prod.status || "PUBLISHED");
           setTags(prod.tags?.join(", ") || "");
           setHasVariants(Boolean(prod.hasVariants));
@@ -254,6 +273,76 @@ export const ProductForm: React.FC = () => {
     });
   };
 
+  // Option-Level Media Group Handlers (Admin)
+  const handleAdminGroupUpload = async (
+    groupIndex: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    try {
+      setUploadingImages(true);
+      const urls = await uploadMultipleFiles(Array.from(files), "products");
+      setMediaGroups((prev) => {
+        const copy = [...prev];
+        copy[groupIndex].images = [...copy[groupIndex].images, ...urls];
+        return copy;
+      });
+    } catch (err) {
+      console.error("Admin group upload error", err);
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeGroupImage = (groupIndex: number, imgIndex: number) => {
+    setMediaGroups((prev) => {
+      const copy = [...prev];
+      copy[groupIndex].images = copy[groupIndex].images.filter((_, i) => i !== imgIndex);
+      return copy;
+    });
+  };
+
+  const addMediaGroup = () => {
+    setMediaGroups((prev) => [
+      ...prev,
+      {
+        optionKey: "color",
+        optionValue: "",
+        groupName: "New Option Group",
+        images: [],
+      },
+    ]);
+  };
+
+  const removeMediaGroup = (groupIndex: number) => {
+    setMediaGroups((prev) => prev.filter((_, i) => i !== groupIndex));
+  };
+
+  const syncMediaGroupsFromCategory = () => {
+    const colorOpts = selectedVariantAttributes["color"] || selectedVariantAttributes["Color"] || [];
+    if (colorOpts.length === 0) {
+      alert("Please select at least one Color variant option in Step 4 first.");
+      return;
+    }
+
+    setMediaGroups((prev) => {
+      const existingKeys = new Set(prev.map((g) => g.optionValue.toLowerCase().trim()));
+      const newGroups = [...prev];
+      colorOpts.forEach((opt) => {
+        if (!existingKeys.has(opt.toLowerCase().trim())) {
+          newGroups.push({
+            optionKey: "color",
+            optionValue: opt,
+            groupName: `Color: ${opt}`,
+            images: [],
+          });
+        }
+      });
+      return newGroups;
+    });
+  };
+
   // Generate Cartesian Product Combinations for Variants
   const generateVariantCombinations = () => {
     if (!selectedCategory) return;
@@ -361,6 +450,7 @@ export const ProductForm: React.FC = () => {
         status,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         images,
+        mediaGroups: mediaGroups.filter((mg) => mg.optionValue.trim() && mg.images.length > 0),
         hasVariants,
         specifications,
         mrpPrice: Number(mrpPrice),
@@ -1082,6 +1172,134 @@ export const ProductForm: React.FC = () => {
                       >
                         Add URL
                       </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Option-Level Media Groups (Multi-Angle Galleries per Color) */}
+                <div className="pt-6 border-t border-border space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <AutoFixHighOutlined fontSize="small" className="text-primary" />
+                        <span>Option-Level Media Groups</span>
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Attach dedicated full galleries per variant option (e.g. 5 Blue photos, 5 Purple photos). When shoppers switch colors on PDP, the entire gallery updates atomically.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={syncMediaGroupsFromCategory}
+                        className="px-3 py-1.5 rounded-lg border border-primary text-primary hover:bg-primary/10 text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Auto-Sync From Colors
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addMediaGroup}
+                        className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors cursor-pointer"
+                      >
+                        + Add Option Group
+                      </button>
+                    </div>
+                  </div>
+
+                  {mediaGroups.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground bg-muted/20">
+                      No option-level galleries configured. Click <strong>Auto-Sync From Colors</strong> or <strong>+ Add Option Group</strong> to attach specific media per color.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {mediaGroups.map((group, gIdx) => (
+                        <div key={gIdx} className="p-4 rounded-xl border border-border bg-card/60 space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-1">
+                              <input
+                                type="text"
+                                value={group.groupName}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setMediaGroups((prev) => {
+                                    const copy = [...prev];
+                                    copy[gIdx].groupName = val;
+                                    return copy;
+                                  });
+                                }}
+                                placeholder="Group Name (e.g. Blue)"
+                                className="px-2.5 py-1 border border-input rounded-md text-xs font-bold bg-card text-foreground w-36 focus:outline-none"
+                              />
+                              <span className="text-[11px] text-muted-foreground">for option:</span>
+                              <input
+                                type="text"
+                                value={group.optionValue}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setMediaGroups((prev) => {
+                                    const copy = [...prev];
+                                    copy[gIdx].optionValue = val;
+                                    return copy;
+                                  });
+                                }}
+                                placeholder="Option (e.g. Blue)"
+                                className="px-2.5 py-1 border border-input rounded-md text-xs font-semibold bg-card text-foreground w-28 focus:outline-none"
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <label className="px-2.5 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-md cursor-pointer hover:bg-primary/90">
+                                <span>+ Upload Photos</span>
+                                <input
+                                  type="file"
+                                  multiple
+                                  accept="image/*"
+                                  onChange={(e) => handleAdminGroupUpload(gIdx, e)}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => removeMediaGroup(gIdx)}
+                                className="p-1 text-muted-foreground hover:text-destructive"
+                              >
+                                <DeleteOutline fontSize="small" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Thumbnails */}
+                          {group.images.length > 0 ? (
+                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 pt-1">
+                              {group.images.map((gUrl, gImgIdx) => (
+                                <div
+                                  key={gImgIdx}
+                                  className="relative group rounded-lg overflow-hidden border border-border bg-muted aspect-square"
+                                >
+                                  <img src={gUrl} alt={`Group ${gIdx} ${gImgIdx}`} className="w-full h-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeGroupImage(gIdx, gImgIdx)}
+                                    className="absolute top-1 right-1 p-0.5 rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-destructive transition-opacity"
+                                  >
+                                    <Close sx={{ fontSize: 12 }} />
+                                  </button>
+                                  {gImgIdx === 0 && (
+                                    <span className="absolute bottom-1 left-1 px-1 rounded bg-primary text-primary-foreground text-[8px] font-bold uppercase">
+                                      Hero
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">
+                              No photos added to this group yet.
+                            </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

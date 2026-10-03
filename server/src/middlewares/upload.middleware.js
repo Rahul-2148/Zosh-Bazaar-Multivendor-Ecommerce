@@ -66,3 +66,13 @@ export const uploadProductImages = multer({
     files: 10, // Max 10 images at once
   },
 });
+
+export const uploadMediaMemory = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 12, // Max 12 images at once
+  },
+});
+

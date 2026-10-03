@@ -1,6 +1,6 @@
 import { Cart } from "../../../models/cart.model.js";
 import { CartItem } from "../../../models/cartItem.model.js";
-import { Product } from "../../../models/product.model.js";
+import { Product, resolveMediaHierarchy } from "../../../models/product.model.js";
 import { Coupon } from "../../../models/coupon.model.js";
 import { calculateDiscountPercentage } from "../../../utils/calculateDiscountPercentage.js";
 
@@ -47,14 +47,15 @@ class CartService {
       let currentUnitSelling = prod.sellingPrice;
       let currentStock = prod.countInStock || 0;
       let isVariantActive = true;
+      let matchedVariant = null;
 
       if (item.variantId && prod.hasVariants && Array.isArray(prod.variants)) {
-        const variant = prod.variants.id(item.variantId);
-        if (variant) {
-          currentUnitMrp = variant.mrpPrice;
-          currentUnitSelling = variant.sellingPrice;
-          currentStock = variant.countInStock || 0;
-          if (variant.status && variant.status !== "ACTIVE") {
+        matchedVariant = prod.variants.id(item.variantId);
+        if (matchedVariant) {
+          currentUnitMrp = matchedVariant.mrpPrice;
+          currentUnitSelling = matchedVariant.sellingPrice;
+          currentStock = matchedVariant.countInStock || 0;
+          if (matchedVariant.status && matchedVariant.status !== "ACTIVE") {
             isVariantActive = false;
           }
         } else {
@@ -96,6 +97,9 @@ class CartService {
         stockWarning = `Only ${currentStock} left in stock.`;
       }
 
+      // Resolve authoritative live image for variant or color group
+      const resolvedMedia = resolveMediaHierarchy(prod, matchedVariant, {});
+
       // Attach authoritative live metadata to item for client presentation
       const itemObj = item.toObject();
       itemObj.unitSellingPrice = currentUnitSelling;
@@ -103,6 +107,9 @@ class CartService {
       itemObj.stockStatus = stockStatus;
       itemObj.availableStock = currentStock;
       itemObj.stockWarning = stockWarning;
+      if (itemObj.selectedVariant) {
+        itemObj.selectedVariant.image = resolvedMedia[0] || itemObj.selectedVariant.image || prod.images?.[0] || "";
+      }
 
       validCartItems.push(itemObj);
 
@@ -278,11 +285,14 @@ class CartService {
       unitSelling = matchedVariant.sellingPrice;
       availableStock = matchedVariant.countInStock;
 
+      const resolvedMedia = resolveMediaHierarchy(product, matchedVariant, {});
+
       selectedVariantSnapshot = {
         sku: matchedVariant.sku,
         title: matchedVariant.title,
         attributes: matchedVariant.attributes || [],
         image:
+          resolvedMedia[0] ||
           matchedVariant.images?.[0] ||
           product.images?.[0] ||
           "",
@@ -303,11 +313,8 @@ class CartService {
     const query = {
       cart: cart._id,
       product: product._id,
+      variantId: resolvedVariantId || null,
     };
-
-    if (resolvedVariantId) {
-      query.variantId = resolvedVariantId;
-    }
 
     let existingItem = await CartItem.findOne(query);
 

@@ -29,6 +29,13 @@ interface AttributeDef {
   options: string[];
 }
 
+interface MediaGroupItem {
+  optionKey: string;
+  optionValue: string;
+  groupName: string;
+  images: string[];
+}
+
 interface VariantItem {
   sku: string;
   title: string;
@@ -72,9 +79,10 @@ export const ProductEditor: React.FC = () => {
   const [selectedL3, setSelectedL3] = useState("");
   const [finalCategoryId, setFinalCategoryId] = useState("");
 
-  // Product Images
+  // Product Images & Media Groups
   const [images, setImages] = useState<string[]>([]);
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
+  const [mediaGroups, setMediaGroups] = useState<MediaGroupItem[]>([]);
 
   // Standalone Pricing & Inventory
   const [mrpPrice, setMrpPrice] = useState<number | "">("");
@@ -123,6 +131,22 @@ export const ProductEditor: React.FC = () => {
           setDescription(p.description || "");
           setStatus(p.status === "DRAFT" ? "DRAFT" : "PUBLISHED");
           setImages(p.images || []);
+          if (Array.isArray(p.mediaGroups)) {
+            setMediaGroups(
+              p.mediaGroups.map((mg: any) => ({
+                optionKey: mg.optionKey || "color",
+                optionValue: mg.optionValue || "",
+                groupName: mg.groupName || `${mg.optionKey}: ${mg.optionValue}`,
+                images: Array.isArray(mg.images)
+                  ? mg.images
+                      .map((img: any) =>
+                        typeof img === "object" ? img.secureUrl || img.url : img
+                      )
+                      .filter(Boolean)
+                  : [],
+              }))
+            );
+          }
           setHasVariants(Boolean(p.hasVariants));
 
           if (p.hasVariants && Array.isArray(p.variants)) {
@@ -208,6 +232,89 @@ export const ProductEditor: React.FC = () => {
     if (primaryImageIndex >= indexToRemove && primaryImageIndex > 0) {
       setPrimaryImageIndex(primaryImageIndex - 1);
     }
+  };
+
+  // Option-Level Media Group Handlers
+  const handleMediaGroupUpload = async (
+    groupIndex: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setUploadingImage(true);
+      for (let i = 0; i < files.length; i++) {
+        const uploaded = await uploadMediaFile(files[i]);
+        setMediaGroups((prev) => {
+          const copy = [...prev];
+          copy[groupIndex].images = [...copy[groupIndex].images, uploaded.secure_url];
+          return copy;
+        });
+      }
+    } catch (err: any) {
+      console.error("Group media upload error:", err);
+      setErrorMsg(err.message || "Failed to upload group media.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeGroupImage = (groupIndex: number, imgIndex: number) => {
+    setMediaGroups((prev) => {
+      const copy = [...prev];
+      copy[groupIndex].images = copy[groupIndex].images.filter((_, i) => i !== imgIndex);
+      return copy;
+    });
+  };
+
+  const addMediaGroup = () => {
+    setMediaGroups((prev) => [
+      ...prev,
+      {
+        optionKey: "color",
+        optionValue: "",
+        groupName: "New Option Group",
+        images: [],
+      },
+    ]);
+  };
+
+  const removeMediaGroup = (groupIndex: number) => {
+    setMediaGroups((prev) => prev.filter((_, i) => i !== groupIndex));
+  };
+
+  const syncMediaGroupsFromColor = () => {
+    const colorAttr = attributeDefinitions.find(
+      (a) =>
+        a.key.toLowerCase().includes("color") || a.name.toLowerCase().includes("color")
+    );
+    if (!colorAttr || colorAttr.options.length === 0) {
+      setErrorMsg(
+        "Please define at least one option value under the 'Color' dimension first."
+      );
+      return;
+    }
+
+    setMediaGroups((prev) => {
+      const existingKeys = new Set(
+        prev.map((g) => g.optionValue.toLowerCase().trim())
+      );
+      const newGroups: MediaGroupItem[] = [...prev];
+
+      colorAttr.options.forEach((opt) => {
+        if (!existingKeys.has(opt.toLowerCase().trim())) {
+          newGroups.push({
+            optionKey: colorAttr.key,
+            optionValue: opt,
+            groupName: `Color: ${opt}`,
+            images: [],
+          });
+        }
+      });
+
+      return newGroups;
+    });
   };
 
   // Attribute Definition management
@@ -371,6 +478,9 @@ export const ProductEditor: React.FC = () => {
       description: description.trim(),
       category: finalCategoryId,
       images: finalImages,
+      mediaGroups: mediaGroups.filter(
+        (mg) => mg.optionValue.trim() && mg.images.length > 0
+      ),
       status,
       hasVariants,
       specifications: specifications.filter((s) => s.name.trim() && s.value.trim()),
@@ -683,6 +793,139 @@ export const ProductEditor: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* Option-Level Media Groups (Enterprise Multi-Angle Color Galleries) */}
+        <div className="pt-4 border-t border-border space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <AutoAwesome fontSize="small" className="text-primary" />
+                <span>Option-Level Media Groups (e.g. Color Galleries)</span>
+              </h3>
+              <p className="text-[10px] text-muted-foreground">
+                Upload full multi-angle galleries per color (e.g. 5 Blue photos, 5 Purple photos). When customers switch colors, the entire gallery switches automatically.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="small"
+                variant="outlined"
+                onClick={syncMediaGroupsFromColor}
+                sx={{ textTransform: "none", fontSize: "11px", fontWeight: 700 }}
+              >
+                Auto-Sync From Colors
+              </Button>
+              <Button
+                type="button"
+                size="small"
+                variant="contained"
+                onClick={addMediaGroup}
+                startIcon={<AddCircleOutline fontSize="small" />}
+                sx={{ textTransform: "none", fontSize: "11px", fontWeight: 700 }}
+              >
+                Add Option Group
+              </Button>
+            </div>
+          </div>
+
+          {mediaGroups.length === 0 ? (
+            <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground bg-surface/40">
+              No option-level galleries created yet. Click <strong>Add Option Group</strong> or <strong>Auto-Sync From Colors</strong> to attach unique galleries per color.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {mediaGroups.map((group, gIdx) => (
+                <div key={gIdx} className="p-4 rounded-xl bg-surface border border-border space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="text"
+                        value={group.groupName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setMediaGroups((prev) => {
+                            const copy = [...prev];
+                            copy[gIdx].groupName = val;
+                            return copy;
+                          });
+                        }}
+                        placeholder="Group Name (e.g. Blue Edition)"
+                        className="px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-bold text-foreground w-40 focus:outline-hidden"
+                      />
+                      <span className="text-[11px] text-muted-foreground">for option:</span>
+                      <input
+                        type="text"
+                        value={group.optionValue}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setMediaGroups((prev) => {
+                            const copy = [...prev];
+                            copy[gIdx].optionValue = val;
+                            return copy;
+                          });
+                        }}
+                        placeholder="Option Value (e.g. Blue)"
+                        className="px-2.5 py-1 rounded-lg bg-card border border-border text-xs font-semibold text-foreground w-32 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-bold cursor-pointer hover:opacity-90 transition-opacity">
+                        <span>+ Upload Photos</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => handleMediaGroupUpload(gIdx, e)}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => removeMediaGroup(gIdx)}
+                        className="p-1 text-muted-foreground hover:text-destructive"
+                      >
+                        <DeleteOutline fontSize="small" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Group image thumbnails */}
+                  {group.images.length > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 gap-2 pt-1">
+                      {group.images.map((gUrl, gImgIdx) => (
+                        <div
+                          key={gImgIdx}
+                          className="relative group rounded-lg overflow-hidden border border-border bg-card aspect-square"
+                        >
+                          <img src={gUrl} alt={`Group ${gIdx} Img ${gImgIdx}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeGroupImage(gIdx, gImgIdx)}
+                            className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                          >
+                            <Close sx={{ fontSize: 12 }} />
+                          </button>
+                          {gImgIdx === 0 && (
+                            <span className="absolute bottom-1 left-1 px-1 rounded bg-primary text-primary-foreground text-[8px] font-bold uppercase">
+                              Hero
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground italic block">
+                      No photos uploaded for this option group yet.
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 3. Variant Architecture Toggle */}

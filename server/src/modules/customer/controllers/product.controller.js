@@ -243,7 +243,24 @@ class ProductController {
       next(error);
     }
   }
+
+  async resolveProductVariant(req, res, next) {
+    try {
+      const identifier = req.params.productId || req.params.id;
+      const resolved = await productService.resolveProductVariant(identifier, req.query);
+      return res.status(200).json({
+        message: "Variant resolved successfully",
+        data: resolved,
+        ...resolved,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new ProductController();
+
 

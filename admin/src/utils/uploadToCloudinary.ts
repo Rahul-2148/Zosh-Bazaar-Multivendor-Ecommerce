@@ -1,19 +1,39 @@
+import apiClient from "../api/apiClient";
 import axios from "axios";
 
-interface CloudinaryResponse {
+export interface CloudinaryUploadResult {
   secure_url: string;
   public_id?: string;
   format?: string;
+  width?: number;
+  height?: number;
 }
 
 export const uploadToCloudinary = async (
   file: File,
   folder = "products"
 ): Promise<string> => {
+  // 1. Authoritative server upload route (streams to Cloudinary or deterministic storage)
+  try {
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("folder", folder);
+
+    const response = await apiClient.post("/admin/upload/cloudinary", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    if (response.data?.secure_url) {
+      return response.data.secure_url;
+    }
+  } catch (err) {
+    console.warn("Admin server upload failed, attempting direct Cloudinary fallback:", err);
+  }
+
+  // 2. Direct Cloudinary upload preset fallback
   const cloud_name = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const upload_preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
-  // If cloud credentials configured, perform genuine Cloudinary upload
   if (cloud_name && upload_preset) {
     try {
       const url = `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`;
@@ -23,29 +43,17 @@ export const uploadToCloudinary = async (
       data.append("cloud_name", cloud_name);
       data.append("folder", folder);
 
-      const response = await axios.post<CloudinaryResponse>(url, data, {
+      const response = await axios.post<{ secure_url: string }>(url, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       return response.data.secure_url;
     } catch (err) {
-      console.warn("Cloudinary upload failed, falling back to local base64 preview:", err);
+      console.warn("Direct Cloudinary upload failed:", err);
     }
   }
 
-  // Resilient fallback: convert to base64 DataURL for local preview & offline dev
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("Failed to convert image to data URL"));
-      }
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
+  throw new Error("Unable to upload product image. Please verify server connectivity or Cloudinary credentials.");
 };
 
 export const uploadMultipleFiles = async (

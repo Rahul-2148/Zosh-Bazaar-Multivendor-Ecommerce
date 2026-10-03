@@ -42,6 +42,37 @@ import {
 import { Api } from "../../../../config/Api";
 import { buildAuthRedirectUrl } from "../../../../utils/navigation";
 import { saveRecentlyViewedProduct } from "../../../../utils/recentlyViewed";
+import { useVariantResolution } from "../../../hooks/useVariantResolution";
+
+// Color name to visual hex/css resolver
+const getColorStyle = (colorName: string): string => {
+  const c = (colorName || "").toLowerCase().trim();
+  const palette: Record<string, string> = {
+    black: "#111827",
+    white: "#f9fafb",
+    blue: "#2563eb",
+    navy: "#1e3a8a",
+    red: "#dc2626",
+    green: "#16a34a",
+    emerald: "#059669",
+    purple: "#7c3aed",
+    violet: "#8b5cf6",
+    yellow: "#eab308",
+    orange: "#f97316",
+    pink: "#ec4899",
+    grey: "#6b7280",
+    gray: "#6b7280",
+    brown: "#78350f",
+    gold: "#d97706",
+    silver: "#94a3b8",
+    cyan: "#06b6d4",
+    teal: "#0d9488",
+    maroon: "#800000",
+    beige: "#f5f5dc",
+    olive: "#808000",
+  };
+  return palette[c] || c;
+};
 
 // Available Offers Template
 const AVAILABLE_BANK_OFFERS = [
@@ -88,6 +119,9 @@ const ProductDetails: React.FC = () => {
 
   const currentProduct = product?.product;
 
+  // Authoritative Variant Resolution Engine Hook
+  const resolution = useVariantResolution(currentProduct);
+
   // Selected Media
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -95,8 +129,10 @@ const ProductDetails: React.FC = () => {
   const [showAllOffers, setShowAllOffers] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
 
-  // Variant Selection State
-  const [selectedAttrMap, setSelectedAttrMap] = useState<Record<string, string>>({});
+  // Reset selected image index when hero image or option group changes
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [resolution.heroImage, resolution.matchedOptionGroupName]);
 
   // Review Form State
   const [reviewRating, setReviewRating] = useState(5);
@@ -198,89 +234,14 @@ const ProductDetails: React.FC = () => {
     }
   }, [currentProduct]);
 
-  // Extract distinct variant attributes from product variants
-  const variantAttributesList = useMemo(() => {
-    if (!currentProduct?.hasVariants || !currentProduct?.variants?.length) return [];
-
-    const attrMap: Record<string, { name: string; key: string; options: Set<string> }> = {};
-    currentProduct.variants.forEach((v: any) => {
-      if (v.status !== "INACTIVE" && Array.isArray(v.attributes)) {
-        v.attributes.forEach((attr: any) => {
-          if (!attrMap[attr.key]) {
-            attrMap[attr.key] = {
-              name: attr.name || attr.key,
-              key: attr.key,
-              options: new Set<string>(),
-            };
-          }
-          if (attr.value) {
-            attrMap[attr.key].options.add(attr.value);
-          }
-        });
-      }
-    });
-
-    return Object.values(attrMap).map((item) => ({
-      name: item.name,
-      key: item.key,
-      options: Array.from(item.options),
-    }));
-  }, [currentProduct]);
-
-  // Derive effective selection
-  const effectiveAttrMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    variantAttributesList.forEach((attr) => {
-      map[attr.key] = selectedAttrMap[attr.key] || attr.options[0] || "";
-    });
-    return map;
-  }, [variantAttributesList, selectedAttrMap]);
-
-  // Find exact matching variant based on current selections
-  const matchingVariant = useMemo(() => {
-    if (!currentProduct?.hasVariants || !currentProduct?.variants?.length) return null;
-
-    return (
-      currentProduct.variants.find((v: any) => {
-        if (v.status === "INACTIVE" || !Array.isArray(v.attributes)) return false;
-        return v.attributes.every((attr: any) => effectiveAttrMap[attr.key] === attr.value);
-      }) || currentProduct.variants[0]
-    );
-  }, [currentProduct, effectiveAttrMap]);
-
-  // Effective prices and stock
-  const displaySellingPrice = matchingVariant
-    ? matchingVariant.sellingPrice
-    : currentProduct?.sellingPrice || 0;
-  const displayMrpPrice = matchingVariant
-    ? matchingVariant.mrpPrice
-    : currentProduct?.mrpPrice || 0;
-  const displayDiscountPercent =
-    displayMrpPrice > displaySellingPrice
-      ? Math.round(((displayMrpPrice - displaySellingPrice) / displayMrpPrice) * 100)
-      : 0;
-  const displayStock = matchingVariant
-    ? matchingVariant.countInStock
-    : currentProduct?.countInStock || 0;
-  const isOutOfStock = displayStock <= 0;
-
-  // Images to display: prioritize matching variant's image if present
-  const galleryImages: string[] = useMemo(() => {
-    const rawList = matchingVariant?.images?.length
-      ? [
-          ...matchingVariant.images,
-          ...(currentProduct?.images || []).filter(
-            (img: any) => !matchingVariant.images.includes(img)
-          ),
-        ]
-      : currentProduct?.images || [];
-
-    const stringUrls = rawList
-      .map((img: any) => (typeof img === "object" ? img.url || img.relativePath : img))
-      .filter(Boolean);
-
-    return Array.from(new Set(stringUrls));
-  }, [matchingVariant, currentProduct]);
+  // Effective prices, variant, and media resolved authoritatively
+  const matchingVariant = resolution.selectedVariant;
+  const displaySellingPrice = resolution.sellingPrice;
+  const displayMrpPrice = resolution.mrpPrice;
+  const displayDiscountPercent = resolution.discountPercent;
+  const displayStock = resolution.countInStock;
+  const isOutOfStock = resolution.isOutOfStock;
+  const galleryImages = resolution.galleryImages;
 
   const handleQuantityChange = (delta: number) => {
     const next = quantity + delta;
@@ -302,7 +263,7 @@ const ProductDetails: React.FC = () => {
               sku: matchingVariant.sku,
               title: matchingVariant.title,
               attributes: matchingVariant.attributes,
-              image: matchingVariant.images?.[0] || galleryImages[0],
+              image: matchingVariant.images?.[0] || galleryImages[0] || resolution.heroImage,
             }
           : undefined,
         quantity,
@@ -628,46 +589,93 @@ const ProductDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Dynamic Variant Selectors (Colors, Sizes, RAM, Storage) */}
-            {variantAttributesList.length > 0 && (
+            {/* Dynamic Variant Selectors (Colors, Sizes, RAM, Storage) with Cascading Combination Engine */}
+            {resolution.attributeDefinitions.length > 0 && (
               <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-                {variantAttributesList.map((attr) => (
-                  <div key={attr.key} className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-extrabold uppercase tracking-wider text-muted-foreground">
-                        {attr.name}:
-                      </span>
-                      <span className="font-black text-foreground">
-                        {effectiveAttrMap[attr.key]}
-                      </span>
-                    </div>
+                <div className="flex items-center justify-between pb-1 border-b border-border/60">
+                  <span className="text-xs font-black uppercase tracking-wider text-foreground">
+                    Product Options & Editions
+                  </span>
+                  {resolution.matchedOptionGroupName && (
+                    <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                      Gallery: {resolution.matchedOptionGroupName}
+                    </span>
+                  )}
+                </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {attr.options.map((option) => {
-                        const isSelected = effectiveAttrMap[attr.key] === option;
-                        return (
-                          <button
-                            key={option}
-                            type="button"
-                            onClick={() => {
-                              setSelectedAttrMap((prev) => ({
-                                ...prev,
-                                [attr.key]: option,
-                              }));
-                            }}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                              isSelected
-                                ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30 ring-2 ring-primary/20"
-                                : "border-border bg-card text-foreground hover:border-primary/50 hover:bg-muted/50"
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        );
-                      })}
+                {resolution.attributeDefinitions.map((attr) => {
+                  const isColorAttr = attr.key.toLowerCase().includes("color");
+                  const currentVal = resolution.selectedAttributes[attr.key] || "";
+
+                  return (
+                    <div key={attr.key} className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-extrabold uppercase tracking-wider text-muted-foreground">
+                          {attr.name}:
+                        </span>
+                        <span className="font-black text-foreground capitalize">
+                          {currentVal || "Select"}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {attr.options.map((option) => {
+                          const isSelected = currentVal.toLowerCase() === option.toLowerCase();
+                          const isValid = resolution.isOptionValid(attr.key, option);
+                          const inStock = resolution.isOptionInStock(attr.key, option);
+
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              disabled={!isValid}
+                              onClick={() => {
+                                if (isValid) {
+                                  resolution.selectOption(attr.key, option);
+                                }
+                              }}
+                              title={
+                                !isValid
+                                  ? "Configuration not available"
+                                  : !inStock
+                                  ? "Out of stock in this combination"
+                                  : `${attr.name}: ${option}`
+                              }
+                              className={`relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                !isValid
+                                  ? "border-dashed border-border/40 bg-muted/20 text-muted-foreground/40 cursor-not-allowed line-through"
+                                  : isSelected
+                                  ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30 ring-2 ring-primary/20 cursor-pointer"
+                                  : inStock
+                                  ? "border-border bg-card text-foreground hover:border-primary/50 hover:bg-muted/50 cursor-pointer"
+                                  : "border-border/80 bg-card/60 text-muted-foreground hover:border-border cursor-pointer"
+                              }`}
+                            >
+                              {/* Color swatch dot */}
+                              {isColorAttr && (
+                                <span
+                                  className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0 shadow-2xs"
+                                  style={{
+                                    backgroundColor: getColorStyle(option),
+                                  }}
+                                />
+                              )}
+
+                              <span className="capitalize">{option}</span>
+
+                              {/* Out of Stock badge */}
+                              {isValid && !inStock && (
+                                <span className="text-[9px] uppercase tracking-wider font-extrabold px-1 rounded bg-destructive/15 text-destructive ml-0.5">
+                                  OOS
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

@@ -1,15 +1,51 @@
 import axios from "axios";
+import { API_BASE_URL } from "../services/api";
 
-interface CloudinaryResponse {
+export interface MediaUploadResult {
   secure_url: string;
   public_id?: string;
   format?: string;
+  width?: number;
+  height?: number;
 }
 
 export const uploadMediaFile = async (
   file: File,
   folder = "zosh_bazaar_products"
-): Promise<{ secure_url: string }> => {
+): Promise<MediaUploadResult> => {
+  // 1. Authoritative server upload route (streams to Cloudinary or deterministic storage)
+  try {
+    const token = localStorage.getItem("seller_jwt") || localStorage.getItem("jwt");
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("folder", folder);
+
+    const headers: Record<string, string> = {
+      "Content-Type": "multipart/form-data",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const serverRes = await axios.post(`${API_BASE_URL}/seller/upload/cloudinary`, formData, {
+      headers,
+      withCredentials: true,
+    });
+
+    if (serverRes.data?.secure_url) {
+      return {
+        secure_url: serverRes.data.secure_url,
+        public_id: serverRes.data.public_id,
+        format: serverRes.data.format,
+        width: serverRes.data.width,
+        height: serverRes.data.height,
+      };
+    }
+  } catch (serverErr) {
+    console.warn("Server upload endpoint error, trying direct upload preset fallback:", serverErr);
+  }
+
+  // 2. Direct Cloudinary upload preset fallback
   const cloud_name = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const upload_preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
@@ -21,29 +57,21 @@ export const uploadMediaFile = async (
       data.append("upload_preset", upload_preset);
       data.append("folder", folder);
 
-      const response = await axios.post<CloudinaryResponse>(url, data, {
+      const response = await axios.post(url, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      return { secure_url: response.data.secure_url };
+      return {
+        secure_url: response.data.secure_url,
+        public_id: response.data.public_id,
+        format: response.data.format,
+      };
     } catch (err) {
-      console.warn("Cloudinary upload failed, falling back to local base64 preview:", err);
+      console.warn("Direct Cloudinary upload failed:", err);
     }
   }
 
-  // Resilient fallback to base64 DataURL for local development / testing
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve({ secure_url: reader.result });
-      } else {
-        reject(new Error("Failed to read image"));
-      }
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(file);
-  });
+  throw new Error("Unable to upload image. Please verify server connectivity or Cloudinary credentials.");
 };
 
 export const uploadMultipleMedia = async (

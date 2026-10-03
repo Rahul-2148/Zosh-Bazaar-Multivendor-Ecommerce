@@ -56,6 +56,14 @@ const orderItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Seller",
     },
+    sellerOffer: {
+      sellerName: { type: String, default: "" },
+      businessName: { type: String, default: "" },
+    },
+    mediaSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     // Legacy support fields
     size: { type: String, default: "" },
     ram: { type: String, default: "" },

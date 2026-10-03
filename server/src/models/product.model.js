@@ -83,6 +83,35 @@ const variantSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const mediaItemSchema = new mongoose.Schema(
+  {
+    mediaId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    url: { type: String, required: true },
+    secureUrl: { type: String, default: "" },
+    publicId: { type: String, default: "" },
+    resourceType: { type: String, enum: ["image", "video", "raw"], default: "image" },
+    format: { type: String, default: "" },
+    width: { type: Number },
+    height: { type: Number },
+    bytes: { type: Number },
+    altText: { type: String, default: "" },
+    sortOrder: { type: Number, default: 0 },
+    isPrimary: { type: Boolean, default: false },
+  },
+  { _id: true }
+);
+
+const mediaGroupSchema = new mongoose.Schema(
+  {
+    groupId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    optionKey: { type: String, required: true, lowercase: true, trim: true }, // e.g. "color"
+    optionValue: { type: String, required: true, trim: true }, // e.g. "Blue"
+    name: { type: String, default: "" }, // e.g. "Blue Collection"
+    images: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  },
+  { _id: true }
+);
+
 const specificationSchema = new mongoose.Schema(
   {
     section: { type: String, default: "General" },
@@ -152,6 +181,10 @@ const productSchema = new mongoose.Schema(
     ],
     variants: {
       type: [variantSchema],
+      default: [],
+    },
+    mediaGroups: {
+      type: [mediaGroupSchema],
       default: [],
     },
     specifications: {
@@ -260,6 +293,69 @@ productSchema.pre("save", function (next) {
   next();
 });
 
+// Authoritative Media Hierarchy Resolution:
+// 1. Exact variant media override
+// 2. Option-level media group (e.g. matching color)
+// 3. Product-level default media
+export const resolveMediaHierarchy = (product, selectedVariant = null, selectedAttributes = {}) => {
+  if (!product) return [];
+
+  // Helper to extract clean URL from string or structured object
+  const extractUrl = (item) => {
+    if (!item) return "";
+    if (typeof item === "string") return item;
+    return item.secureUrl || item.url || item.relativePath || "";
+  };
+
+  // 1. Exact variant media override
+  if (selectedVariant && Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0) {
+    const variantUrls = selectedVariant.images.map(extractUrl).filter(Boolean);
+    if (variantUrls.length > 0) {
+      return Array.from(new Set(variantUrls));
+    }
+  }
+
+  // 2. Option-level media group (e.g., Color = Blue)
+  if (Array.isArray(product.mediaGroups) && product.mediaGroups.length > 0) {
+    // Resolve effective attributes from selectedVariant or selectedAttributes map
+    const attrMap = {};
+    if (selectedVariant && Array.isArray(selectedVariant.attributes)) {
+      selectedVariant.attributes.forEach((a) => {
+        if (a && a.key && a.value) {
+          attrMap[a.key.toLowerCase()] = String(a.value).trim().toLowerCase();
+        }
+      });
+    }
+    if (selectedAttributes && typeof selectedAttributes === "object") {
+      Object.entries(selectedAttributes).forEach(([k, v]) => {
+        if (k && v) {
+          attrMap[k.toLowerCase()] = String(v).trim().toLowerCase();
+        }
+      });
+    }
+
+    // Match media groups against resolved attributes
+    for (const mg of product.mediaGroups) {
+      const gKey = (mg.optionKey || "").toLowerCase();
+      const gVal = (mg.optionValue || "").trim().toLowerCase();
+      if (attrMap[gKey] && attrMap[gKey] === gVal) {
+        if (Array.isArray(mg.images) && mg.images.length > 0) {
+          const groupUrls = mg.images.map(extractUrl).filter(Boolean);
+          if (groupUrls.length > 0) {
+            return Array.from(new Set(groupUrls));
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Product-level default media
+  const defaultImages = Array.isArray(product.images)
+    ? product.images.map(extractUrl).filter(Boolean)
+    : [];
+  return Array.from(new Set(defaultImages));
+};
+
 // High-performance query indexes
 productSchema.index({ category: 1, sellingPrice: 1 });
 productSchema.index({ seller: 1, createdAt: -1 });
@@ -268,5 +364,8 @@ productSchema.index({ slug: 1 }, { unique: false });
 productSchema.index({ title: "text", description: "text", brand: "text", tags: "text" });
 productSchema.index({ "variants.sku": 1 });
 productSchema.index({ "variants.attributes.key": 1, "variants.attributes.value": 1 });
+productSchema.index({ "mediaGroups.optionKey": 1, "mediaGroups.optionValue": 1 });
 
 export const Product = mongoose.model("Product", productSchema);
+export { mediaItemSchema, mediaGroupSchema };
+

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { Category } from "../../../models/category.model.js";
-import { Product, sanitizeProductSlug } from "../../../models/product.model.js";
+import { Product, sanitizeProductSlug, resolveMediaHierarchy } from "../../../models/product.model.js";
 import { calculateDiscountPercentage } from "../../../utils/calculateDiscountPercentage.js";
 import {
   emitProductCreated,
@@ -52,6 +52,7 @@ class ProductService {
       let countInStock = Number(data.countInStock) || 0;
 
       if (hasVariants) {
+        const seenSignatures = new Set();
         variants = data.variants.map((v, index) => {
           const vMrp = Number(v.mrpPrice) || mrpPrice;
           const vSelling = Number(v.sellingPrice) || sellingPrice;
@@ -59,24 +60,35 @@ class ProductService {
           const vDiscount = calculateDiscountPercentage(vMrp, vSelling);
           const vSku =
             v.sku && v.sku.trim()
-              ? v.sku.trim()
-              : `${(data.title || "PROD").slice(0, 4).toUpperCase()}-${Date.now().toString(36)}-${index + 1}`;
+              ? v.sku.trim().toUpperCase()
+              : `${(data.title || "PROD").slice(0, 4).toUpperCase()}-${Date.now().toString(36)}-${index + 1}`.toUpperCase();
+
+          const normalizedAttrs = Array.isArray(v.attributes)
+            ? v.attributes.map((a) => ({
+                name: a.name || a.key || "Attribute",
+                key: (a.key || (a.name ? a.name.toLowerCase().replace(/[^a-z0-9]/g, "_") : "attr")).toLowerCase().trim(),
+                value: String(a.value || "").trim(),
+                unit: a.unit || "",
+              }))
+            : [];
+
+          // Duplicate variant configuration prevention
+          const signature = normalizedAttrs
+            .map((a) => `${a.key}:${a.value.toLowerCase()}`)
+            .sort()
+            .join("|");
+
+          if (signature) {
+            if (seenSignatures.has(signature)) {
+              throw new Error(`Duplicate variant configuration detected: ${signature.replace(/\|/g, ", ")}`);
+            }
+            seenSignatures.add(signature);
+          }
 
           return {
             sku: vSku,
             title: v.title || "",
-            attributes: Array.isArray(v.attributes)
-              ? v.attributes.map((a) => ({
-                  name: a.name || a.key || "Attribute",
-                  key:
-                    a.key ||
-                    (a.name
-                      ? a.name.toLowerCase().replace(/[^a-z0-9]/g, "_")
-                      : "attr"),
-                  value: a.value,
-                  unit: a.unit || "",
-                }))
-              : [],
+            attributes: normalizedAttrs,
             mrpPrice: vMrp,
             sellingPrice: vSelling,
             discountPercent: vDiscount,
@@ -99,6 +111,17 @@ class ProductService {
         countInStock = listToUse.reduce((sum, v) => sum + v.countInStock, 0);
       }
 
+      // Process Option-Level Media Groups
+      const mediaGroups = Array.isArray(data.mediaGroups)
+        ? data.mediaGroups.map((mg) => ({
+            groupId: mg.groupId || new mongoose.Types.ObjectId().toString(),
+            optionKey: (mg.optionKey || "color").toLowerCase().trim(),
+            optionValue: (mg.optionValue || "").trim(),
+            name: mg.name || `${mg.optionValue} Media Group`,
+            images: Array.isArray(mg.images) ? mg.images : [],
+          }))
+        : [];
+
       const discountPercent = calculateDiscountPercentage(mrpPrice, sellingPrice);
       const generatedSlug = data.slug || sanitizeProductSlug(data.title);
 
@@ -116,6 +139,7 @@ class ProductService {
           ? data.attributeDefinitions
           : [],
         variants,
+        mediaGroups,
         specifications: Array.isArray(data.specifications)
           ? data.specifications
           : [],
@@ -196,28 +220,53 @@ class ProductService {
       if (data.measurement) product.measurement = data.measurement;
       if (data.attributeDefinitions) product.attributeDefinitions = data.attributeDefinitions;
 
+      if (Array.isArray(data.mediaGroups)) {
+        product.mediaGroups = data.mediaGroups.map((mg) => ({
+          groupId: mg.groupId || new mongoose.Types.ObjectId().toString(),
+          optionKey: (mg.optionKey || "color").toLowerCase().trim(),
+          optionValue: (mg.optionValue || "").trim(),
+          name: mg.name || `${mg.optionValue} Media Group`,
+          images: Array.isArray(mg.images) ? mg.images : [],
+        }));
+      }
+
       if (data.hasVariants !== undefined) product.hasVariants = data.hasVariants;
 
       if (product.hasVariants && Array.isArray(data.variants)) {
+        const seenSignatures = new Set();
         product.variants = data.variants.map((v, index) => {
           const vMrp = Number(v.mrpPrice) || product.mrpPrice;
           const vSelling = Number(v.sellingPrice) || product.sellingPrice;
           const vStock = Number(v.countInStock) || 0;
+          const vSku = v.sku && v.sku.trim()
+            ? v.sku.trim().toUpperCase()
+            : `${product.title.slice(0, 4).toUpperCase()}-${index + 1}`.toUpperCase();
+
+          const normalizedAttrs = Array.isArray(v.attributes)
+            ? v.attributes.map((a) => ({
+                name: a.name || a.key || "Attribute",
+                key: (a.key || (a.name ? a.name.toLowerCase().replace(/[^a-z0-9]/g, "_") : "attr")).toLowerCase().trim(),
+                value: String(a.value || "").trim(),
+                unit: a.unit || "",
+              }))
+            : [];
+
+          const signature = normalizedAttrs
+            .map((a) => `${a.key}:${a.value.toLowerCase()}`)
+            .sort()
+            .join("|");
+
+          if (signature) {
+            if (seenSignatures.has(signature)) {
+              throw new Error(`Duplicate variant configuration detected: ${signature.replace(/\|/g, ", ")}`);
+            }
+            seenSignatures.add(signature);
+          }
+
           return {
             ...v,
-            sku: v.sku || `${product.title.slice(0, 4).toUpperCase()}-${index + 1}`,
-            attributes: Array.isArray(v.attributes)
-              ? v.attributes.map((a) => ({
-                  name: a.name || a.key || "Attribute",
-                  key:
-                    a.key ||
-                    (a.name
-                      ? a.name.toLowerCase().replace(/[^a-z0-9]/g, "_")
-                      : "attr"),
-                  value: a.value,
-                  unit: a.unit || "",
-                }))
-              : [],
+            sku: vSku,
+            attributes: normalizedAttrs,
             mrpPrice: vMrp,
             sellingPrice: vSelling,
             discountPercent: calculateDiscountPercentage(vMrp, vSelling),
@@ -257,6 +306,281 @@ class ProductService {
         });
 
       return saved;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
+  /**
+   * Dedicated Authoritative Variant Resolution Engine
+   * Resolves exact SKU, pricing, inventory, media hierarchy, matrix, and seller offer.
+   */
+  async resolveProductVariant(identifier, query = {}) {
+    try {
+      const isObjectId = mongoose.isValidObjectId(identifier);
+      const dbQuery = isObjectId ? { _id: identifier } : { slug: identifier };
+
+      let product = await Product.findOne(dbQuery)
+        .populate("category")
+        .populate("seller", "sellerName email businessDetails mobile");
+
+      if (!product && !isObjectId) {
+        product = await Product.findOne({ title: new RegExp(`^${identifier}$`, "i") })
+          .populate("category")
+          .populate("seller", "sellerName email businessDetails mobile");
+      }
+
+      if (!product) throw new Error("Product not found");
+
+      // Single-SKU product resolution
+      if (!product.hasVariants || !Array.isArray(product.variants) || product.variants.length === 0) {
+        const inStock = (product.countInStock || 0) > 0 && product.status === "PUBLISHED";
+        const gallery = resolveMediaHierarchy(product, null, {});
+
+        return {
+          product: {
+            _id: product._id,
+            title: product.title,
+            slug: product.slug,
+            sku: product.sku,
+            brand: product.brand,
+            category: product.category,
+            hasVariants: false,
+            warranty: product.warranty,
+            returnPolicy: product.returnPolicy,
+            shippingDetails: product.shippingDetails,
+            specifications: product.specifications,
+          },
+          variant: null,
+          sellerOffer: {
+            sellerId: product.seller?._id || product.seller,
+            sellerName: product.seller?.sellerName || "Zosh Partner",
+            businessDetails: product.seller?.businessDetails || null,
+          },
+          pricing: {
+            mrpPrice: product.mrpPrice,
+            sellingPrice: product.sellingPrice,
+            discountPercent: product.discountPercent,
+            savings: Math.max(0, product.mrpPrice - product.sellingPrice),
+            displayPrice: `₹${product.sellingPrice.toLocaleString("en-IN")}`,
+            minPrice: product.sellingPrice,
+            maxPrice: product.sellingPrice,
+            isRange: false,
+          },
+          inventory: {
+            countInStock: product.countInStock,
+            inStock,
+            status: !inStock
+              ? "OUT_OF_STOCK"
+              : product.countInStock <= (product.lowStockThreshold || 5)
+              ? "LOW_STOCK"
+              : "IN_STOCK",
+            lowStockThreshold: product.lowStockThreshold || 5,
+          },
+          media: {
+            heroImage: gallery[0] || "",
+            gallery,
+            totalImages: gallery.length,
+            matchedOptionGroup: false,
+          },
+          combinationMatrix: {
+            attributeKeys: [],
+            validCombinations: [],
+            availableOptionsByAttribute: {},
+          },
+          delivery: {
+            estimatedDays: product.shippingDetails?.estimatedDeliveryDays || 3,
+            freeShipping: Boolean(product.shippingDetails?.freeShipping),
+          },
+          promotions: {
+            availableOffers: [],
+          },
+        };
+      }
+
+      // Multi-Variant Resolution:
+      // 1. Build authoritative combination matrix of all valid configurations
+      const validCombinations = [];
+      const availableOptionsByAttribute = {};
+
+      product.variants.forEach((v) => {
+        if (v.status !== "INACTIVE") {
+          const attrRecord = {};
+          (v.attributes || []).forEach((a) => {
+            if (a && a.key && a.value) {
+              const cleanKey = a.key.toLowerCase().trim();
+              const cleanVal = String(a.value).trim();
+              attrRecord[cleanKey] = cleanVal;
+              if (!availableOptionsByAttribute[cleanKey]) {
+                availableOptionsByAttribute[cleanKey] = new Set();
+              }
+              availableOptionsByAttribute[cleanKey].add(cleanVal);
+            }
+          });
+
+          validCombinations.push({
+            variantId: v._id,
+            sku: v.sku,
+            title: v.title,
+            attributes: attrRecord,
+            mrpPrice: v.mrpPrice,
+            sellingPrice: v.sellingPrice,
+            discountPercent: v.discountPercent,
+            countInStock: v.countInStock,
+            inStock: v.countInStock > 0 && v.status === "ACTIVE",
+            status: v.status,
+            images: v.images || [],
+          });
+        }
+      });
+
+      const formattedOptionsByAttr = {};
+      Object.entries(availableOptionsByAttribute).forEach(([k, set]) => {
+        formattedOptionsByAttr[k] = Array.from(set);
+      });
+
+      // 2. Extract requested parameters
+      const requestedVariantId = query.variantId || "";
+      const requestedSku = query.sku ? query.sku.trim().toUpperCase() : "";
+
+      const requestedAttrs = {};
+      const reservedQueryKeys = ["variantId", "sku", "adminView", "fields"];
+      Object.entries(query).forEach(([k, v]) => {
+        if (!reservedQueryKeys.includes(k) && v) {
+          requestedAttrs[k.toLowerCase().trim()] = String(v).trim();
+        }
+      });
+
+      // 3. Find matching variant
+      let matchedVariant = null;
+
+      if (requestedVariantId) {
+        matchedVariant = product.variants.id(requestedVariantId);
+      }
+
+      if (!matchedVariant && requestedSku) {
+        matchedVariant = product.variants.find((v) => (v.sku || "").toUpperCase() === requestedSku);
+      }
+
+      if (!matchedVariant && Object.keys(requestedAttrs).length > 0) {
+        matchedVariant = product.variants.find((v) => {
+          if (v.status === "INACTIVE" || !Array.isArray(v.attributes)) return false;
+          return Object.entries(requestedAttrs).every(([reqKey, reqVal]) => {
+            const attr = v.attributes.find((a) => (a.key || "").toLowerCase() === reqKey);
+            return attr && String(attr.value).trim().toLowerCase() === reqVal.toLowerCase();
+          });
+        });
+
+        // Cascading Fallback: If exact combo not found (e.g. Blue XL nonexistent),
+        // try to match primary attribute (like color) first, then pick first active combination
+        if (!matchedVariant && requestedAttrs.color) {
+          matchedVariant = product.variants.find((v) => {
+            if (v.status === "INACTIVE") return false;
+            const attr = (v.attributes || []).find((a) => (a.key || "").toLowerCase() === "color");
+            return attr && String(attr.value).trim().toLowerCase() === requestedAttrs.color.toLowerCase();
+          });
+        }
+      }
+
+      if (!matchedVariant) {
+        matchedVariant = product.variants.find((v) => v.status === "ACTIVE") || product.variants[0];
+      }
+
+      // 4. Resolve authoritative pricing & price range
+      const activeVariants = product.variants.filter((v) => v.status === "ACTIVE");
+      const listToUse = activeVariants.length > 0 ? activeVariants : product.variants;
+      const prices = listToUse.map((v) => v.sellingPrice);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+
+      const effectiveMrp = matchedVariant ? matchedVariant.mrpPrice : product.mrpPrice;
+      const effectiveSelling = matchedVariant ? matchedVariant.sellingPrice : product.sellingPrice;
+      const effectiveDiscount = calculateDiscountPercentage(effectiveMrp, effectiveSelling);
+      const effectiveSavings = Math.max(0, effectiveMrp - effectiveSelling);
+      const effectiveStock = matchedVariant ? matchedVariant.countInStock : product.countInStock;
+      const isOutOfStock = effectiveStock <= 0 || matchedVariant?.status === "INACTIVE";
+
+      // 5. Authoritative Media Resolution
+      const gallery = resolveMediaHierarchy(product, matchedVariant, requestedAttrs);
+
+      return {
+        product: {
+          _id: product._id,
+          title: product.title,
+          slug: product.slug,
+          sku: product.sku,
+          brand: product.brand,
+          category: product.category,
+          hasVariants: true,
+          attributeDefinitions: product.attributeDefinitions,
+          mediaGroups: product.mediaGroups,
+          warranty: product.warranty,
+          returnPolicy: product.returnPolicy,
+          shippingDetails: product.shippingDetails,
+          specifications: product.specifications,
+        },
+        variant: matchedVariant
+          ? {
+              _id: matchedVariant._id,
+              sku: matchedVariant.sku,
+              title: matchedVariant.title,
+              attributes: matchedVariant.attributes,
+              mrpPrice: matchedVariant.mrpPrice,
+              sellingPrice: matchedVariant.sellingPrice,
+              discountPercent: matchedVariant.discountPercent,
+              countInStock: matchedVariant.countInStock,
+              status: matchedVariant.status,
+              images: matchedVariant.images || [],
+            }
+          : null,
+        sellerOffer: {
+          sellerId: product.seller?._id || product.seller,
+          sellerName: product.seller?.sellerName || "Zosh Partner",
+          businessDetails: product.seller?.businessDetails || null,
+        },
+        pricing: {
+          mrpPrice: effectiveMrp,
+          sellingPrice: effectiveSelling,
+          discountPercent: effectiveDiscount,
+          savings: effectiveSavings,
+          displayPrice: `₹${effectiveSelling.toLocaleString("en-IN")}`,
+          minPrice,
+          maxPrice,
+          isRange: minPrice !== maxPrice,
+          rangeDisplay:
+            minPrice === maxPrice
+              ? `₹${minPrice.toLocaleString("en-IN")}`
+              : `₹${minPrice.toLocaleString("en-IN")} – ₹${maxPrice.toLocaleString("en-IN")}`,
+        },
+        inventory: {
+          countInStock: effectiveStock,
+          inStock: !isOutOfStock,
+          status: isOutOfStock
+            ? "OUT_OF_STOCK"
+            : effectiveStock <= (product.lowStockThreshold || 5)
+            ? "LOW_STOCK"
+            : "IN_STOCK",
+          lowStockThreshold: product.lowStockThreshold || 5,
+        },
+        media: {
+          heroImage: gallery[0] || "",
+          gallery,
+          totalImages: gallery.length,
+          matchedOptionGroup: Boolean(product.mediaGroups?.length),
+        },
+        combinationMatrix: {
+          attributeKeys: Object.keys(formattedOptionsByAttr),
+          validCombinations,
+          availableOptionsByAttribute: formattedOptionsByAttr,
+        },
+        delivery: {
+          estimatedDays: product.shippingDetails?.estimatedDeliveryDays || 3,
+          freeShipping: Boolean(product.shippingDetails?.freeShipping),
+        },
+        promotions: {
+          availableOffers: [],
+        },
+      };
     } catch (error) {
       throw new Error(error.message);
     }

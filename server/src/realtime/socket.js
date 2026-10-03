@@ -125,6 +125,28 @@ export const emitLowStockAlert = (product, variantTitle = "") => {
   io.to("admin_room").emit("admin:low_stock", payload);
 };
 
+export const emitVariantStockUpdated = (product, variant = null) => {
+  if (!io) return;
+  const sellerId = product.seller?._id?.toString() || product.seller?.toString();
+  const payload = {
+    productId: product._id,
+    variantId: variant?._id || null,
+    sku: variant?.sku || null,
+    title: variant?.title || product.title,
+    countInStock: variant?.countInStock ?? product.countInStock,
+    inStock: (variant?.countInStock ?? product.countInStock) > 0,
+    sellingPrice: variant?.sellingPrice ?? product.sellingPrice,
+    updatedAt: new Date(),
+  };
+
+  io.emit("product:stock_updated", payload);
+
+  if (sellerId) {
+    io.to(`seller_${sellerId}`).emit("inventory:stock_updated", payload);
+  }
+  io.to("admin_room").emit("admin:stock_updated", payload);
+};
+
 // -----------------------------------------------------
 // LOGISTICS CONTROL TOWER REAL-TIME EVENTS
 // -----------------------------------------------------
@@ -232,10 +254,20 @@ export const emitProductUpdated = (product) => {
   });
 };
 
-export const emitStockUpdated = ({ productId, countInStock, inStock }) => {
+export const emitStockUpdated = ({
+  productId,
+  countInStock,
+  inStock,
+  variantId = null,
+  sku = null,
+  sellingPrice = null,
+}) => {
   if (!io) return;
   io.emit("product:stock_updated", {
     productId,
+    variantId,
+    sku,
+    sellingPrice,
     countInStock,
     inStock: typeof inStock === "boolean" ? inStock : countInStock > 0,
     updatedAt: new Date(),

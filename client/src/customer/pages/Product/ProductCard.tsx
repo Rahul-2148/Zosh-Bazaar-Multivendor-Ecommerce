@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Star,
@@ -73,6 +73,63 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const hasVariants = Boolean(
     item.hasVariants || (Array.isArray(item.variants) && item.variants.length > 0)
   );
+
+  // Dynamic Pricing Range / From Price for Variant Products
+  const variantPrices = useMemo(() => {
+    if (!hasVariants || !Array.isArray(item.variants) || item.variants.length === 0) {
+      return null;
+    }
+    const validVariants = item.variants.filter((v: any) => v.status !== "INACTIVE");
+    const prices = validVariants
+      .map((v: any) => Number(v.sellingPrice || 0))
+      .filter((p: number) => p > 0);
+    if (!prices.length) return null;
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return { min, max, isRange: min !== max };
+  }, [hasVariants, item.variants]);
+
+  // Extract available variant colors
+  const availableColors = useMemo(() => {
+    if (!hasVariants || !Array.isArray(item.variants)) return [];
+    const colors = new Set<string>();
+    item.variants.forEach((v: any) => {
+      if (Array.isArray(v.attributes)) {
+        v.attributes.forEach((attr: any) => {
+          if (attr.key?.toLowerCase() === "color" && attr.value) {
+            colors.add(String(attr.value).trim());
+          }
+        });
+      }
+    });
+    return Array.from(colors);
+  }, [hasVariants, item.variants]);
+
+  const getColorStyle = (colorName: string): string => {
+    const c = (colorName || "").toLowerCase().trim();
+    const palette: Record<string, string> = {
+      black: "#111827",
+      white: "#f9fafb",
+      blue: "#2563eb",
+      navy: "#1e3a8a",
+      red: "#dc2626",
+      green: "#16a34a",
+      emerald: "#059669",
+      purple: "#7c3aed",
+      violet: "#8b5cf6",
+      yellow: "#eab308",
+      orange: "#f97316",
+      pink: "#ec4899",
+      grey: "#6b7280",
+      gray: "#6b7280",
+      brown: "#78350f",
+      gold: "#d97706",
+      silver: "#94a3b8",
+      cyan: "#06b6d4",
+      teal: "#0d9488",
+    };
+    return palette[c] || c;
+  };
 
   const isOutOfStock = item.countInStock === 0 || item.inStock === false;
   const isLowStock = !isOutOfStock && item.countInStock > 0 && item.countInStock <= 5;
@@ -262,11 +319,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Pricing & Stock Details */}
         <div className="space-y-1.5 pt-0.5">
+          {/* Variant Color Swatches preview */}
+          {availableColors.length > 0 && (
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <div className="flex items-center -space-x-1">
+                {availableColors.slice(0, 4).map((c: string) => (
+                  <span
+                    key={c}
+                    title={c}
+                    className="w-3 h-3 rounded-full border border-card shadow-2xs inline-block"
+                    style={{ backgroundColor: getColorStyle(c) }}
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] font-semibold text-muted-foreground">
+                {availableColors.length} {availableColors.length === 1 ? "color" : "colors"}
+              </span>
+            </div>
+          )}
+
           {/* Price Row */}
           <div className="flex items-baseline gap-1.5 flex-wrap">
-            <span className="font-black text-sm sm:text-base md:text-lg text-foreground tracking-tight">
-              ₹{sellingPrice.toLocaleString("en-IN")}
-            </span>
+            {variantPrices?.isRange ? (
+              <div className="flex items-baseline gap-1">
+                <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-tight">
+                  From
+                </span>
+                <span className="font-black text-sm sm:text-base md:text-lg text-foreground tracking-tight">
+                  ₹{variantPrices.min.toLocaleString("en-IN")}
+                </span>
+              </div>
+            ) : (
+              <span className="font-black text-sm sm:text-base md:text-lg text-foreground tracking-tight">
+                ₹{sellingPrice.toLocaleString("en-IN")}
+              </span>
+            )}
 
             {mrpPrice > sellingPrice && (
               <span className="text-[10px] sm:text-xs line-through text-muted-foreground font-medium">

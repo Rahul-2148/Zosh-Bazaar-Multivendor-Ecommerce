@@ -11,6 +11,11 @@ sellerProductRouter.get(
   sellerProductController.getProductBySellerId
 );
 
+sellerProductRouter.get(
+  "/:productId/resolve-variant",
+  sellerProductController.resolveProductVariant
+);
+
 sellerProductRouter.post(
   "/create",
   sellerAuthMiddleware,

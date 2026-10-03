@@ -23,11 +23,31 @@ export const COMMERCE_TOOLS = [
   },
   {
     name: 'getProduct',
-    description: 'Get authoritative product specifications, price, seller info, and live inventory status.',
+    description: 'Get authoritative product specifications, price, seller info, live inventory status, and generic variant configurations (RAM, storage, size, color, etc.).',
     parameters: {
       type: 'object',
       properties: {
         productId: { type: 'string', description: '24-character hexadecimal MongoDB ObjectId' },
+        variantId: { type: 'string', description: 'Optional specific variant ID to inspect' },
+        color: { type: 'string', description: 'Optional color attribute to resolve' },
+        size: { type: 'string', description: 'Optional size attribute to resolve' },
+      },
+      required: ['productId'],
+    },
+    mutation: false,
+    requiresAuth: false,
+  },
+  {
+    name: 'resolveVariant',
+    description: 'Authoritatively resolve exact product SKU, live pricing, stock availability, and option-level media gallery based on user chosen attributes (e.g. Color=Blue, Size=M, or RAM=12GB).',
+    parameters: {
+      type: 'object',
+      properties: {
+        productId: { type: 'string', description: 'Product ID or MongoDB ObjectId' },
+        color: { type: 'string', description: 'Color attribute (e.g. Blue, Purple)' },
+        size: { type: 'string', description: 'Size attribute (e.g. M, L, 9, 10)' },
+        sku: { type: 'string', description: 'Exact SKU code if known' },
+        attributes: { type: 'object', description: 'Custom attribute map (e.g. { "ram": "12GB", "storage": "256GB" })' },
       },
       required: ['productId'],
     },
@@ -141,13 +161,17 @@ export const COMMERCE_TOOLS = [
   },
   {
     name: 'addToCart',
-    description: 'Add a verified product to the authenticated user cart. Requires quantity and optional size.',
+    description: 'Add a verified product or exact variant to the authenticated user cart. Supports quantity, size, color, exact variantId, and SKU.',
     parameters: {
       type: 'object',
       properties: {
         productId: { type: 'string', description: 'Product ID' },
         quantity: { type: 'number', description: 'Quantity (1-10, default 1)' },
-        size: { type: 'string', description: 'Selected size option if applicable' },
+        variantId: { type: 'string', description: 'Exact variant ID if known' },
+        sku: { type: 'string', description: 'Exact variant SKU if known' },
+        color: { type: 'string', description: 'Selected color option (e.g. Blue)' },
+        size: { type: 'string', description: 'Selected size option (e.g. M)' },
+        attributes: { type: 'object', description: 'Additional variant attributes' },
       },
       required: ['productId'],
     },

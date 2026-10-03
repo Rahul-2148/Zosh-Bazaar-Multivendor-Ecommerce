@@ -145,6 +145,14 @@ class OrderService {
           mrpPrice: item.mrpPrice,
           sellingPrice: item.sellingPrice,
           seller: sellerId,
+          sellerOffer: {
+            sellerName: prod.seller?.sellerName || "",
+            businessName: prod.seller?.businessDetails?.businessName || "",
+          },
+          mediaSnapshot: {
+            url: variantSnapshot.image || prod.images?.[0] || "",
+            sku: variantSnapshot.sku || "",
+          },
           // Legacy fields
           size: item.size || "",
           ram: item.ram || "",

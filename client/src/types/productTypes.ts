@@ -1,5 +1,37 @@
 import type { Seller } from "./sellerTypes";
 
+export interface IVariantAttribute {
+  name: string;
+  key: string;
+  value: string;
+  unit?: string;
+}
+
+export interface IProductVariant {
+  _id: string;
+  sku: string;
+  title: string;
+  attributes: IVariantAttribute[];
+  mrpPrice: number;
+  sellingPrice: number;
+  discountPercent: number;
+  countInStock: number;
+  reservedStock?: number;
+  images?: any[];
+  weight?: { value?: number; unit?: string };
+  dimensions?: { length?: number; width?: number; height?: number; unit?: string };
+  barcode?: string;
+  status: "ACTIVE" | "INACTIVE";
+}
+
+export interface IMediaGroup {
+  groupId?: string;
+  optionKey: string;
+  optionValue: string;
+  name?: string;
+  images: any[];
+}
+
 export interface IProduct {
   _id: string;
   title: string;
@@ -10,12 +42,13 @@ export interface IProduct {
   discountPercent: number;
   countInStock: number;
   color: string;
-  images: string[];
+  images: any[];
+  mediaGroups?: IMediaGroup[];
   category1: string;
   category2: string;
   category3: string;
   category?: any;
-  seller: Seller; // Added the seller type here
+  seller: Seller;
   size: string;
   ram: string;
   weight: string;
@@ -26,8 +59,15 @@ export interface IProduct {
     count?: number;
   };
   hasVariants?: boolean;
-  variants?: any[];
-  attributeDefinitions?: any[];
+  variants?: IProductVariant[];
+  attributeDefinitions?: Array<{
+    name: string;
+    key: string;
+    type?: string;
+    isVariant?: boolean;
+    options: string[];
+    allowedUnits?: string[];
+  }>;
   specifications?: any[];
   tags?: string[];
   status?: string;
@@ -49,6 +89,7 @@ export interface IProduct {
   updatedAt: Date;
   __v?: number;
 }
+
 
 export interface CategoryFiltersData {
   brands: { name: string; count: number }[];
