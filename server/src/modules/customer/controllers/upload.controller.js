@@ -201,6 +201,15 @@ class UploadController {
           });
         }
       } else {
+        // In production, local disk fallback is prohibited to prevent disk leaks and ephemeral container loss
+        if (process.env.NODE_ENV === "production") {
+          return res.status(503).json({
+            success: false,
+            error: true,
+            message: "Cloud storage service is unavailable. Cloudinary credentials must be configured on production server.",
+          });
+        }
+
         // Resilient disk fallback for local development: write memory buffer to uploads/
         const sanitizedRelativeDir = folderPath.replace(/^zosh-bazaar\//, "");
         const targetDir = path.join(UPLOADS_ROOT, sanitizedRelativeDir);
