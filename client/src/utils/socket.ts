@@ -11,12 +11,14 @@ const SOCKET_URL =
 let socket: Socket | null = null;
 
 export const getCustomerSocket = (userId?: string): Socket => {
+  const token = localStorage.getItem("jwt");
   if (!socket) {
     socket = io(SOCKET_URL, {
       transports: ["polling", "websocket"],
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
       withCredentials: true,
+      auth: token ? { token } : {},
     });
 
     socket.on("connect", () => {

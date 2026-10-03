@@ -63,9 +63,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    const token = localStorage.getItem("jwt");
     const s = io(SOCKET_SERVER_URL, {
       withCredentials: true,
       transports: ["websocket", "polling"],
+      auth: token ? { token } : {},
     });
 
     s.on("connect", () => {

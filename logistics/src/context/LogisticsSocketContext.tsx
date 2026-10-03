@@ -37,9 +37,11 @@ export const LogisticsSocketProvider: React.FC<{ children: React.ReactNode }> = 
   const [alerts, setAlerts] = useState<LogisticsAlert[]>([]);
 
   useEffect(() => {
+    const token = localStorage.getItem("jwt");
     const s = io(SOCKET_SERVER_URL, {
       withCredentials: true,
       transports: ["websocket", "polling"],
+      auth: token ? { token } : {},
     });
 
     s.on("connect", () => {

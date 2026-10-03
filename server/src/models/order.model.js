@@ -104,6 +104,7 @@ const orderSchema = new mongoose.Schema(
 // High-performance query indexes
 orderSchema.index({ user: 1, createdAt: -1 });
 orderSchema.index({ seller: 1, createdAt: -1 });
+orderSchema.index({ orderStatus: 1, createdAt: -1 });
 orderSchema.index({ orderStatus: 1 });
 orderSchema.index({ createdAt: -1 });
 

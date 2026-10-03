@@ -17,8 +17,8 @@ const OrderStatus = Object.freeze({
 
 export const VALID_ORDER_TRANSITIONS = {
   PENDING: ["CONFIRMED", "CANCELLED", "FAILED"],
-  CONFIRMED: ["PROCESSING", "PACKED", "CANCELLED"],
-  PROCESSING: ["PACKED", "CANCELLED"],
+  CONFIRMED: ["PROCESSING", "PACKED", "SHIPPED", "CANCELLED"],
+  PROCESSING: ["PACKED", "SHIPPED", "CANCELLED"],
   PACKED: ["SHIPPED", "CANCELLED"],
   SHIPPED: ["OUT_FOR_DELIVERY", "DELIVERED"],
   OUT_FOR_DELIVERY: ["DELIVERED", "FAILED"],
@@ -28,6 +28,13 @@ export const VALID_ORDER_TRANSITIONS = {
   CANCELLED: [],
   REFUNDED: [],
   FAILED: [],
+};
+
+export const isValidOrderTransition = (currentStatus, nextStatus) => {
+  if (!currentStatus || !nextStatus) return false;
+  if (currentStatus === nextStatus) return true; // idempotent self-transition
+  const allowed = VALID_ORDER_TRANSITIONS[currentStatus];
+  return Boolean(allowed && allowed.includes(nextStatus));
 };
 
 export default OrderStatus;

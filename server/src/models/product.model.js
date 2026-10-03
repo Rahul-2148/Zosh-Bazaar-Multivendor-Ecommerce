@@ -398,6 +398,7 @@ productSchema.index({ category: 1, sellingPrice: 1 });
 productSchema.index({ seller: 1, createdAt: -1 });
 productSchema.index({ status: 1, createdAt: -1 });
 productSchema.index({ slug: 1 }, { unique: false });
+productSchema.index({ sku: 1 });
 productSchema.index({ title: "text", description: "text", brand: "text", tags: "text" });
 productSchema.index({ "variants.sku": 1 });
 productSchema.index({ "variants.attributes.key": 1, "variants.attributes.value": 1 });
