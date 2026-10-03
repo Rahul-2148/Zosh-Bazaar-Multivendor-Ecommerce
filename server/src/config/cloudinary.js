@@ -1,36 +1,50 @@
 import { v2 as cloudinary } from "cloudinary";
 
-const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "";
-const apiKey = process.env.CLOUDINARY_API_KEY || "";
-const apiSecret = process.env.CLOUDINARY_API_SECRET || "";
-
-if (cloudName && apiKey && apiSecret) {
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-    secure: true,
-  });
-}
+const getCredentials = () => ({
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
+  apiKey: process.env.CLOUDINARY_API_KEY || "",
+  apiSecret: process.env.CLOUDINARY_API_SECRET || "",
+});
 
 export const isCloudinaryConfigured = () => {
+  const { cloudName, apiKey, apiSecret } = getCredentials();
   return Boolean(cloudName && apiKey && apiSecret);
 };
 
-export const getCloudinaryConfig = () => ({
-  cloudName,
-  apiKey: apiKey ? `${apiKey.slice(0, 4)}****` : "",
-  isConfigured: isCloudinaryConfigured(),
-});
+export const ensureCloudinaryConfig = () => {
+  const { cloudName, apiKey, apiSecret } = getCredentials();
+  if (cloudName && apiKey && apiSecret) {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+      secure: true,
+    });
+  }
+};
+
+// Initial config attempt
+ensureCloudinaryConfig();
+
+export const getCloudinaryConfig = () => {
+  const { cloudName, apiKey } = getCredentials();
+  return {
+    cloudName,
+    apiKey: apiKey ? `${apiKey.slice(0, 4)}****` : "",
+    isConfigured: isCloudinaryConfigured(),
+  };
+};
 
 /**
  * Generate authenticated signed parameters for secure browser-to-Cloudinary upload
  */
 export const generateUploadSignature = (paramsToSign = {}) => {
+  ensureCloudinaryConfig();
   if (!isCloudinaryConfigured()) {
     throw new Error("Cloudinary credentials are not configured on the server.");
   }
 
+  const { cloudName, apiKey, apiSecret } = getCredentials();
   const timestamp = Math.round(new Date().getTime() / 1000);
   const signingParams = {
     timestamp,
@@ -51,6 +65,7 @@ export const generateUploadSignature = (paramsToSign = {}) => {
  * Upload a memory buffer directly to Cloudinary
  */
 export const uploadBufferToCloudinary = (buffer, options = {}) => {
+  ensureCloudinaryConfig();
   return new Promise((resolve, reject) => {
     if (!isCloudinaryConfigured()) {
       return reject(new Error("Cloudinary is not configured."));
@@ -89,6 +104,7 @@ export const uploadBufferToCloudinary = (buffer, options = {}) => {
  * Remove an asset from Cloudinary by public ID
  */
 export const deleteFromCloudinary = async (publicId, resourceType = "image") => {
+  ensureCloudinaryConfig();
   if (!isCloudinaryConfigured() || !publicId) return false;
   try {
     const res = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });

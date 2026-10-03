@@ -42,6 +42,11 @@ console.log("===================================================================
 
 // ------------------------------------------------------------------------------
 // 1. AUTHENTICATION ENFORCEMENT
+import { Writable } from "node:stream";
+import { v2 as cloudinary } from "cloudinary";
+
+// ------------------------------------------------------------------------------
+// 1. AUTHENTICATION ENFORCEMENT
 // ------------------------------------------------------------------------------
 console.log("📦 [Suite 1] Authentication Enforcement on Upload Endpoints");
 
@@ -69,28 +74,32 @@ const mockRes = {
 };
 
 // 1.1 Unauthenticated uploadToCloudinary
-uploadController.uploadToCloudinary(mockUnauthenticatedReq, mockRes, () => {});
+await uploadController.uploadToCloudinary(mockUnauthenticatedReq, mockRes, () => {});
 assert(capturedStatus === 401, "uploadToCloudinary rejects unauthenticated caller with 401");
 assert(capturedJson?.error === true && capturedJson?.message?.includes("Authentication required"), "Returns clean authentication error message");
 
 // 1.2 Unauthenticated getUploadSignature
 capturedStatus = null;
 capturedJson = null;
-uploadController.getUploadSignature(mockUnauthenticatedReq, mockRes, () => {});
+await uploadController.getUploadSignature(mockUnauthenticatedReq, mockRes, () => {});
 assert(capturedStatus === 401, "getUploadSignature rejects unauthenticated caller with 401");
 
 // 1.3 Unauthenticated deleteProductImage
 capturedStatus = null;
 capturedJson = null;
-uploadController.deleteProductImage(mockUnauthenticatedReq, mockRes, () => {});
+await uploadController.deleteProductImage(mockUnauthenticatedReq, mockRes, () => {});
 assert(capturedStatus === 401, "deleteProductImage rejects unauthenticated caller with 401");
 
 // ------------------------------------------------------------------------------
-// 2. NAMESPACE ISOLATION & MULTI-TENANT OWNERSHIP
+// 2. NAMESPACE ISOLATION, 100% CLOUDINARY ENFORCEMENT & ZERO DISK WRITES
 // ------------------------------------------------------------------------------
-console.log("\n📦 [Suite 2] Multi-Tenant Namespace Ownership & Role-Based Isolation");
+console.log("\n📦 [Suite 2] Multi-Tenant Namespace Ownership & 100% Cloudinary Enforcement");
 
-// 2.1 Seller namespace derivation
+// 2.1 Verify unconfigured Cloudinary returns 503 with zero disk write fallback
+delete process.env.CLOUDINARY_CLOUD_NAME;
+delete process.env.CLOUDINARY_API_KEY;
+delete process.env.CLOUDINARY_API_SECRET;
+
 const mockSellerReq = {
   seller: { _id: "seller_abc_123", sellerName: "Urban Attire" },
   user: null,
@@ -108,7 +117,49 @@ const mockSellerReq = {
 
 capturedStatus = null;
 capturedJson = null;
-uploadController.uploadToCloudinary(mockSellerReq, mockRes, () => {});
+await uploadController.uploadToCloudinary(mockSellerReq, mockRes, () => {});
+assert(capturedStatus === 503, "Unconfigured Cloudinary returns HTTP 503 Service Unavailable");
+assert(
+  capturedJson?.code === "CLOUDINARY_NOT_CONFIGURED",
+  "Returns CLOUDINARY_NOT_CONFIGURED error code with zero local disk writes"
+);
+
+// 2.2 Configure test credentials and mock Cloudinary in-memory upload stream
+process.env.CLOUDINARY_CLOUD_NAME = "test_cloud_zosh";
+process.env.CLOUDINARY_API_KEY = "test_key_12345";
+process.env.CLOUDINARY_API_SECRET = "test_secret_67890";
+
+cloudinary.uploader.upload_stream = (options, callback) => {
+  const stream = new Writable({
+    write(chunk, encoding, next) {
+      next();
+    },
+    final(next) {
+      callback(null, {
+        secure_url: `https://res.cloudinary.com/test_cloud_zosh/${options.resource_type || "image"}/upload/${options.folder}/test_asset.jpg`,
+        url: `http://res.cloudinary.com/test_cloud_zosh/${options.resource_type || "image"}/upload/${options.folder}/test_asset.jpg`,
+        public_id: `${options.folder}/test_asset`,
+        format: "jpg",
+        resource_type: options.resource_type || "image",
+        width: 800,
+        height: 600,
+        bytes: 12345,
+      });
+      next();
+    },
+  });
+  return stream;
+};
+
+cloudinary.uploader.destroy = async (publicId, options) => ({ result: "ok" });
+
+let sampleUploadResponse = null;
+
+// 2.3 Seller namespace derivation
+capturedStatus = null;
+capturedJson = null;
+await uploadController.uploadToCloudinary(mockSellerReq, mockRes, () => {});
+sampleUploadResponse = capturedJson;
 assert(capturedStatus === 200, "Seller upload succeeds under controlled namespace");
 assert(
   capturedJson?.folder === "zosh-bazaar/sellers/seller_abc_123/products/prod-999/catalog",
@@ -116,7 +167,7 @@ assert(
 );
 assert(!capturedJson?.folder.includes("admin"), "Seller cannot inject admin namespace via client-supplied folder param");
 
-// 2.2 Admin namespace derivation
+// 2.4 Admin namespace derivation
 const mockAdminReq = {
   user: { _id: "admin_user_001", role: "ADMIN", fullName: "Platform Admin" },
   seller: null,
@@ -129,13 +180,13 @@ const mockAdminReq = {
 
 capturedStatus = null;
 capturedJson = null;
-uploadController.uploadToCloudinary(mockAdminReq, mockRes, () => {});
+await uploadController.uploadToCloudinary(mockAdminReq, mockRes, () => {});
 assert(
   capturedJson?.folder === "zosh-bazaar/admin/hero-banners",
   "Admin upload is securely placed under zosh-bazaar/admin namespace"
 );
 
-// 2.3 Delivery Partner POD namespace derivation
+// 2.5 Delivery Partner POD namespace derivation
 const mockAgentReq = {
   agent: { _id: "agent_obj_555", agentId: "AGT-DEL-007" },
   user: null,
@@ -148,13 +199,13 @@ const mockAgentReq = {
 
 capturedStatus = null;
 capturedJson = null;
-uploadController.uploadToCloudinary(mockAgentReq, mockRes, () => {});
+await uploadController.uploadToCloudinary(mockAgentReq, mockRes, () => {});
 assert(
   capturedJson?.folder === "zosh-bazaar/delivery/agt-del-007/pod",
   "Delivery Partner POD upload is authoritatively mapped to zosh-bazaar/delivery/<agentId>/pod"
 );
 
-// 2.4 Customer namespace derivation
+// 2.6 Customer namespace derivation
 const mockCustomerReq = {
   user: { _id: "customer_xyz_789", role: "CUSTOMER" },
   seller: null,
@@ -167,11 +218,32 @@ const mockCustomerReq = {
 
 capturedStatus = null;
 capturedJson = null;
-uploadController.uploadToCloudinary(mockCustomerReq, mockRes, () => {});
+await uploadController.uploadToCloudinary(mockCustomerReq, mockRes, () => {});
 assert(
   capturedJson?.folder === "zosh-bazaar/customers/customer_xyz_789/reviews",
   "Customer upload is authoritatively scoped to zosh-bazaar/customers/<userId>/reviews"
 );
+
+// 2.7 Verify legacy disk upload endpoint is disabled with 410 Gone
+capturedStatus = null;
+capturedJson = null;
+await uploadController.uploadProductImages(mockSellerReq, mockRes, () => {});
+assert(capturedStatus === 410, "Legacy local disk uploadProductImages endpoint returns 410 Gone");
+assert(capturedJson?.code === "LOCAL_UPLOAD_DISABLED", "Returns LOCAL_UPLOAD_DISABLED rejection code");
+
+// 2.8 Verify Cloudinary asset deletion by publicId
+capturedStatus = null;
+capturedJson = null;
+await uploadController.deleteProductImage(
+  {
+    seller: { _id: "seller_abc_123" },
+    body: { publicId: "zosh-bazaar/sellers/seller_abc_123/products/prod-999/catalog/test_asset" },
+  },
+  mockRes,
+  () => {}
+);
+assert(capturedStatus === 200, "Authenticated Cloudinary asset deletion succeeds with 200");
+assert(capturedJson?.message?.includes("deleted successfully"), "Returns success message on asset deletion");
 
 // ------------------------------------------------------------------------------
 // 3. MIME TYPE & RESOURCE TYPE VALIDATION
@@ -216,12 +288,18 @@ assert(pdfTest.accepted === false && pdfTest.err instanceof Error, "Unpermitted 
 // ------------------------------------------------------------------------------
 console.log("\n📦 [Suite 4] Normalized Response Contract Across Portals");
 
-assert(Array.isArray(capturedJson?.data), "Response includes standardized 'data' array");
-assert(Array.isArray(capturedJson?.media), "Response includes standardized 'media' array");
-assert(typeof capturedJson?.secure_url === "string", "Response includes top-level 'secure_url' for legacy compatibility");
-assert(typeof capturedJson?.url === "string", "Response includes top-level 'url' for legacy compatibility");
-assert(typeof capturedJson?.public_id === "string", "Response includes top-level 'public_id'");
-assert(Array.isArray(capturedJson?.images), "Response includes legacy 'images' URL list");
+assert(Array.isArray(sampleUploadResponse?.data), "Response includes standardized 'data' array");
+assert(Array.isArray(sampleUploadResponse?.media), "Response includes standardized 'media' array");
+assert(typeof sampleUploadResponse?.secure_url === "string", "Response includes top-level 'secure_url' for legacy compatibility");
+assert(typeof sampleUploadResponse?.url === "string", "Response includes top-level 'url' for legacy compatibility");
+assert(typeof sampleUploadResponse?.public_id === "string", "Response includes top-level 'public_id'");
+assert(Array.isArray(sampleUploadResponse?.images), "Response includes legacy 'images' URL list");
+
+const uploadsDir = path.join(__dirname, "../uploads");
+const hasAnyNewDiskWrites =
+  fs.existsSync(uploadsDir) &&
+  fs.readdirSync(uploadsDir).filter((f) => f !== "products" && f !== ".gitkeep").length > 0;
+assert(!hasAnyNewDiskWrites, "Zero files or garbage folders were written to local disk during media operations");
 
 // ------------------------------------------------------------------------------
 // 5. REPOSITORY-WIDE SECURITY SCAN

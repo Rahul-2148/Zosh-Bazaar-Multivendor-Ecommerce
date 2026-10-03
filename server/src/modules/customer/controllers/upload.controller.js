@@ -1,6 +1,3 @@
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import {
   isCloudinaryConfigured,
   generateUploadSignature,
@@ -8,10 +5,6 @@ import {
   deleteFromCloudinary,
 } from "../../../config/cloudinary.js";
 import { sanitizeSlug } from "../../../middlewares/upload.middleware.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const UPLOADS_ROOT = path.resolve(__dirname, "../../../../uploads");
 
 class UploadController {
   /**
@@ -167,98 +160,47 @@ class UploadController {
 
       const results = [];
 
-      if (isCloudinaryConfigured()) {
-        // Genuine Cloudinary upload with full metadata
-        for (let i = 0; i < filesToProcess.length; i++) {
-          const file = filesToProcess[i];
-          const resourceType =
-            file.detectedResourceType ||
-            (file.mimetype?.toLowerCase().startsWith("video/") ? "video" : "image");
+      if (!isCloudinaryConfigured()) {
+        return res.status(503).json({
+          success: false,
+          error: true,
+          code: "CLOUDINARY_NOT_CONFIGURED",
+          message:
+            "Cloud storage service is unavailable. Please configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in server/.env.",
+        });
+      }
 
-          const uploadResult = await uploadBufferToCloudinary(file.buffer, {
-            folder: folderPath,
-            resourceType,
-            tags: ["zosh-bazaar", cleanSubfolder].filter(Boolean),
-          });
+      // Authoritative Cloudinary memory stream upload with full metadata
+      for (let i = 0; i < filesToProcess.length; i++) {
+        const file = filesToProcess[i];
+        const resourceType =
+          file.detectedResourceType ||
+          (file.mimetype?.toLowerCase().startsWith("video/") ? "video" : "image");
 
-          results.push({
-            mediaId: `med_${Date.now()}_${i}`,
-            url: uploadResult.secureUrl,
-            secureUrl: uploadResult.secureUrl,
-            publicId: uploadResult.publicId,
-            resourceType: uploadResult.resourceType || resourceType,
-            format: uploadResult.format,
-            width: uploadResult.width,
-            height: uploadResult.height,
-            bytes: uploadResult.bytes,
-            originalName: file.originalname,
-            isPrimary: i === 0,
-            sortOrder: i,
-            folder: folderPath,
-            optionKey: optionKey || undefined,
-            optionValue: optionValue || undefined,
-            variantId: variantId || undefined,
-          });
-        }
-      } else {
-        // In production, local disk fallback is prohibited to prevent disk leaks and ephemeral container loss
-        if (process.env.NODE_ENV === "production") {
-          return res.status(503).json({
-            success: false,
-            error: true,
-            message: "Cloud storage service is unavailable. Cloudinary credentials must be configured on production server.",
-          });
-        }
+        const uploadResult = await uploadBufferToCloudinary(file.buffer, {
+          folder: folderPath,
+          resourceType,
+          tags: ["zosh-bazaar", cleanSubfolder].filter(Boolean),
+        });
 
-        // Resilient disk fallback for local development: write memory buffer to uploads/
-        const sanitizedRelativeDir = folderPath.replace(/^zosh-bazaar\//, "");
-        const targetDir = path.join(UPLOADS_ROOT, sanitizedRelativeDir);
-        if (!fs.existsSync(targetDir)) {
-          fs.mkdirSync(targetDir, { recursive: true });
-        }
-
-        const host = req.get("host") || "localhost:5000";
-        const protocol = req.protocol || "http";
-        const baseUrl = `${protocol}://${host}`;
-
-        for (let i = 0; i < filesToProcess.length; i++) {
-          const file = filesToProcess[i];
-          const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
-          const base = path
-            .basename(file.originalname, ext)
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .slice(0, 30);
-          const filename = `${base}-${Date.now()}-${i}${ext}`;
-          const filePath = path.join(targetDir, filename);
-
-          fs.writeFileSync(filePath, file.buffer);
-
-          const relativePath = `/uploads/${sanitizedRelativeDir}/${filename}`.replace(/\\/g, "/");
-          const absoluteUrl = `${baseUrl}${relativePath}`;
-          const resourceType =
-            file.detectedResourceType ||
-            (file.mimetype?.toLowerCase().startsWith("video/") ? "video" : "image");
-
-          results.push({
-            mediaId: `med_${Date.now()}_${i}`,
-            url: absoluteUrl,
-            secureUrl: absoluteUrl,
-            relativePath,
-            filename,
-            publicId: `local:${sanitizedRelativeDir}/${filename}`,
-            resourceType,
-            format: ext.replace(".", ""),
-            bytes: file.size,
-            originalName: file.originalname,
-            isPrimary: i === 0,
-            sortOrder: i,
-            folder: folderPath,
-            optionKey: optionKey || undefined,
-            optionValue: optionValue || undefined,
-            variantId: variantId || undefined,
-          });
-        }
+        results.push({
+          mediaId: `med_${Date.now()}_${i}`,
+          url: uploadResult.secureUrl,
+          secureUrl: uploadResult.secureUrl,
+          publicId: uploadResult.publicId,
+          resourceType: uploadResult.resourceType || resourceType,
+          format: uploadResult.format,
+          width: uploadResult.width,
+          height: uploadResult.height,
+          bytes: uploadResult.bytes,
+          originalName: file.originalname,
+          isPrimary: i === 0,
+          sortOrder: i,
+          folder: folderPath,
+          optionKey: optionKey || undefined,
+          optionValue: optionValue || undefined,
+          variantId: variantId || undefined,
+        });
       }
 
       return res.status(200).json({
@@ -286,68 +228,21 @@ class UploadController {
   }
 
   /**
-   * Upload multiple product images into uploads/products/:slug/ (legacy disk upload)
+   * Upload multiple product images (legacy disk upload - deprecated and disabled)
    * POST /api/v1/upload/product-images
    */
   async uploadProductImages(req, res, next) {
-    try {
-      const user = req.user;
-      const seller = req.seller;
-
-      if (!user && !seller) {
-        return res.status(401).json({
-          success: false,
-          error: true,
-          message: "Authentication required to upload product images.",
-        });
-      }
-
-      if (!req.files || req.files.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: true,
-          message: "No image files were uploaded. Please attach at least 1 image.",
-        });
-      }
-
-      const slug = req.resolvedSlug || "general";
-      const host = req.get("host");
-      const protocol = req.protocol || "http";
-      const baseUrl = `${protocol}://${host}`;
-
-      const uploadedFiles = req.files.map((file, index) => {
-        const relativePath = `/uploads/products/${slug}/${file.filename}`;
-        const absoluteUrl = `${baseUrl}${relativePath}`;
-
-        return {
-          mediaId: `med_${Date.now()}_${index}`,
-          url: absoluteUrl,
-          secureUrl: absoluteUrl,
-          relativePath,
-          filename: file.filename,
-          originalName: file.originalname,
-          size: file.size,
-          mimeType: file.mimetype,
-          isPrimary: index === 0,
-          order: index,
-        };
-      });
-
-      return res.status(200).json({
-        success: true,
-        error: false,
-        message: `Successfully uploaded ${uploadedFiles.length} product images to dedicated folder: products/${slug}`,
-        productSlug: slug,
-        folder: `uploads/products/${slug}`,
-        images: uploadedFiles,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return res.status(410).json({
+      success: false,
+      error: true,
+      code: "LOCAL_UPLOAD_DISABLED",
+      message:
+        "Direct local disk uploads are disabled. All media must be uploaded via Cloudinary using /api/v1/upload/cloudinary.",
+    });
   }
 
   /**
-   * Delete an uploaded image file from Cloudinary or local disk
+   * Delete an uploaded image file from Cloudinary
    * DELETE /api/v1/upload/product-image
    */
   async deleteProductImage(req, res, next) {
@@ -364,40 +259,32 @@ class UploadController {
         });
       }
 
-      const { publicId, relativePath, productSlug, filename } = req.body;
+      const { publicId } = req.body;
 
-      // Cloudinary deletion if publicId is provided and not local:
-      if (publicId && !publicId.startsWith("local:") && isCloudinaryConfigured()) {
-        const deleted = await deleteFromCloudinary(publicId);
-        return res.status(200).json({
-          success: true,
-          error: false,
-          message: deleted ? "Cloudinary media deleted successfully" : "Cloudinary asset deletion skipped or not found",
+      if (!publicId) {
+        return res.status(400).json({
+          success: false,
+          error: true,
+          message: "publicId is required to delete Cloudinary media asset.",
         });
       }
 
-      // Local disk deletion
-      let targetFile = null;
-      if (relativePath) {
-        const cleanRel = relativePath.replace(/^\//, "");
-        targetFile = path.resolve(UPLOADS_ROOT, "..", cleanRel);
-      } else if (productSlug && filename) {
-        targetFile = path.join(UPLOADS_ROOT, "products", productSlug, filename);
-      }
-
-      if (targetFile && fs.existsSync(targetFile)) {
-        fs.unlinkSync(targetFile);
-        return res.status(200).json({
-          success: true,
-          error: false,
-          message: "Product image removed from disk successfully",
+      if (!isCloudinaryConfigured()) {
+        return res.status(503).json({
+          success: false,
+          error: true,
+          code: "CLOUDINARY_NOT_CONFIGURED",
+          message: "Cloud storage service is unavailable. Please configure Cloudinary credentials.",
         });
       }
 
+      const deleted = await deleteFromCloudinary(publicId);
       return res.status(200).json({
         success: true,
         error: false,
-        message: "Image reference deregistered",
+        message: deleted
+          ? "Cloudinary media deleted successfully"
+          : "Cloudinary asset deletion skipped or not found",
       });
     } catch (error) {
       next(error);

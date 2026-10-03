@@ -24,13 +24,10 @@ uploadRouter.post(
 );
 
 /**
- * Upload multiple product images to local disk (legacy/fallback)
- * Form field: "images" (multiple)
- * Body field (optional): "productSlug" or "title"
+ * Upload multiple product images (legacy disk endpoint - disabled, returns 410)
  */
 uploadRouter.post(
   "/product-images",
-  uploadProductImages.array("images", 10),
   uploadController.uploadProductImages
 );
 
