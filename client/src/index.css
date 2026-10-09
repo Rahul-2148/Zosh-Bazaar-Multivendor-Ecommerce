@@ -51,6 +51,15 @@
 
   /* Overlay */
   --color-overlay: var(--overlay);
+
+  /* Semantic Payment Platform Tokens (Phase 31) */
+  --color-payment-primary: var(--primary);
+  --color-payment-success: var(--success);
+  --color-payment-warning: var(--warning);
+  --color-payment-error: var(--destructive);
+  --color-payment-surface: var(--card);
+  --color-payment-border: var(--border);
+  --color-payment-muted: var(--muted);
 }
 
 :root {

@@ -400,10 +400,10 @@ export const useVariantResolution = (product: IProduct | null): UseVariantResolu
   const savings = Math.max(0, mrpPrice - sellingPrice);
 
   const countInStock = selectedVariant ? selectedVariant.countInStock : product?.countInStock || 0;
-  const isOutOfStock = countInStock <= 0 || (selectedVariant && selectedVariant.status === "INACTIVE");
-  const isLowStock = !isOutOfStock && countInStock > 0 && countInStock <= (product?.lowStockThreshold || 5);
+  const isOutOfStock = Boolean(countInStock <= 0 || (selectedVariant && selectedVariant.status === "INACTIVE"));
+  const isLowStock = !isOutOfStock && countInStock > 0 && countInStock <= ((product as any)?.lowStockThreshold || 5);
 
-  const sku = selectedVariant?.sku || product?.sku || "";
+  const sku = selectedVariant?.sku || (product as any)?.sku || "";
 
   // Derive catalog price range across active variants
   const { minPrice, maxPrice, isPriceRange, priceRangeDisplay } = useMemo(() => {

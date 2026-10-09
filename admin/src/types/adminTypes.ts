@@ -111,6 +111,7 @@ export interface ProductItem {
     options: string[];
   }>;
   variants?: ProductVariant[];
+  mediaGroups?: any[];
   specifications?: ProductSpecification[];
   measurement?: { value: number; unit: string };
   status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";

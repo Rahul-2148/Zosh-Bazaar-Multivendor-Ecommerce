@@ -23,6 +23,7 @@ import deliveryPartnerRouter from "./modules/deliveryPartner/deliveryPartner.rou
 import { startDeletionWorker } from "./workers/deletionWorker.js";
 import emailPreviewRouter from "./modules/email/preview/email-preview.router.js";
 import { startEmailWorker } from "./modules/email/index.js";
+import paymentOutboxService from "./modules/payment/services/PaymentOutboxService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -149,7 +150,8 @@ connectDB()
   .then(() => {
     startDeletionWorker();
     startEmailWorker();
-    console.log("⚡ [Services] Database connected & workers operational.");
+    paymentOutboxService.startOutboxWorker(5000);
+    console.log("⚡ [Services] Database connected, workers & payment outbox operational.");
   })
   .catch((err) => {
     console.error("❌ [Services] Database startup failure:", err.message);

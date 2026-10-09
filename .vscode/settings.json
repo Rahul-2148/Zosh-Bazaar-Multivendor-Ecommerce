@@ -2,5 +2,11 @@
   "python.defaultInterpreterPath": "${workspaceFolder}/ai/.venv/Scripts/python.exe",
   "python.analysis.extraPaths": [
     "${workspaceFolder}/ai"
-  ]
+  ],
+  "[markdown]": {
+    "editor.formatOnSave": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.markdownlint": "explicit"
+  }
 }

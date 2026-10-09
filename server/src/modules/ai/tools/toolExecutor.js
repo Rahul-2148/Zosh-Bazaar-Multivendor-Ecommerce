@@ -14,6 +14,12 @@ import { Shipment } from '../../../models/shipment.model.js';
 import { priceIntelligenceService } from '../priceIntelligence.service.js';
 import cartService from '../../customer/services/cart.service.js';
 import productService from '../../customer/services/product.service.js';
+import walletService from '../../payment/services/WalletService.js';
+import paymentOffersService from '../../payment/services/PaymentOffersService.js';
+import paymentEligibilityService from '../../payment/services/PaymentEligibilityService.js';
+import { PaymentIntent } from '../../payment/models/paymentIntent.model.js';
+import { PaymentAttempt } from '../../payment/models/paymentAttempt.model.js';
+import { Refund } from '../../payment/models/refund.model.js';
 
 export class ToolExecutionError extends Error {
   constructor(message, statusCode = 400, code = 'TOOL_ERROR') {
@@ -102,6 +108,25 @@ export class ToolExecutor {
         case 'updateCart':
           this._requireAuth(userId, 'updateCart');
           result = await this._updateCart(args, userId);
+          break;
+
+        case 'getWalletBalance':
+          this._requireAuth(userId, 'getWalletBalance');
+          result = await this._getWalletBalance(userId);
+          break;
+
+        case 'getPaymentStatus':
+          this._requireAuth(userId, 'getPaymentStatus');
+          result = await this._getPaymentStatus(args, userId, role);
+          break;
+
+        case 'getRefundStatus':
+          this._requireAuth(userId, 'getRefundStatus');
+          result = await this._getRefundStatus(args, userId, role);
+          break;
+
+        case 'getPaymentOffers':
+          result = await this._getPaymentOffers(args);
           break;
 
         default:
@@ -639,6 +664,104 @@ export class ToolExecutor {
     item.quantity = safeQty;
     await item.save();
     return { updated: true, cartItemId, quantity: safeQty, message: `Updated quantity to ${safeQty}.` };
+  }
+
+  async _getWalletBalance(userId) {
+    const wallet = await walletService.getOrCreateWallet(userId);
+    return {
+      availableBalance: wallet.availableBalance || 0,
+      reservedBalance: wallet.reservedBalance || 0,
+      promotionalBalance: wallet.promotionalBalance || 0,
+      refundBalance: wallet.refundBalance || 0,
+      status: wallet.status || 'ACTIVE',
+      currency: wallet.currency || 'INR',
+    };
+  }
+
+  async _getPaymentStatus(args, userId, role) {
+    const { orderId, intentId } = args;
+    const query = {};
+    if (intentId) {
+      query.intentId = intentId;
+    } else if (orderId && isValidObjectId(orderId)) {
+      query.orders = orderId;
+    } else {
+      throw new ToolExecutionError('Must provide valid orderId or intentId', 400, 'INVALID_ARGS');
+    }
+
+    if (role !== 'ADMIN') {
+      query.user = userId;
+    }
+
+    const intent = await PaymentIntent.findOne(query).lean();
+    if (!intent) {
+      throw new ToolExecutionError('Payment record not found', 404, 'NOT_FOUND');
+    }
+
+    const attempts = await PaymentAttempt.find({ intent: intent._id })
+      .select('attemptId rail amount status providerReference failureReason createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return {
+      intentId: intent.intentId,
+      status: intent.status,
+      payableAmount: intent.amount,
+      currency: intent.currency || 'INR',
+      attemptsCount: attempts.length,
+      latestAttempt: attempts[0] || null,
+      history: attempts,
+    };
+  }
+
+  async _getRefundStatus(args, userId, role) {
+    const { orderId, refundId } = args;
+    const query = {};
+    if (refundId) {
+      query.refundId = refundId;
+    } else if (orderId && isValidObjectId(orderId)) {
+      query.order = orderId;
+    } else {
+      throw new ToolExecutionError('Valid orderId or refundId required', 400, 'INVALID_ARGS');
+    }
+
+    if (role !== 'ADMIN') {
+      query.user = userId;
+    }
+
+    const refund = await Refund.findOne(query).sort({ createdAt: -1 }).lean();
+    if (!refund) {
+      throw new ToolExecutionError('No refund record found for this order', 404, 'NOT_FOUND');
+    }
+
+    return {
+      refundId: refund.refundId,
+      status: refund.status,
+      amount: refund.amount,
+      currency: refund.currency || 'INR',
+      reason: refund.reason,
+      gatewayRefundId: refund.gatewayRefundId || null,
+      refundedAt: refund.completedAt || refund.createdAt,
+    };
+  }
+
+  async _getPaymentOffers(args) {
+    const orderAmount = Number(args.orderAmount) || 2000;
+    const rail = args.rail || null;
+    const eligible = paymentEligibilityService.getEligibleMethods({ orderAmount });
+    const offers = await paymentOffersService.getActiveOffers({ cartTotal: orderAmount, rail });
+
+    return {
+      orderAmount,
+      availableMethods: eligible.filter((m) => m.available).map((m) => m.method),
+      offers: (offers || []).map((o) => ({
+        code: o.code,
+        title: o.title,
+        discountType: o.discountType,
+        discountValue: o.discountValue,
+        minOrderAmount: o.minOrderAmount,
+      })),
+    };
   }
 }
 

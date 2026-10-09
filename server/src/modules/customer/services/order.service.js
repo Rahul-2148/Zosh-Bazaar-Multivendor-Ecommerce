@@ -16,8 +16,10 @@ class OrderService {
    * Executes multi-write checkout atomically within MongoDB sessions (or transactional compensation rollback).
    * Revalidates price, variant attributes, and stock authoritatively against live catalog data.
    */
-  async createOrder(user, shippingAddressData, cart) {
+  async createOrder(user, shippingAddressData, cart, options = {}) {
     const userId = user._id || user;
+    const clearCart = options.clearCart !== false;
+    const emitEvents = options.emitEvents !== false;
 
     if (!cart.cartItems || cart.cartItems.length === 0) {
       throw new Error("Cart is empty. Cannot place an order.");
@@ -274,12 +276,14 @@ class OrderService {
         resultOrders.push(order);
       }
 
-      // 5. Clean up purchased items from user's cart in the same transaction
-      const purchasedCartItemIds = cart.cartItems.map((i) => i._id);
-      await CartItem.deleteMany(
-        { _id: { $in: purchasedCartItemIds } },
-        sessionOption ? { session: sessionOption } : {}
-      );
+      // 5. Clean up purchased items from user's cart if clearCart is enabled
+      if (clearCart) {
+        const purchasedCartItemIds = cart.cartItems.map((i) => i._id);
+        await CartItem.deleteMany(
+          { _id: { $in: purchasedCartItemIds } },
+          sessionOption ? { session: sessionOption } : {}
+        );
+      }
 
       return resultOrders;
     };
@@ -360,36 +364,86 @@ class OrderService {
       ]);
       if (populated) {
         populatedOrders.push(populated);
-        emitOrderCreated(populated);
 
-        try {
-          emailEvents.emitDomainEvent("order.created", {
-            order: populated,
-            orderId: populated.orderId || populated._id.toString(),
-            recipient: populated.user?.email,
-            customerName: populated.user?.fullName,
-            total: populated.totalSellingPrice,
-            items: populated.orderItems,
-            deliveryAddress: populated.shippingAddress,
-            estimatedDelivery: populated.deliveryDate,
-          });
+        if (emitEvents) {
+          emitOrderCreated(populated);
 
-          if (populated.seller?.email) {
-            emailEvents.emitDomainEvent("seller.order_received", {
+          try {
+            emailEvents.emitDomainEvent("order.created", {
               order: populated,
               orderId: populated.orderId || populated._id.toString(),
-              recipient: populated.seller.email,
-              sellerName: populated.seller.sellerName,
+              recipient: populated.user?.email,
+              customerName: populated.user?.fullName,
+              total: populated.totalSellingPrice,
               items: populated.orderItems,
+              deliveryAddress: populated.shippingAddress,
+              estimatedDelivery: populated.deliveryDate,
             });
+
+            if (populated.seller?.email) {
+              emailEvents.emitDomainEvent("seller.order_received", {
+                order: populated,
+                orderId: populated.orderId || populated._id.toString(),
+                recipient: populated.seller.email,
+                sellerName: populated.seller.sellerName,
+                items: populated.orderItems,
+              });
+            }
+          } catch (emailErr) {
+            console.warn("[OrderService] Email event warning:", emailErr.message);
           }
-        } catch (emailErr) {
-          console.warn("[OrderService] Email event warning:", emailErr.message);
         }
       }
     }
 
     return populatedOrders;
+  }
+
+  /**
+   * Rollback orders and replenish deducted inventory if downstream payment intent creation fails.
+   */
+  async rollbackOrders(orders = []) {
+    if (!orders || orders.length === 0) return;
+
+    for (const ord of orders) {
+      try {
+        const orderDoc = await Order.findById(ord._id || ord).populate("orderItems");
+        if (!orderDoc) continue;
+
+        // Replenish stock for all items
+        for (const item of orderDoc.orderItems || []) {
+          const qty = Number(item.quantity || 1);
+          const prodId = item.product?._id || item.product;
+          if (item.variantId) {
+            await Product.findOneAndUpdate(
+              { _id: prodId, "variants._id": item.variantId },
+              {
+                $inc: {
+                  "variants.$.countInStock": qty,
+                  countInStock: qty,
+                },
+              }
+            );
+          } else if (prodId) {
+            await Product.findByIdAndUpdate(prodId, {
+              $inc: { countInStock: qty },
+            });
+          }
+        }
+
+        // Mark order CANCELLED and paymentStatus FAILED
+        orderDoc.orderStatus = OrderStatus.CANCELLED;
+        orderDoc.paymentStatus = PaymentStatus.FAILED;
+        orderDoc.statusHistory.push({
+          status: OrderStatus.CANCELLED,
+          timestamp: new Date(),
+          comment: "Cancelled automatically due to checkout payment initialization failure",
+        });
+        await orderDoc.save();
+      } catch (err) {
+        console.error(`[OrderService] Error rolling back order ${ord._id || ord}:`, err.message);
+      }
+    }
   }
 
   async findOrderById(orderId) {
@@ -486,6 +540,20 @@ class OrderService {
       throw new Error(
         `Cannot transition order status from "${currentStatus}" to "${newStatus}". Valid transitions: [${allowedTransitions.join(", ")}]`
       );
+    }
+
+    // Invariant: Prepaid orders cannot be SHIPPED or DELIVERED before authoritative payment confirmation
+    const paidStatuses = [PaymentStatus.CAPTURED, PaymentStatus.SUCCESS, PaymentStatus.COMPLETED];
+    const isPrepaid = (order.paymentMethod || "").toUpperCase() !== "COD";
+    const shippingStatuses = [OrderStatus.SHIPPED, OrderStatus.DELIVERED];
+
+    if (isPrepaid && shippingStatuses.includes(newStatus) && !paidStatuses.includes(order.paymentStatus)) {
+      const err = new Error(
+        `Cannot transition order ${orderId} to "${newStatus}": Prepaid order has not been paid. Current payment status is "${order.paymentStatus}". Orders cannot be shipped before authoritative payment confirmation.`
+      );
+      err.code = "ORDER_PAYMENT_UNCONFIRMED";
+      err.statusCode = 422;
+      throw err;
     }
 
     // Atomic Restocking on Cancellation / Return (Section 38)

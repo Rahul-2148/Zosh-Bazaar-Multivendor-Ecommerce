@@ -193,6 +193,56 @@ export const COMMERCE_TOOLS = [
     mutation: true,
     requiresAuth: true,
   },
+  {
+    name: 'getWalletBalance',
+    description: 'Get the authenticated customer live Zosh Wallet balance, available balance, reserved balance, and promotional balance.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+    mutation: false,
+    requiresAuth: true,
+  },
+  {
+    name: 'getPaymentStatus',
+    description: 'Check the real-time payment status, attempt history, and transaction references for a specific order or payment intent.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Order ID or MongoDB ObjectId' },
+        intentId: { type: 'string', description: 'Payment Intent public ID (e.g. pi_...)' },
+      },
+    },
+    mutation: false,
+    requiresAuth: true,
+  },
+  {
+    name: 'getRefundStatus',
+    description: 'Check the authoritative refund status, amounts, and bank transaction reference for a refunded order or item.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: 'Order ID' },
+        refundId: { type: 'string', description: 'Refund reference ID if known' },
+      },
+      required: ['orderId'],
+    },
+    mutation: false,
+    requiresAuth: true,
+  },
+  {
+    name: 'getPaymentOffers',
+    description: 'Check active bank offers, card instant discounts, UPI cashbacks, and no-cost EMI options for an order amount.',
+    parameters: {
+      type: 'object',
+      properties: {
+        orderAmount: { type: 'number', description: 'Order or cart payable amount in INR' },
+        rail: { type: 'string', description: 'Optional payment rail filter (UPI, CARD, NETBANKING, EMI)' },
+      },
+    },
+    mutation: false,
+    requiresAuth: false,
+  },
 ];
 
 /**

@@ -32,6 +32,7 @@ import {
 import { syncWithSavedAddresses } from "../../../Redux Toolkit/features/customer/LocationSlice";
 import { useNavigate } from "react-router-dom";
 import AppDialog from "../../../common/layout/AppDialog";
+import { PaymentPage } from "../../components/payment/PaymentPage";
 
 const Checkout = () => {
   const dispatch = useAppDispatch();
@@ -41,6 +42,8 @@ const Checkout = () => {
 
   // Multi-step Checkout: 1 = Address, 2 = Review Packages, 3 = Payment
   const [activeStep, setActiveStep] = useState(1);
+  const [preparedOrders, setPreparedOrders] = useState<any[]>([]);
+  const [isPreparingOrder, setIsPreparingOrder] = useState(false);
 
   const [customSelectedAddress, setCustomSelectedAddress] = useState<any>(null);
   const selectedAddress =
@@ -479,114 +482,84 @@ const Checkout = () => {
                 <Button
                   variant="contained"
                   color="primary"
-                  endIcon={<ArrowForward />}
-                  onClick={() => setActiveStep(3)}
+                  endIcon={
+                    isPreparingOrder ? (
+                      <CircularProgress size={18} sx={{ color: "white" }} />
+                    ) : (
+                      <ArrowForward />
+                    )
+                  }
+                  onClick={async () => {
+                    if (!selectedAddress) return;
+                    if (preparedOrders && preparedOrders.length > 0) {
+                      setActiveStep(3);
+                      return;
+                    }
+                    try {
+                      setIsPreparingOrder(true);
+                      const action: any = await dispatch(
+                        createOrder({
+                          address: selectedAddress,
+                          jwt,
+                          paymentGateway: "CUSTOM",
+                        })
+                      );
+                      if (action.payload) {
+                        const orders =
+                          action.payload.order ||
+                          (action.payload.orders ? action.payload.orders : [action.payload]);
+                        setPreparedOrders(Array.isArray(orders) ? orders : [orders]);
+                        setActiveStep(3);
+                      }
+                    } catch (err) {
+                      console.error("Failed to prepare order for payment:", err);
+                    } finally {
+                      setIsPreparingOrder(false);
+                    }
+                  }}
+                  disabled={isPreparingOrder}
                   sx={{ textTransform: "none", fontWeight: 700, borderRadius: "0.75rem", px: 3 }}
                 >
-                  Proceed to Payment
+                  {isPreparingOrder ? "Securing Order..." : "Proceed to Payment"}
                 </Button>
               </div>
             </div>
           )}
 
-          {/* ================= STEP 3: PAYMENT SELECTION ================= */}
+          {/* ================= STEP 3: PAYMENT (ZOSH PAYMENT PLATFORM 2.0) ================= */}
           {activeStep === 3 && (
             <div className="border border-border/80 bg-card text-card-foreground rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-border/60">
-                <PaymentOutlined className="text-primary" />
-                <Typography variant="h6" fontWeight="700" className="text-base sm:text-lg">
-                  Select Payment Method
-                </Typography>
-              </div>
-
-              <RadioGroup
-                value={selectedPaymentMethod}
-                onChange={(e) => setSelectedPaymentMethod(e.target.value as any)}
-                className="flex flex-col gap-3"
-              >
-                {/* Razorpay Online */}
-                <div
-                  onClick={() => setSelectedPaymentMethod("RAZORPAY")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedPaymentMethod === "RAZORPAY"
-                      ? "border-primary bg-primary/5"
-                      : "border-border/70 hover:border-primary/40 bg-card"
-                  }`}
-                >
-                  <FormControlLabel
-                    value="RAZORPAY"
-                    control={<Radio />}
-                    label={
-                      <div>
-                        <p className="font-bold text-sm text-foreground">
-                          Pay Online via Razorpay
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, NetBanking, & Wallets
-                        </p>
-                      </div>
+              {preparedOrders.length > 0 ? (
+                <PaymentPage
+                  orderIds={preparedOrders.map((o: any) => o._id || o.id)}
+                  initialAmount={cartData.totalSellingPrice || 0}
+                  deliveryAddress={selectedAddress}
+                  onPaymentComplete={(intent) => {
+                    const primaryId = preparedOrders[0]?._id;
+                    if (primaryId) {
+                      navigate(`/payment-success/${primaryId}`);
+                    } else {
+                      navigate("/account/orders");
                     }
-                  />
-                </div>
-
-                {/* Cash on Delivery (COD) */}
-                <div
-                  onClick={() => setSelectedPaymentMethod("COD")}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    selectedPaymentMethod === "COD"
-                      ? "border-primary bg-primary/5"
-                      : "border-border/70 hover:border-primary/40 bg-card"
-                  }`}
-                >
-                  <FormControlLabel
-                    value="COD"
-                    control={<Radio />}
-                    label={
-                      <div>
-                        <p className="font-bold text-sm text-foreground">
-                          Cash on Delivery (COD)
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Pay in cash or QR scan at your doorstep upon delivery
-                        </p>
-                      </div>
-                    }
-                  />
-                </div>
-              </RadioGroup>
-
-              <div className="flex justify-between pt-4 border-t border-border/60">
-                <Button
-                  variant="outlined"
-                  startIcon={<ArrowBack />}
-                  onClick={() => setActiveStep(2)}
-                  sx={{ textTransform: "none", fontWeight: 600, borderRadius: "0.75rem" }}
-                >
-                  Back to Packages
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handlePlaceOrder}
-                  disabled={order.loading}
-                  sx={{
-                    py: 1.2,
-                    px: 3.5,
-                    borderRadius: "0.75rem",
-                    fontWeight: 800,
-                    textTransform: "none",
-                    boxShadow: "0 4px 14px rgba(13, 148, 136, 0.4)",
                   }}
-                >
-                  {order.loading ? (
-                    <CircularProgress size={22} sx={{ color: "white" }} />
-                  ) : selectedPaymentMethod === "COD" ? (
-                    `Confirm Order — ₹${cartData.totalSellingPrice?.toLocaleString("en-IN")}`
-                  ) : (
-                    `Pay ₹${cartData.totalSellingPrice?.toLocaleString("en-IN")} via Razorpay`
-                  )}
-                </Button>
-              </div>
+                  onBackToPackages={() => setActiveStep(2)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
+                  <CircularProgress size={36} sx={{ color: "var(--color-primary, #0d9488)" }} />
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    Initializing your secure payment session...
+                  </p>
+                  <Button
+                    variant="outlined"
+                    startIcon={<ArrowBack />}
+                    onClick={() => setActiveStep(2)}
+                    sx={{ textTransform: "none", borderRadius: "0.75rem" }}
+                  >
+                    Back to Packages
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

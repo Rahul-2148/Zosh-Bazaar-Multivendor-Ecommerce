@@ -318,4 +318,43 @@ export const adminApi = {
       currentPage: data.currentPage ?? page,
     };
   },
+
+  // Zosh Payment Platform 2.0 Operations
+  getPaymentDashboard: async () => {
+    const res = await apiClient.get<any>("/payment/admin/dashboard");
+    return res.data;
+  },
+
+  getPaymentIntents: async (page: number = 1, status?: string) => {
+    const params: any = { page, limit: 20 };
+    if (status) params.status = status;
+    const res = await apiClient.get<any>("/payment/admin/intents", { params });
+    return res.data;
+  },
+
+  getLedgerJournals: async (page: number = 1) => {
+    const res = await apiClient.get<any>("/payment/admin/ledger", {
+      params: { page, limit: 25 },
+    });
+    return res.data;
+  },
+
+  getRefunds: async (page: number = 1) => {
+    const res = await apiClient.get<any>("/payment/admin/refunds", {
+      params: { page, limit: 20 },
+    });
+    return res.data;
+  },
+
+  runReconciliation: async () => {
+    const res = await apiClient.post<any>("/payment/admin/reconciliation/run");
+    return res.data;
+  },
+
+  getSettlements: async (page: number = 1) => {
+    const res = await apiClient.get<any>("/payment/admin/settlements", {
+      params: { page, limit: 20 },
+    });
+    return res.data;
+  },
 };

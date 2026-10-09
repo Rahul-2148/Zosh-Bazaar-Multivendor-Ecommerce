@@ -7,7 +7,12 @@ import {
   LockOutlined,
   ReceiptLongOutlined,
   Close,
+  AccountBalanceWalletOutlined,
+  BoltOutlined,
+  ShieldOutlined,
+  ArrowUpward,
 } from "@mui/icons-material";
+import { Api } from "../../../config/Api";
 import {
   Button,
   Modal,
@@ -34,11 +39,19 @@ export const PaymentsView: React.FC = () => {
   const { paymentMethods, transactions } = useAppSelector((store) => store.user);
   const jwt = localStorage.getItem("jwt") || "";
 
-  const [activeTab, setActiveTab] = useState<"methods" | "transactions">("methods");
+  const [activeTab, setActiveTab] = useState<"methods" | "transactions" | "wallet">("methods");
   const [modalOpen, setModalOpen] = useState(false);
   const [methodType, setMethodType] = useState<"CARD" | "UPI">("CARD");
   const [loadingAction, setLoadingAction] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Zosh Wallet State
+  const [walletData, setWalletData] = useState<any>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [topupModalOpen, setTopupModalOpen] = useState(false);
+  const [topupAmount, setTopupAmount] = useState<number>(1000);
+  const [topupLoading, setTopupLoading] = useState(false);
+  const [topupError, setTopupError] = useState<string | null>(null);
 
   // Form State
   const [cardHolder, setCardHolder] = useState("");
@@ -48,12 +61,41 @@ export const PaymentsView: React.FC = () => {
   const [upiId, setUpiId] = useState("");
   const [isDefault, setIsDefault] = useState(false);
 
+  const fetchWallet = async () => {
+    try {
+      setWalletLoading(true);
+      const res = await Api.get("/payment/wallet");
+      setWalletData(res.data?.wallet);
+    } catch (err) {
+      console.error("Failed to fetch wallet:", err);
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (jwt) {
       dispatch(fetchPaymentMethods());
       dispatch(fetchCustomerTransactions());
+      fetchWallet();
     }
   }, [dispatch, jwt]);
+
+  const handleTopup = async () => {
+    if (!topupAmount || topupAmount <= 0) return;
+    setTopupLoading(true);
+    setTopupError(null);
+    try {
+      await Api.post("/payment/wallet/topup", { amount: topupAmount });
+      await fetchWallet();
+      setTopupModalOpen(false);
+      setTopupAmount(1000);
+    } catch (err: any) {
+      setTopupError(err.response?.data?.message || "Failed to top up wallet.");
+    } finally {
+      setTopupLoading(false);
+    }
+  };
 
   const detectBrand = (num: string) => {
     const clean = num.replace(/\s+/g, "");
@@ -192,6 +234,17 @@ export const PaymentsView: React.FC = () => {
         >
           Transaction History ({transactions?.length || 0})
         </button>
+        <button
+          onClick={() => setActiveTab("wallet")}
+          className={`pb-2.5 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+            activeTab === "wallet"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <AccountBalanceWalletOutlined sx={{ fontSize: 16 }} />
+          <span>Zosh Wallet {walletData ? `(₹${(walletData.availableBalance || 0).toLocaleString("en-IN")})` : ""}</span>
+        </button>
       </div>
 
       {activeTab === "methods" && (
@@ -200,7 +253,7 @@ export const PaymentsView: React.FC = () => {
           <div className="p-4 rounded-xl bg-muted/40 border border-border/60 flex items-start gap-3">
             <LockOutlined sx={{ fontSize: 20 }} className="text-emerald-500 mt-0.5 shrink-0" />
             <div className="text-xs text-muted-foreground leading-relaxed">
-              <span className="font-semibold text-foreground">PCI-DSS Tokenized Security:</span>{" "}
+              <span className="font-semibold text-foreground">Secure Tokenized Processing:</span>{" "}
               ZoshBazaar never saves your full card numbers or CVV. All transactions are securely routed through certified payment gateways with bank-grade encryption.
             </div>
           </div>
@@ -404,6 +457,229 @@ export const PaymentsView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Zosh Wallet Tab */}
+      {activeTab === "wallet" && (
+        <div className="space-y-6">
+          {/* Main Wallet Hero Card */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/15 via-primary/5 to-card border border-primary/25 p-6 sm:p-8 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black tracking-widest text-primary uppercase bg-primary/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <BoltOutlined sx={{ fontSize: 14 }} /> ZOSH SECURE WALLET
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Active Account
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Available Balance</p>
+                  <div className="text-3xl sm:text-4xl font-black text-foreground mt-1 tracking-tight">
+                    ₹{Number(walletData?.availableBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground max-w-md">
+                  Backed by double-entry platform ledger. Use for 1-click instant checkout or split checkout with UPI/Cards.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<ArrowUpward />}
+                  onClick={() => setTopupModalOpen(true)}
+                  sx={{ textTransform: "none", fontWeight: 700, borderRadius: "0.75rem", px: 3, py: 1.2 }}
+                >
+                  Top Up Wallet
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={fetchWallet}
+                  disabled={walletLoading}
+                  sx={{ textTransform: "none", fontWeight: 600, borderRadius: "0.75rem" }}
+                >
+                  {walletLoading ? "Syncing..." : "Refresh"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Micro Balances Breakdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-6 border-t border-border/70">
+              <div className="p-3.5 rounded-xl bg-card/60 border border-border/60">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Reserved Balance
+                </span>
+                <span className="text-base font-bold text-foreground mt-1 block">
+                  ₹{Number(walletData?.reservedBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                  Locked for in-flight checkout
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-card/60 border border-border/60">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Promotional Balance
+                </span>
+                <span className="text-base font-bold text-foreground mt-1 block">
+                  ₹{Number(walletData?.promotionalBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                  Cashbacks & platform credits
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-card/60 border border-border/60">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                  Refund Balance
+                </span>
+                <span className="text-base font-bold text-foreground mt-1 block">
+                  ₹{Number(walletData?.refundBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                  Instant credit from returned items
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Wallet Benefits Callout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/60 flex items-start gap-3">
+              <BoltOutlined sx={{ fontSize: 20 }} className="text-primary mt-0.5 shrink-0" />
+              <div>
+                <h4 className="text-xs font-bold text-foreground">1-Click Instant Checkout</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Skip OTPs and gateway redirects. Pay instantly with your available wallet funds.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/60 flex items-start gap-3">
+              <ShieldOutlined sx={{ fontSize: 20 }} className="text-emerald-500 mt-0.5 shrink-0" />
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Split Payment Protection</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Combine wallet balance with UPI or Card if your balance is insufficient for full order.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/60 flex items-start gap-3">
+              <ReceiptLongOutlined sx={{ fontSize: 20 }} className="text-purple-500 mt-0.5 shrink-0" />
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Double-Entry Audited</h4>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Every debit and credit posting is strictly balanced and immutable in the platform ledger.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Topup Wallet Modal */}
+      <Modal
+        open={topupModalOpen}
+        onClose={() => !topupLoading && setTopupModalOpen(false)}
+        slotProps={{
+          backdrop: {
+            sx: {
+              backdropFilter: "blur(6px)",
+              backgroundColor: "rgba(0, 0, 0, 0.65)",
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "92%", sm: 440 },
+            bgcolor: "var(--card)",
+            color: "var(--foreground)",
+            boxShadow: 24,
+            borderRadius: "1rem",
+            border: "1px solid var(--border)",
+            p: 4,
+          }}
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-border/70 mb-4">
+            <div className="flex items-center gap-2">
+              <AccountBalanceWalletOutlined className="text-primary" />
+              <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.1rem" }}>
+                Top Up Zosh Wallet
+              </Typography>
+            </div>
+            <IconButton size="small" onClick={() => setTopupModalOpen(false)} disabled={topupLoading}>
+              <Close fontSize="small" />
+            </IconButton>
+          </div>
+
+          {topupError && (
+            <Alert severity="error" sx={{ mb: 3, borderRadius: "0.5rem", fontSize: "12px" }}>
+              {topupError}
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Amount (₹ INR)
+              </label>
+              <TextField
+                fullWidth
+                type="number"
+                size="small"
+                value={topupAmount}
+                onChange={(e) => setTopupAmount(Math.max(1, Number(e.target.value)))}
+                disabled={topupLoading}
+                placeholder="1000"
+              />
+            </div>
+
+            {/* Quick Amount Chips */}
+            <div>
+              <p className="text-[11px] text-muted-foreground mb-1.5 font-semibold">Quick select:</p>
+              <div className="flex items-center gap-2">
+                {[500, 1000, 2000, 5000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setTopupAmount(amt)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      topupAmount === amt
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-muted hover:bg-muted/80 text-foreground"
+                    }`}
+                  >
+                    +₹{amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-[11px] text-muted-foreground">
+              Funds are instantly credited to your wallet via our deterministic payment ledger.
+            </div>
+
+            <Button
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={handleTopup}
+              disabled={topupLoading || topupAmount <= 0}
+              sx={{ textTransform: "none", fontWeight: 700, borderRadius: "0.75rem", py: 1.2, mt: 1 }}
+            >
+              {topupLoading ? <CircularProgress size={20} color="inherit" /> : `Deposit ₹${topupAmount.toLocaleString("en-IN")}`}
+            </Button>
+          </div>
+        </Box>
+      </Modal>
 
       {/* Add Payment Method Modal */}
       <Modal

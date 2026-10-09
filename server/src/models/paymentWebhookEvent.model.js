@@ -5,7 +5,7 @@ const paymentWebhookEventSchema = new mongoose.Schema(
     provider: {
       type: String,
       required: true,
-      enum: ["RAZORPAY", "STRIPE", "MOCK"],
+      enum: ["RAZORPAY", "CASHFREE", "PAYU", "PHONEPE", "JUSPAY", "SANDBOX", "STRIPE", "MOCK"],
       default: "RAZORPAY",
     },
     eventId: {

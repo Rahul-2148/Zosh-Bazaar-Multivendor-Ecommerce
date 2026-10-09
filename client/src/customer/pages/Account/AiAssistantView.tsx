@@ -191,7 +191,7 @@ export const AiAssistantView: React.FC = () => {
       return {
         id: generateMsgId(),
         sender: "bot",
-        text: `💳 **Payment Safety at ZoshBazaar:**\n• We accept Cards, UPI, Net Banking, and COD.\n• We use PCI-DSS tokenization and never store full card numbers or CVV.\n• If money was deducted for a failed order, your bank will auto-reverse it within 24-48 hours.`,
+        text: `💳 **Payment Safety at ZoshBazaar:**\n• We accept Cards, UPI, Net Banking, and COD.\n• We use secure network tokenization and never store full card numbers or CVV.\n• If money was deducted for a failed order, your bank will auto-reverse it within 24-48 hours.`,
         timestamp,
         suggestions: ["Show available coupons", "Where is my latest order?"],
       };

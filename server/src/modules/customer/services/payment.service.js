@@ -380,8 +380,13 @@ class PaymentService {
       }
     } catch (err) {
       // In local dev/mock scenarios without active network credentials
+      // Strictly disabled in production or without explicit ALLOW_MOCK_PAYMENTS opt-in
+      const isProduction =
+        process.env.NODE_ENV === "production" ||
+        process.env.PAYMENT_ENV === "production";
       if (
-        process.env.NODE_ENV !== "production" &&
+        !isProduction &&
+        process.env.ALLOW_MOCK_PAYMENTS === "true" &&
         (!process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID === "rzp_test_mock")
       ) {
         const { paymentOrder: updatedOrder } = await this.reconcilePaymentCapture(

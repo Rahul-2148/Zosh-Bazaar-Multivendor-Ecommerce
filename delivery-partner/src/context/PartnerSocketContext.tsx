@@ -52,12 +52,12 @@ export const PartnerSocketProvider: React.FC<{ children: React.ReactNode }> = ({
       (import.meta.env.VITE_API_BASE_URL
         ? import.meta.env.VITE_API_BASE_URL.replace("/api/v1", "").replace("/api", "")
         : "http://localhost:5000");
-    const token = localStorage.getItem("jwt");
+    const authToken = token || localStorage.getItem("jwt");
     const newSocket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnectionAttempts: 15,
       reconnectionDelay: 2000,
-      auth: token ? { token } : {},
+      auth: authToken ? { token: authToken } : {},
     });
 
     newSocket.on("connect", () => {
