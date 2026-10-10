@@ -16,6 +16,8 @@ productRouter.get("/:productId/price-history", productController.getProductPrice
 productRouter.post("/:productId/price-alert", authMiddleware, productController.subscribePriceAlert);
 productRouter.get("/:productId/questions", productController.getProductQuestions);
 productRouter.post("/:productId/questions", authMiddleware, productController.askProductQuestion);
+productRouter.post("/questions/:questionId/upvote", authMiddleware, productController.upvoteProductQuestion);
+productRouter.post("/questions/:questionId/answer", authMiddleware, productController.answerProductQuestion);
 productRouter.get("/:productId", productController.getProductById);
 
 export default productRouter;

@@ -37,6 +37,12 @@ const cartSchema = mongoose.Schema(
       type: Number,
       default: 0,
     },
+    recentMergeSignatures: [
+      {
+        signature: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

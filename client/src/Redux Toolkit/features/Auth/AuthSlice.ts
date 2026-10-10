@@ -54,6 +54,63 @@ export const sendLoginSignupOtp = createAsyncThunk<
   }
 });
 
+// Helper to safely merge guest cart without item loss
+export const syncAndMergeGuestCart = async (jwt: string) => {
+  try {
+    const guestCartRaw = localStorage.getItem("zosh_guest_cart");
+    if (!guestCartRaw) return;
+    const guestItems = JSON.parse(guestCartRaw);
+    if (!Array.isArray(guestItems) || guestItems.length === 0) {
+      localStorage.removeItem("zosh_guest_cart");
+      return;
+    }
+
+    const response = await Api.post(
+      "/cart/merge",
+      { items: guestItems, guestItems },
+      { headers: { Authorization: `Bearer ${jwt}` } }
+    );
+
+    const mergedList: any[] = response.data?.mergedItems || [];
+    const failedList: any[] = response.data?.failedItems || [];
+
+    // Filter out only items that the server confirmed as successfully merged
+    const remainingGuestItems = guestItems.filter((gi: any) => {
+      const isMerged = mergedList.some((mi: any) => {
+        if (gi._id && mi.clientItemId === gi._id) return true;
+        const giProd = gi.productId || gi.product?._id || gi.product;
+        const miProd = mi.productId || mi.item?.productId;
+        const giVar = gi.variantId || null;
+        const miVar = mi.variantId || mi.item?.variantId || null;
+        return giProd === miProd && giVar === miVar;
+      });
+      return !isMerged;
+    });
+
+    if (remainingGuestItems.length === 0) {
+      localStorage.removeItem("zosh_guest_cart");
+    } else {
+      localStorage.setItem(
+        "zosh_guest_cart",
+        JSON.stringify(remainingGuestItems)
+      );
+    }
+
+    if (failedList.length > 0) {
+      sessionStorage.setItem(
+        "zosh_cart_merge_warnings",
+        JSON.stringify(failedList)
+      );
+    }
+  } catch (mergeErr) {
+    // Network or server error: NEVER wipe user's local guest cart!
+    console.warn(
+      "[Auth] Guest cart merge warning (preserving local items):",
+      mergeErr
+    );
+  }
+};
+
 // Signup
 export const signup = createAsyncThunk<any, any>(
   "/auth/signup",
@@ -67,23 +124,8 @@ export const signup = createAsyncThunk<any, any>(
         localStorage.setItem("role", response.data.role);
       }
 
-      // Automatically merge guest cart if items exist
-      try {
-        const guestCartRaw = localStorage.getItem("zosh_guest_cart");
-        if (guestCartRaw) {
-          const guestItems = JSON.parse(guestCartRaw);
-          if (Array.isArray(guestItems) && guestItems.length > 0) {
-            await Api.post(
-              "/cart/merge",
-              { guestItems },
-              { headers: { Authorization: `Bearer ${response.data.jwt}` } }
-            );
-            localStorage.removeItem("zosh_guest_cart");
-          }
-        }
-      } catch (mergeErr) {
-        console.warn("[Auth] Guest cart merge warning:", mergeErr);
-      }
+      // Safely merge guest cart without item loss
+      await syncAndMergeGuestCart(response.data.jwt);
 
       if (response.data.role === "ROLE_ADMIN") {
         signupRequest.navigate("/admin");
@@ -113,23 +155,8 @@ export const signin = createAsyncThunk<any, any>(
         localStorage.setItem("role", response.data.role);
       }
 
-      // Automatically merge guest cart if items exist
-      try {
-        const guestCartRaw = localStorage.getItem("zosh_guest_cart");
-        if (guestCartRaw) {
-          const guestItems = JSON.parse(guestCartRaw);
-          if (Array.isArray(guestItems) && guestItems.length > 0) {
-            await Api.post(
-              "/cart/merge",
-              { guestItems },
-              { headers: { Authorization: `Bearer ${response.data.jwt}` } }
-            );
-            localStorage.removeItem("zosh_guest_cart");
-          }
-        }
-      } catch (mergeErr) {
-        console.warn("[Auth] Guest cart merge warning:", mergeErr);
-      }
+      // Safely merge guest cart without item loss
+      await syncAndMergeGuestCart(response.data.jwt);
 
       if (response.data.role === "ROLE_ADMIN") {
         signinRequest.navigate("/admin");

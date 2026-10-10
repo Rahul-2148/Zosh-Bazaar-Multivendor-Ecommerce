@@ -16,6 +16,7 @@ export interface Seller {
   pickupAddress?: any;
   GSTIN?: string;
   accountStatus?: string;
+  isEmailVerified?: boolean;
   rating?: number;
   reviewsCount?: number;
   createdAt?: string | Date;

@@ -91,11 +91,19 @@ class CartController {
   async mergeCartHandler(req, res, next) {
     try {
       const user = req.user;
-      const { items } = req.body || {};
-      const cart = await CartService.mergeGuestCart(user, items);
+      const items = req.body?.items || req.body?.guestItems || [];
+      const idempotencyKey =
+        req.body?.idempotencyKey || req.headers["x-idempotency-key"] || null;
+      const result = await CartService.mergeGuestCart(user, items, {
+        idempotencyKey,
+      });
       return res.status(200).json({
-        message: "Guest cart merged successfully",
-        cart,
+        message: result.message,
+        cart: result.cart,
+        mergedItems: result.mergedItems,
+        failedItems: result.failedItems,
+        totalProcessed: result.totalProcessed,
+        isIdempotentReplay: result.isIdempotentReplay || false,
         error: false,
         success: true,
       });

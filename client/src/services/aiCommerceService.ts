@@ -55,19 +55,20 @@ export interface PricePoint {
 }
 
 export interface PriceHistoryResponse {
-  success: boolean;
+  success?: boolean;
   productId: string;
   title: string;
   currentPrice: number;
   mrpPrice: number;
-  lowestPrice: number;
-  highestPrice: number;
-  averagePrice: number;
+  lowestPrice: number | null;
+  highestPrice: number | null;
+  averagePrice: number | null;
   priceDropPercent: number;
   trend: "FALLING" | "RISING" | "STABLE";
   points: PricePoint[];
   currency: string;
   daysAnalyzed: number;
+  hasSufficientHistory?: boolean;
 }
 
 export interface AspectSentiment {

@@ -41,20 +41,20 @@ export interface SellerOfferItem {
     inStock: boolean;
     status: string;
   };
-  shippingDetails: {
-    estimatedDeliveryDays: number;
-    freeShipping: boolean;
-  };
-  returnPolicy: {
-    returnable: boolean;
-    windowDays: number;
-    policyType: string;
-  };
-  warranty: {
-    summary: string;
-    durationMonths: number;
-    type: string;
-  };
+  shippingDetails?: {
+    estimatedDeliveryDays?: number | null;
+    freeShipping?: boolean;
+  } | null;
+  returnPolicy?: {
+    returnable?: boolean;
+    windowDays?: number;
+    policyType?: string;
+  } | null;
+  warranty?: {
+    summary?: string;
+    durationMonths?: number;
+    type?: string;
+  } | null;
 }
 
 interface SellerOffersSectionProps {
@@ -186,19 +186,25 @@ export const SellerOffersSection: React.FC<SellerOffersSectionProps> = ({
 
                   {/* Fulfillment and SLA */}
                   <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <LocalShippingOutlined sx={{ fontSize: 14 }} className="text-primary" />
-                      {offer.shippingDetails.freeShipping ? "Free Delivery" : "Express Delivery"}{" "}
-                      in {offer.shippingDetails.estimatedDeliveryDays} days
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <AssignmentReturnOutlined sx={{ fontSize: 14 }} className="text-muted-foreground" />
-                      {offer.returnPolicy.windowDays} Days Return
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <ShieldOutlined sx={{ fontSize: 14 }} className="text-muted-foreground" />
-                      {offer.warranty.summary}
-                    </span>
+                    {offer.shippingDetails && (
+                      <span className="flex items-center gap-1">
+                        <LocalShippingOutlined sx={{ fontSize: 14 }} className="text-primary" />
+                        {offer.shippingDetails.freeShipping ? "Free Delivery" : "Standard Delivery"}
+                        {offer.shippingDetails.estimatedDeliveryDays ? ` in ${offer.shippingDetails.estimatedDeliveryDays} days` : ""}
+                      </span>
+                    )}
+                    {offer.returnPolicy && (
+                      <span className="flex items-center gap-1">
+                        <AssignmentReturnOutlined sx={{ fontSize: 14 }} className="text-muted-foreground" />
+                        {offer.returnPolicy.returnable ? `${offer.returnPolicy.windowDays} Days Return` : "Non-returnable"}
+                      </span>
+                    )}
+                    {offer.warranty?.summary && (
+                      <span className="flex items-center gap-1">
+                        <ShieldOutlined sx={{ fontSize: 14 }} className="text-muted-foreground" />
+                        {offer.warranty.summary}
+                      </span>
+                    )}
                   </div>
                 </div>
 

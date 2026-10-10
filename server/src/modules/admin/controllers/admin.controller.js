@@ -154,6 +154,39 @@ class AdminController {
       next(error);
     }
   }
+
+  async getQuestionModerationQueue(req, res, next) {
+    try {
+      const result = await adminService.getQuestionModerationQueue(req.query);
+      return res.status(200).json({
+        message: "Question moderation queue fetched successfully",
+        ...result,
+        success: true,
+        error: false,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async moderateQuestion(req, res, next) {
+    try {
+      const { questionId } = req.params;
+      const { action, reason } = req.body;
+      const question = await adminService.moderateQuestion(req.user, questionId, {
+        action,
+        reason,
+      });
+      return res.status(200).json({
+        message: `Question ${action?.toLowerCase()}d successfully`,
+        question,
+        success: true,
+        error: false,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new AdminController();

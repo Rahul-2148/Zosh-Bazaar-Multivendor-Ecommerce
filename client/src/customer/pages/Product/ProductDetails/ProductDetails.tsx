@@ -364,9 +364,10 @@ const ProductDetails: React.FC = () => {
     );
   }
 
-  const effectiveRating = review.averageRating > 0 ? review.averageRating : 4.2;
-  const effectiveReviewCount = review.totalReviews || 128;
-  const effectiveRatingCount = effectiveReviewCount * 7 + 42;
+  const hasReviews = review.totalReviews > 0 || (Array.isArray(review.reviews) && review.reviews.length > 0);
+  const effectiveRating = review.averageRating > 0 ? review.averageRating : 0;
+  const effectiveReviewCount = review.totalReviews || (Array.isArray(review.reviews) ? review.reviews.length : 0);
+  const effectiveRatingCount = effectiveReviewCount;
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 sm:pb-28">
@@ -469,23 +470,37 @@ const ProductDetails: React.FC = () => {
               )}
             </div>
 
-            {/* Green Rating Pill & Assured Badge */}
+            {/* Rating Pill & Assured Badge */}
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs">
-              {/* Green Score Pill */}
-              <div className="inline-flex items-center gap-1 bg-[#388e3c] text-white px-2 py-0.5 rounded-md font-extrabold shadow-2xs">
-                <span>{effectiveRating.toFixed(1)}</span>
-                <Star sx={{ fontSize: 13 }} className="text-white" />
-              </div>
+              {hasReviews ? (
+                <>
+                  {/* Green Score Pill */}
+                  <div className="inline-flex items-center gap-1 bg-[#388e3c] text-white px-2 py-0.5 rounded-md font-extrabold shadow-2xs">
+                    <span>{effectiveRating.toFixed(1)}</span>
+                    <Star sx={{ fontSize: 13 }} className="text-white" />
+                  </div>
 
-              <span className="text-muted-foreground font-semibold">
-                {effectiveRatingCount.toLocaleString("en-IN")} Ratings & {effectiveReviewCount.toLocaleString("en-IN")} Reviews
-              </span>
+                  <span className="text-muted-foreground font-semibold">
+                    {effectiveRatingCount.toLocaleString("en-IN")}{" "}
+                    {effectiveRatingCount === 1 ? "Rating" : "Ratings"} &{" "}
+                    {effectiveReviewCount.toLocaleString("en-IN")}{" "}
+                    {effectiveReviewCount === 1 ? "Review" : "Reviews"}
+                  </span>
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground font-medium bg-muted/60 px-2.5 py-1 rounded-md">
+                  Not yet rated • Be the first to review
+                </span>
+              )}
 
-              {/* Zosh Assured Signature Badge */}
-              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/25 text-sky-700 dark:text-sky-300 font-black text-[11px] tracking-tight">
-                <Verified sx={{ fontSize: 13 }} className="text-sky-600 dark:text-sky-400" />
-                <span>Zosh Assured</span>
-              </div>
+              {/* Zosh Assured Signature Badge (only for active verified merchants) */}
+              {currentProduct.seller?.accountStatus === "ACTIVE" &&
+                Boolean(currentProduct.seller?.isEmailVerified) && (
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/25 text-sky-700 dark:text-sky-300 font-black text-[11px] tracking-tight">
+                    <Verified sx={{ fontSize: 13 }} className="text-sky-600 dark:text-sky-400" />
+                    <span>Zosh Assured</span>
+                  </div>
+                )}
             </div>
 
             {/* Special Price & Commercial Pricing Block */}
@@ -512,7 +527,10 @@ const ProductDetails: React.FC = () => {
               </div>
 
               <p className="text-xs text-muted-foreground font-medium">
-                Inclusive of all taxes. Free express shipping on this order.
+                Inclusive of all taxes.{" "}
+                {currentProduct?.shippingDetails?.freeShipping
+                  ? "Eligible for free standard delivery."
+                  : "Standard delivery charges apply."}
               </p>
             </div>
 
@@ -1053,47 +1071,62 @@ const ProductDetails: React.FC = () => {
           </div>
 
           {/* Score Card & Rating Distribution Bars */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 rounded-2xl bg-muted/40 border border-border/70">
-            {/* Overall Score Box */}
-            <div className="flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-border pb-4 md:pb-0 md:pr-6">
-              <div className="inline-flex items-center gap-1.5 text-3xl sm:text-4xl font-black text-[#388e3c]">
-                <span>{effectiveRating.toFixed(1)}</span>
-                <Star sx={{ fontSize: 32 }} className="text-[#388e3c]" />
-              </div>
-              <p className="text-xs font-bold text-muted-foreground mt-1">
-                {effectiveRatingCount.toLocaleString("en-IN")} Ratings &
-              </p>
-              <p className="text-xs font-bold text-muted-foreground">
-                {effectiveReviewCount.toLocaleString("en-IN")} Reviews
+          {!hasReviews ? (
+            <div className="p-8 rounded-2xl bg-muted/30 border border-dashed border-border/80 text-center space-y-2">
+              <Star sx={{ fontSize: 32 }} className="text-muted-foreground/40 mx-auto" />
+              <h4 className="text-sm font-bold text-foreground">No customer ratings yet</h4>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Have you purchased this product? Be the first to share your experience with other shoppers.
               </p>
             </div>
-
-            {/* 5-Star Distribution Bars */}
-            <div className="md:col-span-2 flex flex-col justify-center space-y-1.5 text-xs">
-              {[
-                { star: 5, pct: 68, color: "bg-[#388e3c]" },
-                { star: 4, pct: 20, color: "bg-[#388e3c]" },
-                { star: 3, pct: 7, color: "bg-[#388e3c]" },
-                { star: 2, pct: 3, color: "bg-amber-500" },
-                { star: 1, pct: 2, color: "bg-red-500" },
-              ].map((item) => (
-                <div key={item.star} className="flex items-center gap-2">
-                  <span className="w-6 font-bold text-foreground flex items-center gap-0.5 justify-end">
-                    {item.star} <Star sx={{ fontSize: 11 }} className="text-amber-500" />
-                  </span>
-                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      style={{ width: `${item.pct}%` }}
-                      className={`h-full rounded-full ${item.color}`}
-                    />
-                  </div>
-                  <span className="w-9 text-right text-muted-foreground text-[11px] font-medium">
-                    {item.pct}%
-                  </span>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 rounded-2xl bg-muted/40 border border-border/70">
+              {/* Overall Score Box */}
+              <div className="flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-border pb-4 md:pb-0 md:pr-6">
+                <div className="inline-flex items-center gap-1.5 text-3xl sm:text-4xl font-black text-[#388e3c]">
+                  <span>{effectiveRating.toFixed(1)}</span>
+                  <Star sx={{ fontSize: 32 }} className="text-[#388e3c]" />
                 </div>
-              ))}
+                <p className="text-xs font-bold text-muted-foreground mt-1">
+                  {effectiveRatingCount.toLocaleString("en-IN")}{" "}
+                  {effectiveRatingCount === 1 ? "Rating" : "Ratings"} &
+                </p>
+                <p className="text-xs font-bold text-muted-foreground">
+                  {effectiveReviewCount.toLocaleString("en-IN")}{" "}
+                  {effectiveReviewCount === 1 ? "Review" : "Reviews"}
+                </p>
+              </div>
+
+              {/* Genuine Star Distribution Bars */}
+              <div className="md:col-span-2 flex flex-col justify-center space-y-1.5 text-xs">
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const matchingCount = (review.reviews || []).filter(
+                    (r: any) => Math.round(r.rating) === star
+                  ).length;
+                  const total = (review.reviews || []).length || 1;
+                  const pct = Math.round((matchingCount / total) * 100);
+                  const color = star >= 4 ? "bg-[#388e3c]" : star === 3 ? "bg-amber-500" : "bg-red-500";
+
+                  return (
+                    <div key={star} className="flex items-center gap-2">
+                      <span className="w-6 font-bold text-foreground flex items-center gap-0.5 justify-end">
+                        {star} <Star sx={{ fontSize: 11 }} className="text-amber-500" />
+                      </span>
+                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          style={{ width: `${pct}%` }}
+                          className={`h-full rounded-full ${color}`}
+                        />
+                      </div>
+                      <span className="w-9 text-right text-muted-foreground text-[11px] font-medium">
+                        {pct}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* AI Aspect-Based Review Summary */}
           {currentProduct?._id && (

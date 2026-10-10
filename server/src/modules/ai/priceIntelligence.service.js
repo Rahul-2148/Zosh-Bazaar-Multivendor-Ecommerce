@@ -49,39 +49,31 @@ class PriceIntelligenceService {
     const currentPrice = product.sellingPrice;
     const mrpPrice = product.mrpPrice;
 
-    // If no prior historical snapshots exist in database, bootstrap a realistic 30d historical series
-    let points = [];
-    if (history.length > 0) {
-      points = history.map((h) => ({
-        date: h.timestamp.toISOString().split("T")[0],
-        timestamp: h.timestamp,
-        price: h.sellingPrice,
-        mrp: h.mrpPrice,
-      }));
-    } else {
-      // Deterministic synthetic historical trajectory grounded in current catalog price
-      const now = Date.now();
-      const dayMs = 24 * 60 * 60 * 1000;
-      const variations = [1.12, 1.08, 1.05, 1.10, 1.0, 0.96, 1.0, 0.98, 1.0];
-      const step = Math.floor(days / variations.length);
-
-      variations.forEach((factor, idx) => {
-        const d = new Date(now - (days - idx * step) * dayMs);
-        points.push({
-          date: d.toISOString().split("T")[0],
-          timestamp: d,
-          price: Math.round(currentPrice * factor),
-          mrp: mrpPrice,
-        });
-      });
-      // Add current price as the latest point
-      points.push({
-        date: new Date().toISOString().split("T")[0],
-        timestamp: new Date(),
-        price: currentPrice,
-        mrp: mrpPrice,
-      });
+    // Build points strictly from authentic historical snapshots
+    if (history.length === 0) {
+      return {
+        productId,
+        title: product.title,
+        currentPrice,
+        mrpPrice,
+        lowestPrice: null,
+        highestPrice: null,
+        averagePrice: null,
+        priceDropPercent: 0,
+        trend: "STABLE",
+        points: [],
+        currency: "INR",
+        daysAnalyzed: days,
+        hasSufficientHistory: false,
+      };
     }
+
+    const points = history.map((h) => ({
+      date: h.timestamp.toISOString().split("T")[0],
+      timestamp: h.timestamp,
+      price: h.sellingPrice,
+      mrp: h.mrpPrice,
+    }));
 
     const prices = points.map((p) => p.price);
     const lowestPrice = Math.min(...prices);
@@ -114,6 +106,7 @@ class PriceIntelligenceService {
       points,
       currency: "INR",
       daysAnalyzed: days,
+      hasSufficientHistory: history.length >= 2,
     };
   }
 

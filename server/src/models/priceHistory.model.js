@@ -8,6 +8,11 @@ const priceHistorySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    variantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
     variantSku: {
       type: String,
       default: null,
@@ -41,8 +46,9 @@ const priceHistorySchema = new mongoose.Schema(
   }
 );
 
-// Compound index for querying product price trend over time windows
+// Compound indexes for querying product and variant price trends over time windows
 priceHistorySchema.index({ product: 1, timestamp: -1 });
+priceHistorySchema.index({ product: 1, variantId: 1, timestamp: -1 });
 
 export const PriceHistory = mongoose.model("PriceHistory", priceHistorySchema);
 export default PriceHistory;

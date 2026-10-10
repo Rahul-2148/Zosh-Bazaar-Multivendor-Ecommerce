@@ -42,4 +42,8 @@ adminRouter.patch(
   sellerController.updateSellerAccountStatus
 );
 
+// Operations: Community Q&A Moderation Queue
+adminRouter.get("/questions/moderation", adminController.getQuestionModerationQueue);
+adminRouter.patch("/questions/:questionId/moderation", adminController.moderateQuestion);
+
 export default adminRouter;

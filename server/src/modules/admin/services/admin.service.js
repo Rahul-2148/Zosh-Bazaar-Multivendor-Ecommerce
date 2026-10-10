@@ -2,6 +2,7 @@ import { Order } from "../../../models/order.model.js";
 import { User } from "../../../models/user.model.js";
 import { Seller } from "../../../models/seller.model.js";
 import { Product } from "../../../models/product.model.js";
+import { ProductQuestion } from "../../../models/productQuestion.model.js";
 import Transaction from "../../../models/transaction.model.js";
 import OrderService from "../../customer/services/order.service.js";
 
@@ -172,6 +173,71 @@ class AdminService {
     const deleted = await Product.findByIdAndDelete(productId);
     if (!deleted) throw new Error("Product not found");
     return deleted;
+  }
+
+  async getQuestionModerationQueue(query = {}) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    if (query.status) {
+      filter.moderationStatus = query.status.toUpperCase();
+    } else {
+      filter.moderationStatus = "PENDING";
+    }
+
+    if (query.productId) {
+      filter.product = query.productId;
+    }
+
+    const [questions, totalQuestions] = await Promise.all([
+      ProductQuestion.find(filter)
+        .populate("product", "title slug images seller sellingPrice")
+        .populate("user", "fullName email mobile")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      ProductQuestion.countDocuments(filter),
+    ]);
+
+    return {
+      questions,
+      totalQuestions,
+      totalPages: Math.ceil(totalQuestions / limit),
+      currentPage: page,
+    };
+  }
+
+  async moderateQuestion(adminUser, questionId, { action, reason = "" }) {
+    const q = await ProductQuestion.findById(questionId).populate("product", "title");
+    if (!q) {
+      const error = new Error("Question not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const upperAction = (action || "").toUpperCase();
+    if (upperAction === "APPROVE") {
+      q.moderationStatus = "APPROVED";
+      q.isApproved = true;
+      q.rejectionReason = null;
+      q.moderatedAt = new Date();
+      q.moderatedBy = adminUser._id;
+    } else if (upperAction === "REJECT") {
+      q.moderationStatus = "REJECTED";
+      q.isApproved = false;
+      q.rejectionReason = reason || "Question does not meet community guidelines";
+      q.moderatedAt = new Date();
+      q.moderatedBy = adminUser._id;
+    } else {
+      const error = new Error("Invalid moderation action. Must be APPROVE or REJECT");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    await q.save();
+    return q;
   }
 }
 

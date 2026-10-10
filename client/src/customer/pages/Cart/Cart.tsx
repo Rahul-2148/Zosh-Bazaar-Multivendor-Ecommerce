@@ -32,6 +32,27 @@ const Cart: React.FC = () => {
 
   // Dual Tab State: "bazaar" vs "saved"
   const [activeTab, setActiveTab] = useState<"bazaar" | "saved">("bazaar");
+  const [mergeWarnings, setMergeWarnings] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("zosh_cart_merge_warnings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMergeWarnings(
+            parsed.map((item: any) => ({
+              type: "STOCK_CHANGED",
+              message: `Guest item "${item.title || item.item?.title || "Product"}" could not be merged: ${item.reason}`,
+            }))
+          );
+          sessionStorage.removeItem("zosh_cart_merge_warnings");
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     if (jwt) {
@@ -71,7 +92,9 @@ const Cart: React.FC = () => {
   const rawCartItems = cartData?.cartItems;
   const cartItems = useMemo(() => rawCartItems || [], [rawCartItems]);
   const pricingSummary = cartData?.pricingSummary;
-  const validationWarnings = cartData?.validationWarnings || [];
+  const validationWarnings = useMemo(() => {
+    return [...(cartData?.validationWarnings || []), ...mergeWarnings];
+  }, [cartData?.validationWarnings, mergeWarnings]);
 
   const cartProductIds = useMemo(() => {
     return cartItems.map((ci: any) => ci.product?._id || ci.product?.productId).filter(Boolean);
@@ -277,7 +300,7 @@ const Cart: React.FC = () => {
 
         {/* Free Delivery Progress Bar */}
         <div className="mb-4">
-          <FreeDeliveryProgressBar currentAmount={totalSelling} threshold={500} />
+          <FreeDeliveryProgressBar currentAmount={totalSelling} threshold={pricingSummary?.freeDeliveryThreshold || 500} />
         </div>
 
         {/* 2-Column Responsive Layout */}

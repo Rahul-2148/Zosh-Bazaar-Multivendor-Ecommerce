@@ -147,7 +147,7 @@ export const mergeGuestCart = createAsyncThunk<
   try {
     const response = await Api.post(
       `${API_URL}/merge`,
-      { items },
+      { items, guestItems: items },
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
     return response.data;

@@ -85,6 +85,12 @@ export interface IProduct {
     windowDays?: number;
     policyType?: string;
   };
+  shippingDetails?: {
+    weightKg?: number;
+    dimensionsCm?: { length?: number; width?: number; height?: number };
+    freeShipping?: boolean;
+    estimatedDeliveryDays?: number;
+  };
   createdAt: Date;
   updatedAt: Date;
   __v?: number;

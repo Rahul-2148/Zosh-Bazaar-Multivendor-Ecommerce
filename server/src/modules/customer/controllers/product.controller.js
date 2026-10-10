@@ -263,7 +263,7 @@ class ProductController {
   async getOtherSellerOffers(req, res, next) {
     try {
       const { productId } = req.params;
-      const result = await productService.getOtherSellerOffers(productId);
+      const result = await productService.getOtherSellerOffers(productId, req.query);
       return res.status(200).json({
         message: "Other seller offers retrieved successfully",
         ...result,
@@ -293,7 +293,7 @@ class ProductController {
   async getProductPriceHistory(req, res, next) {
     try {
       const { productId } = req.params;
-      const result = await productService.getProductPriceHistory(productId);
+      const result = await productService.getProductPriceHistory(productId, req.query);
       return res.status(200).json({
         message: "Product price history retrieved successfully",
         ...result,
@@ -344,7 +344,41 @@ class ProductController {
       const { question } = req.body;
       const result = await productService.askProductQuestion(userId, productId, question, userName);
       return res.status(201).json({
-        message: "Question submitted successfully",
+        message: "Question submitted for review",
+        question: result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async upvoteProductQuestion(req, res, next) {
+    try {
+      const { questionId } = req.params;
+      const { answerId } = req.query;
+      const userId = req.user._id;
+      const result = await productService.upvoteProductQuestion(userId, questionId, answerId || null);
+      return res.status(200).json({
+        message: "Vote updated successfully",
+        question: result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async answerProductQuestion(req, res, next) {
+    try {
+      const { questionId } = req.params;
+      const user = req.user;
+      const { answer, authorRole } = req.body;
+      const result = await productService.answerProductQuestion(user, questionId, { answer, authorRole });
+      return res.status(201).json({
+        message: "Answer submitted successfully",
         question: result,
         error: false,
         success: true,
