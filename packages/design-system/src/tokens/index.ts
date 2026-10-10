@@ -1,0 +1,58 @@
+export const ZOSH_TOKENS = {
+  colors: {
+    primary: "#2874F0",
+    primaryHover: "#125cd4",
+    primaryLight: "#e8f0fe",
+    accent: "#FB641B",
+    accentHover: "#e0510c",
+    accentLight: "#fff3ec",
+    bg: "#F1F3F6",
+    card: "#FFFFFF",
+    text: "#212121",
+    textMuted: "#878787",
+    border: "#E0E0E0",
+    success: "#388E3C",
+    successLight: "#e8f5e9",
+    warning: "#FF9F00",
+    warningLight: "#fff8e1",
+    danger: "#FF6161",
+    dangerLight: "#ffebee",
+    gold: "#FFB800",
+    adminPrimary: "#1A237E",
+    sellerPrimary: "#0F9D58",
+    logistics: "#6A1B9A",
+    delivery: "#E65100",
+  },
+  typography: {
+    fontFamily: "'Roboto', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    h1: { size: "24px", weight: "700", lineHeight: "32px" },
+    h2: { size: "20px", weight: "700", lineHeight: "28px" },
+    h3: { size: "18px", weight: "500", lineHeight: "24px" },
+    body: { size: "14px", weight: "400", lineHeight: "20px" },
+    caption: { size: "12px", weight: "400", lineHeight: "16px" },
+    micro: { size: "11px", weight: "400", lineHeight: "14px" },
+  },
+  spacing: {
+    base: 4,
+    scale: [4, 8, 12, 16, 20, 24, 32, 40, 48, 64],
+  },
+  radii: {
+    cards: "4px",
+    buttons: "4px",
+    inputs: "4px",
+    pills: "20px",
+    avatars: "50%",
+  },
+  shadows: {
+    card: "0 1px 2px rgba(0,0,0,.08)",
+    raised: "0 2px 8px rgba(0,0,0,.12)",
+    modal: "0 4px 24px rgba(0,0,0,.18)",
+  },
+  motion: {
+    micro: "150ms ease-out",
+    smooth: "250ms ease-in-out",
+    spring: "cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+  },
+} as const;
+
+export type ZoshTokens = typeof ZOSH_TOKENS;

@@ -1,0 +1,113 @@
+:root {
+  /* Zosh Bazaar Master Color Tokens */
+  --zosh-primary: #2874F0;
+  --zosh-primary-hover: #125cd4;
+  --zosh-primary-light: #e8f0fe;
+  
+  --zosh-accent: #FB641B;
+  --zosh-accent-hover: #e0510c;
+  --zosh-accent-light: #fff3ec;
+  
+  --zosh-bg: #F1F3F6;
+  --zosh-card: #FFFFFF;
+  --zosh-text: #212121;
+  --zosh-text-muted: #878787;
+  --zosh-border: #E0E0E0;
+  
+  --zosh-success: #388E3C;
+  --zosh-success-light: #e8f5e9;
+  --zosh-warning: #FF9F00;
+  --zosh-warning-light: #fff8e1;
+  --zosh-danger: #FF6161;
+  --zosh-danger-light: #ffebee;
+  --zosh-gold: #FFB800;
+  
+  /* Domain Persona Themes */
+  --zosh-admin-primary: #1A237E;
+  --zosh-admin-surface: #0d1442;
+  --zosh-seller-primary: #0F9D58;
+  --zosh-seller-surface: #096337;
+  --zosh-logistics: #6A1B9A;
+  --zosh-logistics-surface: #38006b;
+  --zosh-delivery: #E65100;
+  --zosh-delivery-surface: #ac1900;
+
+  /* Typography */
+  --zosh-font-family: 'Roboto', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  
+  /* Font Sizes & Line Heights */
+  --zosh-text-h1: 24px;
+  --zosh-line-h1: 32px;
+  --zosh-weight-h1: 700;
+  
+  --zosh-text-h2: 20px;
+  --zosh-line-h2: 28px;
+  --zosh-weight-h2: 700;
+  
+  --zosh-text-h3: 18px;
+  --zosh-line-h3: 24px;
+  --zosh-weight-h3: 500;
+  
+  --zosh-text-body: 14px;
+  --zosh-line-body: 20px;
+  --zosh-weight-body: 400;
+  
+  --zosh-text-caption: 12px;
+  --zosh-line-caption: 16px;
+  --zosh-weight-caption: 400;
+  
+  --zosh-text-micro: 11px;
+  --zosh-line-micro: 14px;
+  --zosh-weight-micro: 400;
+
+  /* Spacing Scale (4px base) */
+  --zosh-space-1: 4px;
+  --zosh-space-2: 8px;
+  --zosh-space-3: 12px;
+  --zosh-space-4: 16px;
+  --zosh-space-5: 20px;
+  --zosh-space-6: 24px;
+  --zosh-space-8: 32px;
+  --zosh-space-10: 40px;
+  --zosh-space-12: 48px;
+  --zosh-space-16: 64px;
+
+  /* Radii */
+  --zosh-radius-sm: 2px;
+  --zosh-radius-card: 4px;
+  --zosh-radius-button: 4px;
+  --zosh-radius-input: 4px;
+  --zosh-radius-pill: 20px;
+  --zosh-radius-circle: 50%;
+
+  /* Elevation Shadows */
+  --zosh-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --zosh-shadow-raised: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --zosh-shadow-modal: 0 4px 24px rgba(0, 0, 0, 0.18);
+
+  /* Motion & Transitions */
+  --zosh-transition-micro: 150ms ease-out;
+  --zosh-transition-smooth: 250ms ease-in-out;
+  --zosh-transition-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Theme Persona Overrides */
+[data-theme="seller"] {
+  --theme-accent: var(--zosh-seller-primary);
+  --theme-surface: var(--zosh-seller-surface);
+}
+
+[data-theme="admin"] {
+  --theme-accent: var(--zosh-admin-primary);
+  --theme-surface: var(--zosh-admin-surface);
+}
+
+[data-theme="logistics"] {
+  --theme-accent: var(--zosh-logistics);
+  --theme-surface: var(--zosh-logistics-surface);
+}
+
+[data-theme="delivery"] {
+  --theme-accent: var(--zosh-delivery);
+  --theme-surface: var(--zosh-delivery-surface);
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@zosh/design-system",
+  "version": "1.0.0",
+  "description": "Unified Design System and Shared Component Library for Zosh Bazaar",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "lucide-react": ">=0.400.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "react": ["../../client/node_modules/@types/react"],
+      "react/jsx-runtime": ["../../client/node_modules/@types/react/jsx-runtime"],
+      "react-dom": ["../../client/node_modules/@types/react-dom"]
+    }
+  },
+  "include": ["src"]
+}
