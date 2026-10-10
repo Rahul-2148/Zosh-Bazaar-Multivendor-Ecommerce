@@ -239,7 +239,7 @@ export class PayUWebhookAdapter extends ProviderWebhookAdapter {
     }
   }
 
-  async processWebhook({ rawBody, signature, headers = {}, payload }) {
+  async processWebhook({ rawBody: _rawBody, signature, headers = {}, payload }) {
     const webhookSecret = process.env.PAYU_MERCHANT_SALT;
     const data = typeof payload === "string" ? JSON.parse(payload) : payload || {};
     const sig = signature || data.hash || headers["x-payu-signature"];
@@ -283,10 +283,10 @@ export class PhonePeWebhookAdapter extends ProviderWebhookAdapter {
     super("PHONEPE");
   }
 
-  verifySignature(base64Payload, signature, saltKey, saltIndex = "1") {
+  verifySignature(base64Payload, signature, saltKey, _saltIndex = "1") {
     if (!base64Payload || !signature || !saltKey) return false;
     try {
-      const [expectedHash, receivedIndex] = signature.split("###");
+      const [expectedHash, _receivedIndex] = signature.split("###");
       if (!expectedHash) return false;
       const stringToHash = `${base64Payload}${saltKey}`;
       const calculatedHash = crypto.createHash("sha256").update(stringToHash).digest("hex");
@@ -299,7 +299,7 @@ export class PhonePeWebhookAdapter extends ProviderWebhookAdapter {
     }
   }
 
-  async processWebhook({ rawBody, signature, headers = {}, payload }) {
+  async processWebhook({ rawBody: _rawBody, signature, headers = {}, payload }) {
     const saltKey = process.env.PHONEPE_SALT_KEY;
     const saltIndex = process.env.PHONEPE_SALT_INDEX || "1";
     const sig =

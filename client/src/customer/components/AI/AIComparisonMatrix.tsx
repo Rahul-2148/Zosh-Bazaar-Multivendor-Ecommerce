@@ -1,5 +1,5 @@
 import React from "react";
-import { Award, Check, ShoppingCart, ArrowRight } from "lucide-react";
+import { Award, Check, ShoppingCart } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { addItemToCart } from "../../../Redux Toolkit/features/customer/CartSlice";

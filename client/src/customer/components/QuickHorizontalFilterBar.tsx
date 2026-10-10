@@ -31,7 +31,7 @@ interface QuickHorizontalFilterBarProps {
 
 export const QuickHorizontalFilterBar: React.FC<QuickHorizontalFilterBarProps> = ({
   onOpenMobileFilters,
-  brands = [],
+  brands: _brands = [],
   attributes = [],
   activeFilterCount = 0,
 }) => {
@@ -132,7 +132,7 @@ export const QuickHorizontalFilterBar: React.FC<QuickHorizontalFilterBarProps> =
   };
 
   // Handle open filter dimension
-  const handleOpenDimension = (dimensionKey: string) => {
+  const handleOpenDimension = (_dimensionKey: string) => {
     if (onOpenMobileFilters) {
       onOpenMobileFilters();
     } else {

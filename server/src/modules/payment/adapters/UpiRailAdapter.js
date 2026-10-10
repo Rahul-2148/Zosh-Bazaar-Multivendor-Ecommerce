@@ -100,7 +100,7 @@ export class UpiRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async refund({ refund, attempt, order }) {
+  async refund({ refund, attempt: _attempt, order: _order }) {
     const gatewayRefundId = `upi_ref_${refund.refundId}_${Date.now()}`;
     return {
       gatewayRefundId,

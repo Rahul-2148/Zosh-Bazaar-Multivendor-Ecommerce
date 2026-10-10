@@ -1,7 +1,6 @@
 import React from "react";
 import { Divider, Button } from "@mui/material";
 import {
-  ShieldOutlined,
   LocalOfferOutlined,
   LockOutlined,
 } from "@mui/icons-material";

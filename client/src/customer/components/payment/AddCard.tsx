@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { TextField, Button, Checkbox, FormControlLabel, CircularProgress, Alert } from "@mui/material";
-import { SecurityOutlined, CreditCardOutlined } from "@mui/icons-material";
+import { CreditCardOutlined } from "@mui/icons-material";
 
 interface AddCardProps {
   onSaveCard: (cardData: {

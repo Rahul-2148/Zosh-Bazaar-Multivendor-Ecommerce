@@ -51,8 +51,10 @@
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
+    "winston": "^3.19.0",
     "yaml": "^2.9.1",
-    "yup": "^1.7.0"
+    "yup": "^1.7.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "oxlint": "^1.81.0"

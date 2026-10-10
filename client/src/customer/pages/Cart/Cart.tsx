@@ -4,7 +4,6 @@ import {
   ShoppingBagOutlined,
   LocalShippingOutlined,
   StorefrontOutlined,
-  ArrowForward,
 } from "@mui/icons-material";
 import { Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -28,7 +27,7 @@ import SavedForLaterSection from "./SavedForLaterSection";
 const Cart: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { cart, coupon, wishlist } = useAppSelector((store) => store);
+  const { cart, coupon: _coupon, wishlist } = useAppSelector((store) => store);
   const jwt = localStorage.getItem("jwt") || "";
 
   // Dual Tab State: "bazaar" vs "saved"
@@ -69,7 +68,8 @@ const Cart: React.FC = () => {
   };
 
   const cartData = cart?.cart;
-  const cartItems = cartData?.cartItems || [];
+  const rawCartItems = cartData?.cartItems;
+  const cartItems = useMemo(() => rawCartItems || [], [rawCartItems]);
   const pricingSummary = cartData?.pricingSummary;
   const validationWarnings = cartData?.validationWarnings || [];
 
@@ -122,7 +122,7 @@ const Cart: React.FC = () => {
     });
 
     return Array.from(map.values());
-  }, [cartData?.sellerPackages, cartItems]);
+  }, [cartData, cartItems]);
 
   // Loading State
   if (cart.loading && !cartData) {
@@ -410,7 +410,7 @@ const Cart: React.FC = () => {
       </div>
 
       {/* Mobile Sticky Bottom Bar (Screenshots 1-5 Benchmark) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-lg">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border shadow-lg pb-[max(10px,env(safe-area-inset-bottom))]">
         {/* Top Mini Offer Banner */}
         <div className="bg-blue-50 dark:bg-blue-950/60 px-4 py-1.5 flex items-center justify-between text-[11px] font-bold text-blue-800 dark:text-blue-200 border-b border-blue-100 dark:border-blue-900/40">
           <span>

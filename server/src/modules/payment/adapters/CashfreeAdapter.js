@@ -278,7 +278,7 @@ export class CashfreeAdapter extends PaymentRailAdapter {
   /**
    * Process refund via Cashfree API
    */
-  async refund({ refund, attempt, order }) {
+  async refund({ refund, attempt, order: _order }) {
     try {
       const orderId = attempt?.providerReference || refund.metadata?.providerReference;
       if (!orderId) {
@@ -365,7 +365,7 @@ export class CashfreeAdapter extends PaymentRailAdapter {
     };
   }
 
-  async reconcile({ startDate, endDate }) {
+  async reconcile({ startDate: _startDate, endDate: _endDate }) {
     return [];
   }
 }

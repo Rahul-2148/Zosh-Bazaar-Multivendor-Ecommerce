@@ -35,30 +35,30 @@ export const HeroBannerCarousel: React.FC<HeroBannerProps> = ({ banners }) => {
       <Slider {...settings}>
         {banners.map((banner, index) => (
           <div key={banner._id || index} className="relative outline-none">
-            <div className="relative h-[240px] sm:h-[340px] md:h-[400px] lg:h-[440px] w-full overflow-hidden bg-muted">
+            <div className="relative h-[160px] sm:h-[240px] md:h-[340px] lg:h-[420px] w-full overflow-hidden bg-muted">
               <img
                 src={banner.image}
                 alt={banner.title || "Marketplace Promotion"}
                 className="w-full h-full object-cover"
                 loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent flex items-center p-6 sm:p-12 lg:p-16">
-                <div className="text-white space-y-3 max-w-lg">
+              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent flex items-center p-3 sm:p-8 md:p-12 lg:p-16">
+                <div className="text-white space-y-1.5 sm:space-y-3 max-w-lg">
                   {banner.badge && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider shadow-md">
-                      <LocalOffer sx={{ fontSize: 13 }} />
+                    <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-primary text-primary-foreground font-bold text-[10px] sm:text-xs uppercase tracking-wider shadow-md">
+                      <LocalOffer sx={{ fontSize: { xs: 11, sm: 13 } }} />
                       {banner.badge}
                     </span>
                   )}
-                  <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
+                  <h2 className="text-lg sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight leading-tight line-clamp-2">
                     {banner.title}
                   </h2>
                   {banner.subtitle && (
-                    <p className="text-xs sm:text-sm md:text-base text-gray-200 line-clamp-2">
+                    <p className="text-[11px] sm:text-sm md:text-base text-gray-200 line-clamp-1 sm:line-clamp-2">
                       {banner.subtitle}
                     </p>
                   )}
-                  <div className="pt-2 sm:pt-4">
+                  <div className="pt-1 sm:pt-4">
                     <Button
                       variant="contained"
                       color="primary"

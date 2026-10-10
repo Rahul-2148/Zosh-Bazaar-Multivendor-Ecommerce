@@ -36,7 +36,7 @@ export class NetBankingRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async createIntent({ intent, attempt, user, metadata }) {
+  async createIntent({ intent: _intent, attempt, user: _user, metadata }) {
     const bankCode = metadata?.bankCode || "HDFC";
     const bank = this.getBankDetails(bankCode);
     const providerReference = `nb_${bankCode}_${attempt.attemptId}_${Date.now()}`;
@@ -53,7 +53,7 @@ export class NetBankingRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async capture({ attempt, payload }) {
+  async capture({ attempt, payload: _payload }) {
     return {
       status: PaymentAttemptStatus.CAPTURED,
       captured: true,
@@ -61,7 +61,7 @@ export class NetBankingRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async refund({ refund, attempt, order }) {
+  async refund({ refund, attempt: _attempt, order: _order }) {
     return {
       gatewayRefundId: `nb_ref_${refund.refundId}_${Date.now()}`,
       status: "COMPLETED",

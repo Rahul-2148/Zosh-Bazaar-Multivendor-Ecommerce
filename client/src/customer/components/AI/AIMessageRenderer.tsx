@@ -175,14 +175,14 @@ export const AIMessageRenderer: React.FC<AIMessageRendererProps> = ({
 
         // Bulleted list (lines starting with • or - or * or numbers)
         const isBulletList = lines.every((l) =>
-          /^\s*([•\-\*]|\d+\.)\s+/.test(l)
+          /^\s*([•\-*]|\d+\.)\s+/.test(l)
         );
 
         if (isBulletList) {
           return (
             <ul key={bIdx} className="space-y-1.5 pl-0.5 my-1">
               {lines.map((line, lIdx) => {
-                const bulletMatch = line.match(/^\s*([•\-\*]|\d+\.)\s+(.*)/);
+                const bulletMatch = line.match(/^\s*([•\-*]|\d+\.)\s+(.*)/);
                 if (bulletMatch) {
                   const prefix = bulletMatch[1];
                   const itemContent = bulletMatch[2];

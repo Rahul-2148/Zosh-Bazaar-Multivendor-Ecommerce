@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ShieldCheck,
   AlertCircle,
-  Clock,
   X,
   Lock,
 } from "lucide-react";
@@ -37,12 +36,12 @@ export const PriceHistoryWidget: React.FC<PriceHistoryWidgetProps> = ({
   useEffect(() => {
     if (!productId) return;
     let isMounted = true;
-    setLoading(true);
-
-    aiCommerceService
-      .getPriceHistory(productId, selectedDays)
-      .then((res) => {
-        if (isMounted) {
+    void Promise.resolve().then(() => {
+      if (!isMounted) return;
+      setLoading(true);
+      return aiCommerceService.getPriceHistory(productId, selectedDays);
+    }).then((res) => {
+      if (res && isMounted) {
           setData(res);
           setTargetPrice(Math.round(res.currentPrice * 0.9));
         }

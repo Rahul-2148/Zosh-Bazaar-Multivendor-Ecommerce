@@ -55,8 +55,10 @@ const SearchResults: React.FC = () => {
 
   // Reset pagination and accumulated list when query, filters, sort, or exact changes
   useEffect(() => {
-    setPage(1);
-    setAccumulatedProducts([]);
+    void Promise.resolve().then(() => {
+      setPage(1);
+      setAccumulatedProducts([]);
+    });
   }, [query, sort, exact, minPrice, maxPrice, minDiscount, inStock, color, brand, rating]);
 
   // Fetch search products for current page
@@ -86,17 +88,19 @@ const SearchResults: React.FC = () => {
   useEffect(() => {
     const rawList = Array.isArray(product.searchProducts) ? product.searchProducts : [];
     if (rawList.length === 0 && page === 1 && !product.loading) {
-      setAccumulatedProducts([]);
+      void Promise.resolve().then(() => setAccumulatedProducts([]));
       return;
     }
 
     if (page === 1) {
-      setAccumulatedProducts(rawList);
+      void Promise.resolve().then(() => setAccumulatedProducts(rawList));
     } else if (rawList.length > 0) {
-      setAccumulatedProducts((prev) => {
-        const existingIds = new Set(prev.map((p) => p._id));
-        const newUnique = rawList.filter((p) => !existingIds.has(p._id));
-        return [...prev, ...newUnique];
+      void Promise.resolve().then(() => {
+        setAccumulatedProducts((prev) => {
+          const existingIds = new Set(prev.map((p) => p._id));
+          const newUnique = rawList.filter((p) => !existingIds.has(p._id));
+          return [...prev, ...newUnique];
+        });
       });
     }
   }, [product.searchProducts, page, product.loading]);

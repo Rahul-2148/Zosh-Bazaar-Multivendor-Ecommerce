@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Upload, X, Sparkles, Image as ImageIcon, ArrowRight, Loader2 } from "lucide-react";
+import { Camera, Upload, X, Loader2 } from "lucide-react";
 import { aiCommerceService } from "../../../services/aiCommerceService";
 import type { VisualSearchResult } from "../../../services/aiCommerceService";
 

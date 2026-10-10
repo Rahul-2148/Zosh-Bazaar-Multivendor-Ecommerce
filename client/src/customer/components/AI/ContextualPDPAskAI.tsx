@@ -39,6 +39,8 @@ interface ChatMessage {
   isStreaming?: boolean;
 }
 
+const createMsgId = (prefix: string) => `${prefix}-${Date.now()}`;
+
 export const ContextualPDPAskAI: React.FC<ContextualPDPAskAIProps> = ({
   product,
   onSelectPrompt,
@@ -164,8 +166,8 @@ export const ContextualPDPAskAI: React.FC<ContextualPDPAskAIProps> = ({
       onSelectPrompt(cleanPrompt);
     }
 
-    const userMsgId = `user-${Date.now()}`;
-    const assistantMsgId = `ai-${Date.now()}`;
+    const userMsgId = createMsgId("user");
+    const assistantMsgId = createMsgId("ai");
 
     // Append user message and blank assistant message
     const newMessages: ChatMessage[] = [

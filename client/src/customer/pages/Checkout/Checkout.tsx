@@ -14,7 +14,6 @@ import {
   LocationOnOutlined,
   CheckCircle,
   LocalShippingOutlined,
-  PaymentOutlined,
   StorefrontOutlined,
   ArrowForward,
   ArrowBack,
@@ -37,7 +36,7 @@ import { PaymentPage } from "../../components/payment/PaymentPage";
 const Checkout = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { cart, order, user, location } = useAppSelector((store) => store);
+  const { cart, order: _order, user, location } = useAppSelector((store) => store);
   const jwt = localStorage.getItem("jwt") || "";
 
   // Multi-step Checkout: 1 = Address, 2 = Review Packages, 3 = Payment
@@ -56,7 +55,7 @@ const Checkout = () => {
     null;
   const setSelectedAddress = setCustomSelectedAddress;
 
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
+  const [_selectedPaymentMethod, _setSelectedPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [addressFormError, setAddressFormError] = useState<string | null>(null);
 
@@ -152,26 +151,6 @@ const Checkout = () => {
     } else {
       setAddressFormError("Failed to save address. Please try again.");
     }
-  };
-
-  const handlePlaceOrder = () => {
-    if (!selectedAddress) return;
-
-    dispatch(
-      createOrder({
-        address: selectedAddress,
-        jwt,
-        paymentGateway: selectedPaymentMethod,
-      })
-    ).then((action: any) => {
-      if (action.payload?.payment_link_url) {
-        window.location.href = action.payload.payment_link_url;
-      } else if (action.payload?.paymentOrder?._id) {
-        navigate(`/payment-success/${action.payload.paymentOrder._id}`);
-      } else if (action.payload?.order?.[0]?._id) {
-        navigate(`/payment-success/${action.payload.order[0]._id}`);
-      }
-    });
   };
 
   const cartData = cart?.cart;
@@ -534,7 +513,7 @@ const Checkout = () => {
                   orderIds={preparedOrders.map((o: any) => o._id || o.id)}
                   initialAmount={cartData.totalSellingPrice || 0}
                   deliveryAddress={selectedAddress}
-                  onPaymentComplete={(intent) => {
+                  onPaymentComplete={(_intent) => {
                     const primaryId = preparedOrders[0]?._id;
                     if (primaryId) {
                       navigate(`/payment-success/${primaryId}`);

@@ -43,7 +43,7 @@ export class CodRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async createIntent({ intent, attempt, user, metadata }) {
+  async createIntent({ intent: _intent, attempt, user: _user, metadata: _metadata }) {
     const providerReference = `cod_${attempt.attemptId}`;
     return {
       providerReference,
@@ -57,7 +57,7 @@ export class CodRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async capture({ attempt, payload }) {
+  async capture({ attempt, payload: _payload }) {
     // Marked captured when delivery partner collects payment at doorstep
     return {
       status: PaymentAttemptStatus.CAPTURED,
@@ -66,7 +66,7 @@ export class CodRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async refund({ refund, attempt, order }) {
+  async refund({ refund, attempt: _attempt, order: _order }) {
     // For COD orders, refund is typically routed directly to customer wallet or NEFT
     return {
       gatewayRefundId: `cod_ref_${refund.refundId}_${Date.now()}`,

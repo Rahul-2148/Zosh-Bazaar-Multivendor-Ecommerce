@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { IProduct, IProductVariant, IMediaGroup } from "../../types/productTypes";
+import type { IProduct, IProductVariant } from "../../types/productTypes";
 
 export interface CombinationMatrixItem {
   variantId: string;
@@ -222,51 +222,53 @@ export const useVariantResolution = (product: IProduct | null): UseVariantResolu
   useEffect(() => {
     if (!hasVariants || validCombinations.length === 0) return;
 
-    // Check if URL has params (e.g. ?color=blue&size=m)
-    const initialFromUrl: Record<string, string> = {};
-    let urlHasAttributes = false;
+    void Promise.resolve().then(() => {
+      // Check if URL has params (e.g. ?color=blue&size=m)
+      const initialFromUrl: Record<string, string> = {};
+      let urlHasAttributes = false;
 
-    attributeKeys.forEach((key) => {
-      const paramVal = searchParams.get(key);
-      if (paramVal) {
-        initialFromUrl[key] = paramVal;
-        urlHasAttributes = true;
+      attributeKeys.forEach((key) => {
+        const paramVal = searchParams.get(key);
+        if (paramVal) {
+          initialFromUrl[key] = paramVal;
+          urlHasAttributes = true;
+        }
+      });
+
+      // Check if variantId is directly in URL
+      const paramVariantId = searchParams.get("variantId") || searchParams.get("sku");
+      if (paramVariantId) {
+        const directMatch = validCombinations.find(
+          (c) => c.variantId === paramVariantId || c.sku.toUpperCase() === paramVariantId.toUpperCase()
+        );
+        if (directMatch) {
+          setSelectedAttributes(directMatch.attributes);
+          return;
+        }
+      }
+
+      if (urlHasAttributes) {
+        // Validate that URL combination is valid; if partial or invalid, fallback safely
+        const match = validCombinations.find((c) =>
+          Object.entries(initialFromUrl).every(
+            ([k, v]) => c.attributes[k]?.toLowerCase() === v.toLowerCase()
+          )
+        );
+
+        if (match) {
+          setSelectedAttributes(match.attributes);
+          return;
+        }
+      }
+
+      // Default: Pick the first active in-stock variant, or first active variant
+      const defaultVariant =
+        validCombinations.find((c) => c.inStock) || validCombinations[0];
+
+      if (defaultVariant) {
+        setSelectedAttributes(defaultVariant.attributes);
       }
     });
-
-    // Check if variantId is directly in URL
-    const paramVariantId = searchParams.get("variantId") || searchParams.get("sku");
-    if (paramVariantId) {
-      const directMatch = validCombinations.find(
-        (c) => c.variantId === paramVariantId || c.sku.toUpperCase() === paramVariantId.toUpperCase()
-      );
-      if (directMatch) {
-        setSelectedAttributes(directMatch.attributes);
-        return;
-      }
-    }
-
-    if (urlHasAttributes) {
-      // Validate that URL combination is valid; if partial or invalid, fallback safely
-      const match = validCombinations.find((c) =>
-        Object.entries(initialFromUrl).every(
-          ([k, v]) => c.attributes[k]?.toLowerCase() === v.toLowerCase()
-        )
-      );
-
-      if (match) {
-        setSelectedAttributes(match.attributes);
-        return;
-      }
-    }
-
-    // Default: Pick the first active in-stock variant, or first active variant
-    const defaultVariant =
-      validCombinations.find((c) => c.inStock) || validCombinations[0];
-
-    if (defaultVariant) {
-      setSelectedAttributes(defaultVariant.attributes);
-    }
   }, [hasVariants, validCombinations, attributeKeys, searchParams]);
 
   // 3. Resolve Current Matching Variant

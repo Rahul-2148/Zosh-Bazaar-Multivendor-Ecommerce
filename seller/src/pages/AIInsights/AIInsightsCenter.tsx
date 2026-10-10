@@ -1,24 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
   AutoAwesome,
-  TrendingUp,
-  WarningAmber,
-  CheckCircle,
-  PriceChange,
   Inventory2,
   EditNote,
   ArrowForward,
   Speed,
-  Psychology,
   Refresh,
 } from "@mui/icons-material";
 import {
   Button,
   CircularProgress,
-  Alert,
-  TextField,
-  Chip,
-  LinearProgress,
 } from "@mui/material";
 import { api } from "../../services/api";
 

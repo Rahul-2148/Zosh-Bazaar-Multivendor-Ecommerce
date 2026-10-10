@@ -14,16 +14,12 @@ import {
   CircularProgress,
 } from "@mui/material";
 import {
-  AccountBalanceWalletOutlined,
   ReceiptLongOutlined,
   CurrencyRupeeOutlined,
   VerifiedUserOutlined,
   CheckCircleOutline,
-  ErrorOutline,
   SyncOutlined,
-  CreditScoreOutlined,
   ShieldOutlined,
-  HistoryOutlined,
 } from "@mui/icons-material";
 
 export const Transactions: React.FC = () => {
@@ -31,7 +27,7 @@ export const Transactions: React.FC = () => {
 
   // High-level Metrics
   const [metrics, setMetrics] = useState<any>(null);
-  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [_loadingMetrics, setLoadingMetrics] = useState(true);
 
   // Tab 0: Payment Intents
   const [intents, setIntents] = useState<any[]>([]);
@@ -149,14 +145,16 @@ export const Transactions: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDashboardMetrics();
+    void Promise.resolve().then(() => fetchDashboardMetrics());
   }, []);
 
   useEffect(() => {
-    if (activeTab === 0) fetchIntents(intentsPage);
-    if (activeTab === 1) fetchLedger(ledgerPage);
-    if (activeTab === 2) fetchRefunds(refundsPage);
-    if (activeTab === 4) fetchLegacyTransactions(legacyPage);
+    void Promise.resolve().then(() => {
+      if (activeTab === 0) fetchIntents(intentsPage);
+      if (activeTab === 1) fetchLedger(ledgerPage);
+      if (activeTab === 2) fetchRefunds(refundsPage);
+      if (activeTab === 4) fetchLegacyTransactions(legacyPage);
+    });
   }, [activeTab, intentsPage, ledgerPage, refundsPage, legacyPage]);
 
   const getStatusChip = (status: string) => {

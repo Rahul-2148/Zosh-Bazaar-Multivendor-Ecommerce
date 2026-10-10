@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   HomeOutlined,
   CategoryOutlined,
@@ -10,7 +10,17 @@ import {
 import { useAppSelector } from "../../Redux Toolkit/Store";
 
 export const MobileBottomNav: React.FC = () => {
+  const location = useLocation();
   const { cart, wishlist, user } = useAppSelector((store) => store);
+
+  // Hide mobile bottom nav on PDP, cart, and checkout to avoid overlapping sticky commerce purchase bars
+  if (
+    location.pathname.startsWith("/product-details") ||
+    location.pathname.startsWith("/checkout") ||
+    location.pathname.startsWith("/cart")
+  ) {
+    return null;
+  }
 
   const cartCount =
     cart.cart?.cartItems?.reduce(

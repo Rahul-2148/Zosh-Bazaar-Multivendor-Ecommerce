@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Typography, Alert, Divider } from "@mui/material";
+import { Button, Typography, Alert } from "@mui/material";
 import {
   ErrorOutline,
   ReplayOutlined,

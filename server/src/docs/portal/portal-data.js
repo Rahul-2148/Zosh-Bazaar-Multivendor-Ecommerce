@@ -213,8 +213,10 @@ To eliminate floating-point rounding bugs common in currency arithmetic (\`0.1 +
 \`\`\`
 
 ### 3. Double-Entry Accounting Invariants
-Every financial transaction posts balancing debits and credits:
-$$\\sum \\text{Debits} = \\sum \\text{Credits}$$
+Every financial transaction posts balancing debits and credits in Indian Rupees (₹):
+> **Core Balance Invariant (INR)**:
+> **∑ Total Debits (₹) = ∑ Total Credits (₹)**
+
 - **Customer Order**: Debit \`GATEWAY_RECEIVABLE\`, Credit \`SELLER_PAYABLE\`, Credit \`PLATFORM_COMMISSION\`.
 - **Order Cancellation**: Debit \`SELLER_PAYABLE\`, Debit \`PLATFORM_COMMISSION\`, Credit \`GATEWAY_REFUND_PAYABLE\`.
 - **Seller Settlement Payout**: Debit \`SELLER_PAYABLE\`, Credit \`BANK_DISBURSEMENT\`.
@@ -282,26 +284,72 @@ Clients cannot join or eavesdrop on rooms outside their cryptographic identity.
     content: `
 # Customer Web Application (\`client\`)
 
-The Customer Portal provides a modern, responsive e-commerce experience across desktop, tablet, and mobile browsers.
+The Customer Portal (\`client\`) provides an immersive, omnichannel storefront delivering lightning-fast product discovery, dynamic variant customization, synchronized bag management, multi-rail Razorpay checkout, live courier GPS tracking, and an integrated account management center. Built with React 19, TypeScript, TailwindCSS v4, Vite, and Redux Toolkit.
 
-### Key Workflows
-1. **Catalog Browsing & Search**:
-   - Filter by categories, brands, price ranges, ratings, and discounts.
-   - Text search with debounced autocomplete powered by \`/api/v1/product/search\`.
-2. **Product Details & Variants**:
-   - Dynamic variant picker (size, color, RAM/storage).
-   - Real-time stock status, seller rating, and estimated delivery SLA by pincode.
-3. **Cart & Wishlist Synchronization**:
-   - Persistent server-synced cart (\`/api/v1/cart\`).
-   - Wishlist toggle with optimistic UI updates.
-4. **Checkout & Razorpay Payment**:
-   - Multi-address selector (\`/api/v1/account/addresses\`).
-   - Coupon code validation (\`/api/v1/coupon/apply\`).
-   - Payment intent creation -> Razorpay Modal checkout -> Signature verification -> Confirmation page.
-5. **Order Tracking & Management**:
-   - Visual tracking stepper (\`PLACED\` -> \`CONFIRMED\` -> \`SHIPPED\` -> \`OUT_FOR_DELIVERY\` -> \`DELIVERED\`).
-   - One-click order cancellation with automated refund initiation.
-   - Customer review submission with multi-image Cloudinary upload.
+### Application Route Directory
+| Route Path | View Component | Access Tier | Architectural Role & Capabilities |
+| :--- | :--- | :--- | :--- |
+| \`/\` | \`Home\` | Public Storefront | Curated hero carousels, category discovery reels, flash deals, and personalized product recommendations. |
+| \`/products\` & \`/products/:categoryId\` | \`Products\` | Public Storefront | Faceted search catalog, brand filters, price sliders, discount thresholds, and rating filters. |
+| \`/product-details/:productId\` | \`ProductDetails\` | Public Storefront | Dynamic variant selector (size, color, storage), real-time stock matrix, pincode delivery SLA, and verified UGC reviews. |
+| \`/cart\` | \`Cart\` | Public / Hybrid | Server-synced shopping cart, line-item quantity modifiers, real-time inventory reservation, and subtotal breakdown. |
+| \`/search\` | \`SearchResults\` | Public Storefront | Debounced full-text autocomplete search powered by \`/api/v1/product/search\`. |
+| \`/wishlist\` | \`Wishlist\` | Authenticated | Saved product collections with optimistic toggle states and out-of-stock notification triggers. |
+| \`/wishlist/shared/:shareToken\` | \`SharedCollectionView\` | Public View | Socially shareable customer wishlist collections. |
+| \`/login\` & \`/signup\` | \`Auth\` | Guest Only | OTP phone authentication, email/password credentials, and secure JWT session creation. |
+| \`/become-seller\` | \`BecomeSeller\` | Public Landing | Merchant acquisition funnel bridging customers to the seller onboarding suite. |
+| \`/checkout\` & \`/checkout/address\` | \`Checkout\` | Customer Auth | Delivery address selector/creator, coupon redemption engine, and Razorpay modal payment launchpad. |
+| \`/payment-success/:orderId\` | \`PaymentSuccess\` | Customer Auth | Payment confirmation, atomic transaction summary, and live tracking launchpad. |
+| \`/orders\` & \`/order/:orderId\` | \`Order\` / \`OrderDetails\` | Customer Auth | 5-stage fulfillment stepper, live courier GPS beacon map, delivery OTP gate, and 1-click cancellation. |
+| \`/account/*\` | \`Profile\` (Nested Hub) | Customer Auth | 15 specialized tabs: Overview, Orders, Returns, Buy Again, Recently Viewed, Addresses, Payments, Coupons, Notifications, Notification Preferences, Profile, Security, Sessions, Privacy, and AI Concierge. |
+
+### End-to-End Operational Workflows
+1. **Catalog Browsing & Semantic Faceted Search**:
+   - Debounced input queries trigger \`/api/v1/product/search\` with token normalization.
+   - Faceted filtering across 3-tier category taxonomy, brand arrays, price bounds, and rating thresholds.
+   - Responsive pagination with cached query keys preventing repeated network requests.
+2. **Product Details & Variant SKU Matrix**:
+   - Client resolves exact SKU by matching active variant permutations (e.g., Color: Midnight Black + Size: XL).
+   - Live delivery SLA estimation queried against \`/api/v1/logistics/pincode/:pincode\` verifying serviceability and COD eligibility.
+3. **Persistent Server-Synchronized Cart**:
+   - Redux Toolkit provides optimistic local state updates while synchronizing with \`/api/v1/cart\`.
+   - Automatic stock reservation safeguards prevent checkout attempts on out-of-stock items.
+4. **Checkout, Coupon Redemption & Razorpay Multi-Rail Payment**:
+   - Customer selects or creates delivery address via \`/api/v1/account/addresses\`.
+   - Coupon redemption against \`/api/v1/coupon/apply\` with real-time cart minimum validations.
+   - Client calls \`/api/v1/payment/create-intent\` to initialize the payment attempt and generate a Razorpay order.
+   - Razorpay checkout modal opens with support for UPI (Google Pay, PhonePe), Cards, Netbanking, and COD.
+   - Upon success, client posts payment ID, order ID, and signature to \`/api/v1/payment/verify-signature\` for atomic ledger recording.
+5. **Real-Time Fulfillment Stepper & GPS Courier Beacon**:
+   - Visual 5-stage tracking stepper (\`PLACED\` -> \`CONFIRMED\` -> \`SHIPPED\` -> \`OUT_FOR_DELIVERY\` -> \`DELIVERED\`).
+   - Socket.IO client listens to \`delivery:agent_location\` to project real-time courier vehicle coordinates on Leaflet/Mapbox maps.
+   - 4-digit zero-trust OTP is displayed to the customer to facilitate secure delivery handover.
+6. **Automated Cancellations & Post-Purchase UGC Reviews**:
+   - 1-click order cancellation with automated refund dispatch to original payment rail.
+   - Verified customer review submissions with star ratings and multi-photo upload to Cloudinary.
+   - Conversational AI Shopping Concierge (\`/account/chat\`) providing personalized product advice and order support.
+
+### Primary API Contracts Directory
+| Method & Endpoint | Auth Role | Description & Primary Parameters |
+| :--- | :--- | :--- |
+| \`POST /api/v1/auth/login\` | Guest | Customer authentication returning JWT token. |
+| \`GET /api/v1/product\` | Public | Paginated product catalog with category, brand, and price filters. |
+| \`GET /api/v1/product/search\` | Public | Debounced text autocomplete and search. |
+| \`GET /api/v1/cart\` & \`POST /api/v1/cart/add\` | Customer | Synchronize and append items to customer bag. |
+| \`POST /api/v1/coupon/apply\` | Customer | Validate coupon code and calculate discount. |
+| \`POST /api/v1/order/create\` | Customer | Create order with delivery address and line items. |
+| \`POST /api/v1/payment/create-intent\` | Customer | Initialize payment intent with Razorpay. |
+| \`POST /api/v1/payment/verify-signature\` | Customer | Verify Razorpay cryptographic signature. |
+| \`GET /api/v1/order/my-orders\` | Customer | Retrieve past orders with status and item details. |
+| \`POST /api/v1/review/create\` | Customer | Submit verified UGC review with photo assets. |
+
+### Real-Time WebSockets & Telemetry Hub
+| Event Name | Direction | Payload & Action |
+| :--- | :--- | :--- |
+| \`order:status_updated\` | Server -> Client | Notifies client of status transitions (\`CONFIRMED\`, \`SHIPPED\`, \`OUT_FOR_DELIVERY\`, \`DELIVERED\`). |
+| \`delivery:agent_location\` | Server -> Client | Broadcasts \`{ lat, lng, speed, heading }\` to render live courier icon on tracking map. |
+| \`delivery:otp_generated\` | Server -> Client | Dispatches 4-digit verification code to customer screen. |
+| \`notification:push\` | Server -> Client | In-app notification badge ping for order updates and promo alerts. |
     `
   },
   {
@@ -312,21 +360,62 @@ The Customer Portal provides a modern, responsive e-commerce experience across d
     content: `
 # Seller Portal & Operations (\`seller\`)
 
-The Seller Portal enables merchants to onboard their store, curate product catalogs, manage inventory, process customer orders, and track earnings.
+The Seller Portal (\`seller\`) empowers registered merchants to manage multi-channel commerce operations: onboarding and KYC compliance, catalog curation, inventory control, order fulfillment, shipping label generation, reverse logistics, and double-entry settlement finances. Built with React 19, TypeScript, TailwindCSS v4, Vite, and Redux Toolkit.
 
-### Key Workflows
-1. **Seller Registration & KYC**:
-   - Multi-step onboarding: Business details, GSTIN, PAN, bank account IFSC, and pickup warehouse address.
-   - Account status starts in \`PENDING\` until Admin review.
-2. **Product & Catalog Management**:
-   - Multi-image drag-and-drop upload to Cloudinary.
-   - Variant matrix builder: SKU generation, MRP, selling price, and stock levels.
-3. **Order Fulfillment Pipeline**:
-   - Filter orders by status: \`PENDING\`, \`CONFIRMED\`, \`SHIPPED\`, \`DELIVERED\`, \`CANCELLED\`.
-   - Download shipping labels and generate dispatch manifests for logistics pickup.
-4. **Financial Settlements & Analytics**:
-   - Real-time revenue chart, total units sold, and return rates.
-   - Settlement statements showing gross sales, marketplace commission deductions, and net payout disbursements.
+### Application Route Directory
+| Route Path | View Component | Access Tier | Architectural Role & Capabilities |
+| :--- | :--- | :--- | :--- |
+| \`/login\` & \`/register\` | \`SellerLogin\` / \`SellerRegister\` | Guest Only | Merchant login and multi-step KYC onboarding (GSTIN, PAN, Bank IFSC, Pickup Address). |
+| \`/\` | \`Dashboard\` | Merchant Auth | Executive dashboard: GMV counters, pending orders, critical stock alerts, fulfillment velocity metrics. |
+| \`/ai\` & \`/ai-insights\` | \`AIInsightsCenter\` | Merchant Auth | Gemini-powered analytics: price elasticity suggestions, demand forecasts, and SEO catalog enhancements. |
+| \`/products\` | \`ProductList\` | Merchant Auth | Merchant catalog directory: listing status, price, inventory levels, category filtering, and bulk status updates. |
+| \`/products/new\` & \`/products/:id/edit\` | \`ProductEditor\` | Merchant Auth | Multi-image Cloudinary drag-and-drop uploader, 3-tier category selector, and variant matrix generator. |
+| \`/inventory\` | \`InventoryCenter\` | Merchant Auth | Low-stock thresholds, SKU buffer alerts, and bulk quantity updates across warehouse locations. |
+| \`/orders\` | \`OrderList\` | Merchant Auth | Order fulfillment Kanban board: order confirmation, printable AWB shipping labels, and dispatch manifest generator. |
+| \`/returns\` | \`ReturnsCenter\` | Merchant Auth | Return request triage, customer dispute resolution, inspection recording, and refund approvals. |
+| \`/finances\` | \`FinancesPage\` | Merchant Auth | Double-entry ledger statements: gross sales, platform commission deductions, TDS withholding, and net payout transfers. |
+| \`/store\` | \`StoreProfile\` | Merchant Auth | Merchant profile configuration: store branding, pickup warehouse address, GSTIN/PAN info, and verified bank payout account. |
+
+### End-to-End Operational Workflows
+1. **Merchant Onboarding & KYC Regulatory Compliance**:
+   - Merchant submits legal business details, 15-digit GSTIN, PAN, bank IFSC account, and pickup warehouse address with valid pincode.
+   - Account enters \`PENDING\` state until Admin compliance team completes document verification.
+2. **Product Catalog Creation & Dynamic Variant Matrix**:
+   - Drag-and-drop image upload direct to Cloudinary with automatic CDN optimization.
+   - Category taxonomy tree resolution (Level 1 Parent -> Level 2 Sub -> Level 3 Leaf).
+   - SKU generator dynamically creates child variants with individual MRP, selling price, and warehouse stock units.
+   - AI-assisted catalog enhancer (\`/api/v1/seller/ai/enhance-description\`) optimizes product copy and SEO metadata.
+3. **Order Fulfillment, Shipping Label Generation & Dispatch**:
+   - Merchant receives instant real-time notification via Socket.IO \`order:created\`.
+   - Merchant confirms order, moving state to \`CONFIRMED\`.
+   - Printable PDF Shipping Label (Air Waybill / AWB) generated with scannable barcode via \`/api/v1/seller/orders/:id/label\`.
+   - Merchant generates dispatch manifest and hands parcel to logistics courier during pickup scan.
+4. **Reverse Logistics & Return Dispute Triage**:
+   - Inbound return requests received in \`/returns\` with customer-submitted reason codes and defect photos.
+   - Merchant conducts physical inspection upon receipt and approves refund or escalates quality dispute to Admin arbitration.
+5. **Financial Ledger Settlements & Bank Payouts**:
+   - Real-time double-entry accounting records: Gross Sales credited to Merchant Payable, Platform Commission (e.g. 5-15%) debited, TDS withheld.
+   - Periodic automated payout disbursements transferred directly to verified bank IFSC account.
+
+### Primary API Contracts Directory
+| Method & Endpoint | Auth Role | Description & Primary Parameters |
+| :--- | :--- | :--- |
+| \`POST /api/v1/seller/auth/register\` | Guest | Merchant registration with KYC business and tax details. |
+| \`POST /api/v1/seller/auth/login\` | Guest | Merchant authentication returning Seller JWT token. |
+| \`GET /api/v1/seller/dashboard/metrics\` | Seller | Real-time counters: GMV, pending orders, low stock count. |
+| \`GET /api/v1/seller/product\` & \`POST /api/v1/seller/product\` | Seller | Fetch and create product listings with variant matrices. |
+| \`PUT /api/v1/seller/inventory/update\` | Seller | Bulk update stock quantities and threshold warnings. |
+| \`GET /api/v1/seller/order\` | Seller | Filter orders by fulfillment status (\`PENDING\`, \`CONFIRMED\`, \`SHIPPED\`). |
+| \`PATCH /api/v1/seller/order/:id/status\` | Seller | Advance order state (\`CONFIRMED\`, \`READY_FOR_PICKUP\`). |
+| \`GET /api/v1/seller/finance/settlements\` | Seller | Access ledger payout records, commission deductions, and net balance. |
+| \`POST /api/v1/seller/ai/insights\` | Seller | Gemini AI price suggestions and inventory forecasts. |
+
+### Real-Time WebSockets & Telemetry Hub
+| Event Name | Direction | Payload & Action |
+| :--- | :--- | :--- |
+| \`order:created\` | Server -> Client | Real-time audio and visual alert when customer places an order. |
+| \`order:cancelled\` | Server -> Client | Alert to immediately cease packing and cancel shipment. |
+| \`shipment:transitioned\` | Server -> Client | Notification when logistics courier completes pickup scan. |
     `
   },
   {
@@ -337,17 +426,61 @@ The Seller Portal enables merchants to onboard their store, curate product catal
     content: `
 # Admin Console & Governance (\`admin\`)
 
-The Admin Portal provides platform operators with centralized governance over users, sellers, catalogs, financial reconciliation, and system parameters.
+The Admin Console (\`admin\`) serves as the central mission control and platform governance hub for Zosh Bazaar. It provides platform operators with complete oversight of merchant KYC approvals, 3-tier catalog taxonomies, content moderation, double-entry financial ledger auditing, campaign merchandising, and system configuration. Built with React 19, TypeScript, TailwindCSS v4, Vite, and Redux Toolkit.
 
-### Key Workflows
-1. **Seller Onboarding & KYC Moderation**:
-   - Review submitted merchant applications, verify GSTIN/tax documents, and approve or reject with reason codes.
-2. **Catalog Moderation**:
-   - Flag inappropriate product listings, suspend violating sellers, and manage global category hierarchies.
-3. **Financial Cockpit & Ledger Inspection**:
-   - Double-entry ledger audit inspector, reconciliation mismatch alerts, and manual refund dispatch overrides.
-4. **Platform Settings & Home Page Curation**:
-   - Configure home screen banner carousels, featured deals, flash sales, and platform commission tiers.
+### Application Route Directory
+| Route Path | View Component | Access Tier | Architectural Role & Capabilities |
+| :--- | :--- | :--- | :--- |
+| \`/login\` | \`AdminLogin\` | Guest Only | Privileged administrator authentication with role-based claim enforcement. |
+| \`/\` | \`Dashboard\` | Admin Auth | Platform-wide KPI telemetry: Total Gross GMV, active users, merchant count, system health, revenue trajectory. |
+| \`/ai\` | \`AdminAICenter\` | Admin Auth | Platform-level AI cockpit: anomaly detection, fraud analysis, high-risk merchant alerts, revenue forecasting. |
+| \`/sellers\` | \`Sellers\` | Admin Auth | Merchant KYC verification table, tax document inspector, approval/rejection modal with reason codes. |
+| \`/orders\` | \`Orders\` | Admin Auth | System-wide order auditor, fulfillment timeline inspector, manual order status overrides. |
+| \`/products\` | \`Products\` | Admin Auth | Global catalog moderation table, policy takedown switches, verified quality badges. |
+| \`/products/create\` & \`/products/:id/edit\` | \`ProductForm\` | Admin Auth | Administrative catalog authoring and intervention interface. |
+| \`/categories\` | \`CategoryManager\` | Admin Auth | 3-tier taxonomy tree manager (Level 1 Parent, Level 2 Subcategory, Level 3 Leaf category). |
+| \`/brands\` | \`Brands\` | Admin Auth | Brand registry directory, official brand badges, trademark ownership validation. |
+| \`/inventory\` | \`InventoryManager\` | Admin Auth | Global multi-merchant warehouse stock inspector and out-of-stock risk monitor. |
+| \`/reviews\` | \`ReviewModeration\` | Admin Auth | UGC review moderation: offensive language filter, spam report resolution, photo inspection. |
+| \`/customers\` | \`Customers\` | Admin Auth | Customer directory, account status toggles (active/suspended), address book inspection. |
+| \`/coupons\` | \`Coupons\` | Admin Auth | Campaign coupon creator: discount percentages, fixed amounts, minimum order cart criteria, usage caps. |
+| \`/deals\` | \`Deals\` | Admin Auth | Flash sales, homepage spotlight deals, scheduled promotion countdowns. |
+| \`/storefront-banners\` | \`HomeCategories\` | Admin Auth | Storefront homepage layout builder, hero banner carousel curation, category tile ordering. |
+| \`/transactions\` | \`Transactions\` | Admin Auth | Double-entry ledger audit inspector, payment reconciliation, mismatch alerts, manual refund overrides. |
+| \`/settings\` | \`PlatformSettings\` | Admin Auth | Platform commission percentages, tax parameters, maintenance mode toggle, service integrations. |
+
+### End-to-End Governance Workflows
+1. **Merchant KYC Verification & Regulatory Approval**:
+   - Review submitted GSTIN tax documents, PAN cards, bank certificates, and warehouse pickup addresses.
+   - Admin approves merchant (\`APPROVED\`), activating their storefront listings, or rejects (\`REJECTED\`) with specific regulatory reason codes.
+2. **3-Tier Taxonomy & Brand Registry Management**:
+   - Maintain clean category hierarchy (e.g. Fashion -> Men's Wear -> Casual Shirts) to ensure smooth customer filtering.
+   - Verify brand trademark documentation and assign verified brand badges.
+3. **Storefront Merchandising & Campaign Management**:
+   - Curate homepage hero banners and deal carousels displayed on customer storefront (\`client\`).
+   - Create platform-funded discount coupons with minimum cart thresholds and automated expiry triggers.
+4. **Double-Entry Ledger Auditing & Dispute Arbitration**:
+   - Inspect balanced debit/credit journal entries (\`/api/v1/admin/ledger/entries\`) verifying zero reconciliation leakage.
+   - Arbitrate customer-seller disputes with authority to trigger manual bank refunds or withhold merchant settlement balances.
+
+### Primary API Contracts Directory
+| Method & Endpoint | Auth Role | Description & Primary Parameters |
+| :--- | :--- | :--- |
+| \`POST /api/v1/admin/auth/login\` | Guest | Privileged administrator session login. |
+| \`GET /api/v1/admin/dashboard/stats\` | Admin | Macro platform analytics: Gross GMV, order volume, active merchants. |
+| \`GET /api/v1/admin/sellers/pending\` | Admin | Retrieve pending merchant KYC applications. |
+| \`PATCH /api/v1/admin/sellers/:id/approve\` | Admin | Approve or reject merchant with reason code. |
+| \`GET /api/v1/admin/categories\` & \`POST /api/v1/admin/categories\` | Admin | CRUD operations for 3-tier taxonomy nodes. |
+| \`GET /api/v1/admin/coupons\` & \`POST /api/v1/admin/coupons\` | Admin | Create promotional discount campaigns. |
+| \`GET /api/v1/admin/ledger/audit\` | Admin | Inspect double-entry journal entries and reconciliation reports. |
+| \`POST /api/v1/admin/refunds/override\` | Admin | Execute manual refund dispatch overriding automated logic. |
+| \`PATCH /api/v1/admin/settings\` | Admin | Update commission tiers and platform operational variables. |
+
+### Real-Time Monitoring & Telemetry
+| Event Name | Direction | Payload & Action |
+| :--- | :--- | :--- |
+| \`system:alert\` | Server -> Client | Critical alerts for ledger reconciliation discrepancies or payment gateway anomalies. |
+| \`admin:audit_trail\` | Internal | Immutable system logging recording every administrative change and override. |
     `
   },
   {
@@ -358,20 +491,62 @@ The Admin Portal provides platform operators with centralized governance over us
     content: `
 # Logistics Control Tower (\`logistics\`)
 
-The Logistics Control Tower manages mid-mile linehaul movements, sortation hubs, pincode serviceability, and delivery exception resolution.
+The Logistics Control Tower (\`logistics\`) orchestrates the physical supply chain: from first-mile merchant pickups to mid-mile linehaul sortation between mother hubs, and last-mile courier route clustering. It features an interactive GPS control tower map, hardware barcode scanning, automated route planner, and Non-Delivery Report (NDR) triage. Built with React 19, TypeScript, TailwindCSS v4, Vite, and Redux Toolkit.
 
-### Key Workflows
-1. **Network Hubs & Serviceability Zones**:
-   - Manage distribution centers and local delivery hubs.
-   - Configure serviceable pincodes, standard transit SLAs, and COD eligibility.
-2. **Manifests & Linehaul Dispatch**:
-   - Aggregate parcels into dispatch manifests.
-   - Inbound and outbound barcode scanner (\`/api/v1/logistics/scan\`) for high-velocity sortation.
-3. **Automated Route Generation**:
-   - Intelligent clustering of pending deliveries into optimized courier runs.
-4. **Non-Delivery Reports (NDR) & Exceptions**:
-   - Triage failed delivery attempts (customer unavailable, door locked, address not found).
-   - Authorize re-attempts, return-to-origin (RTO), or address corrections.
+### Application Route Directory
+| Route Path | View Component | Access Tier | Architectural Role & Capabilities |
+| :--- | :--- | :--- | :--- |
+| \`/login\` | \`LogisticsLogin\` | Guest Only | Logistics operator authentication with dispatch management privileges. |
+| \`/\` | \`ControlTowerOverview\` | Operator Auth | Hub throughput metrics, active linehaul manifests, pending parcel count, SLA breach risk alerts. |
+| \`/operations\` | \`LiveOperationsBoard\` | Operator Auth | Real-time Kanban board sorting parcels across stages: Pickup, Inbound, Sortation, Outbound, Out-for-Delivery, Delivered. |
+| \`/map\` | \`LiveMapControlTower\` | Operator Auth | Interactive geospatial map (Leaflet/Mapbox) rendering active courier vehicles, distribution hubs, and live GPS telemetry. |
+| \`/shipments\` & \`/shipments/:id\` | \`ShipmentList\` / \`ShipmentDetail\` | Operator Auth | Shipment master registry: tracking timeline, AWB number, origin/destination hubs, assigned courier, delivery proofs. |
+| \`/scanner\` | \`PackageScanner\` | Operator Auth | High-velocity barcode/QR scanner for inbound receiving, sortation binning, and outbound linehaul bagging. |
+| \`/manifests\` | \`ManifestsHub\` | Operator Auth | Inbound and outbound linehaul vehicle manifests, vehicle seal numbers, driver assignment, trip dispatch. |
+| \`/hubs\` | \`HubsManagement\` | Operator Auth | Mother distribution hubs, local delivery stations, facility capacity, manager contacts. |
+| \`/zones\` | \`DeliveryZones\` | Operator Auth | Pincode serviceability matrix, transit SLAs in hours/days, Cash-on-Delivery coverage flags. |
+| \`/agents\` | \`DeliveryAgentsList\` | Operator Auth | Courier fleet roster, duty statuses, active assigned loads, contact details. |
+| \`/routes\` | \`RoutePlanner\` | Operator Auth | Dynamic route clustering engine grouping stops by geospatial proximity and courier vehicle capacity. |
+| \`/exceptions\` | \`ExceptionsCenter\` | Operator Auth | Non-Delivery Reports (NDR) triage, customer unavailable resolutions, address correction, RTO execution. |
+| \`/sla\` | \`SlaCommandCenter\` | Operator Auth | Delivery SLA tracking, breach risk indicators, performance benchmarking. |
+| \`/returns\` | \`ReturnsHub\` | Operator Auth | Reverse logistics parcel tracking from customer doorstep back to merchant warehouse. |
+| \`/analytics\` | \`LogisticsAnalytics\` | Operator Auth | First-mile and last-mile efficiency metrics, courier delivery velocity, delivery success rates. |
+
+### End-to-End Logistics Workflows
+1. **Hub Network & Pincode Serviceability Matrix**:
+   - Configure network nodes: Mother Distribution Centers (MDCs) and Local Delivery Stations (LDSs).
+   - Maintain the pincode serviceability matrix defining transit SLAs, air vs surface modes, and COD eligibility.
+2. **High-Velocity Barcode Sortation & Scanning**:
+   - Optical camera and hardware USB barcode scanning via \`/api/v1/logistics/scan\`.
+   - Supported scan transitions: \`INBOUND_RECEIVE\` (arrived at hub), \`SORT_TO_BIN\` (routed to delivery station), \`BAG_DISPATCH\` (consolidated into vehicle manifest), \`LINEHAUL_RECEIVE\` (received at destination hub).
+3. **Linehaul Trip Manifest Creation & Inter-Hub Movement**:
+   - Consolidate individual parcels into trip manifests (\`/api/v1/logistics/manifests\`) with assigned vehicle registration and tamper-evident container seal numbers.
+   - Track mid-mile truck transit across national logistics corridors.
+4. **Dynamic Route Clustering & Courier Allocation**:
+   - Algorithmic clustering groups out-for-delivery packages by geospatial radius and vehicle constraints into optimized runs (\`/api/v1/logistics/routes/cluster\`).
+   - Assign clustered routes to active delivery couriers.
+5. **Non-Delivery Report (NDR) & RTO Exception Resolution**:
+   - When a delivery fails (customer unavailable, door locked, incorrect address), courier logs an exception triggering an NDR ticket in \`/exceptions\`.
+   - Automated customer outreach (IVR / WhatsApp) collects reschedule preferences or updated landmarks.
+   - If 3 delivery attempts are exhausted, the parcel is flagged for Return-to-Origin (\`RTO_INITIATED\`) and routed back to the merchant.
+
+### Primary API Contracts Directory
+| Method & Endpoint | Auth Role | Description & Primary Parameters |
+| :--- | :--- | :--- |
+| \`POST /api/v1/logistics/scan\` | Operator | High-speed barcode scanning triggering parcel state transitions. |
+| \`GET /api/v1/logistics/shipments\` | Operator | Paginated shipment registry with status, hub, and courier filters. |
+| \`POST /api/v1/logistics/manifests\` | Operator | Generate and seal inter-hub linehaul manifests. |
+| \`POST /api/v1/logistics/routes/generate\` | Operator | Execute geospatial clustering to produce optimized courier delivery runs. |
+| \`GET /api/v1/logistics/hubs\` & \`POST /api/v1/logistics/hubs\` | Operator | Manage distribution centers and local delivery stations. |
+| \`PATCH /api/v1/logistics/exceptions/:id\` | Operator | Resolve NDR tickets (schedule re-attempt or trigger RTO). |
+| \`GET /api/v1/logistics/telemetry/live-fleet\` | Operator | Retrieve real-time coordinates of active delivery fleet. |
+
+### Real-Time Telemetry & Fleet Coordinates
+| Event Name | Direction | Payload & Action |
+| :--- | :--- | :--- |
+| \`delivery:location_ping\` | Client -> Server | Ingests live courier GPS coordinates \`{ lat, lng, heading, speed }\`. |
+| \`delivery:agent_location\` | Server -> Client | Broadcasts live courier locations to Control Tower operations map. |
+| \`shipment:transitioned\` | Server -> Client | Pushes instantaneous parcel status changes to live operations Kanban board. |
     `
   },
   {
@@ -382,19 +557,61 @@ The Logistics Control Tower manages mid-mile linehaul movements, sortation hubs,
     content: `
 # Delivery Partner Courier Portal (\`delivery-partner\`)
 
-A mobile-first web app tailored for on-the-ground couriers and delivery drivers navigating busy urban delivery routes.
+The Delivery Partner Portal (\`delivery-partner\`) is a mobile-first Progressive Web App (PWA) tailored for on-the-ground couriers and delivery drivers navigating busy urban delivery routes. Designed for low latency, touch-optimized single-hand operation, offline resilience, and secure proof-of-delivery validation. Built with React 19, TypeScript, TailwindCSS v4, Vite, and Redux Toolkit.
 
-### Key Workflows
-1. **Shift Management**:
-   - One-tap Duty Toggle (\`ONLINE\` / \`OFFLINE\`).
-   - View assigned daily delivery run and total parcels loaded.
-2. **Stop-by-Stop Navigation**:
-   - Turn-by-turn customer address details with one-tap dialer for masked phone calls.
-   - Live GPS beacon broadcasting agent coordinates to the customer tracking page.
-3. **Secure Delivery Completion**:
-   - Customer OTP verification to prevent parcel misplacement.
-   - Proof-of-delivery (POD) photo capture and customer digital signature.
-   - Cash-on-Delivery (COD) cash collection logging.
+### Application Route Directory
+| Route Path | View Component | Access Tier | Architectural Role & Capabilities |
+| :--- | :--- | :--- | :--- |
+| \`/login\` | \`PartnerLogin\` | Guest Only | Courier authentication via mobile phone OTP or credentials. |
+| \`/\` | \`ShiftDashboard\` | Courier Auth | One-tap duty toggle (\`ONLINE\`/\`OFFLINE\`), daily shift summary, loaded packages count, completed deliveries progress bar. |
+| \`/route\` | \`RouteStopsList\` | Courier Auth | Sequential delivery stops HUD, ETA estimates, distance calculations, parcel type badges (Prepaid vs COD). |
+| \`/stop/:stopId\` | \`ActiveDeliveryMode\` | Courier Auth | Active delivery cockpit: customer address, turn-by-turn navigation link, masked dialer, OTP verification gate, POD photo capture, digital signature canvas, COD cash collection. |
+| \`/scanner\` | \`QuickPackageScanner\` | Courier Auth | Mobile camera-based parcel barcode scanner for morning hub parcel loading and doorstep verification. |
+| \`/earnings\` | \`EarningsTransparency\` | Courier Auth | Daily delivered parcel incentives, base pay, tip breakdown, weekly payout transfer history. |
+| \`/history\` | \`DeliveryHistory\` | Courier Auth | Archive of successfully delivered and returned packages with timestamps and proof documents. |
+| \`/safety\` | \`SafetySupportHelp\` | Courier Auth | Emergency SOS button, 24/7 logistics helpline dialer, roadside accident assistance. |
+| \`/profile\` | \`PartnerProfile\` | Courier Auth | Courier KYC details, vehicle registration, emergency contacts, rating score. |
+
+### End-to-End Field Courier Workflows
+1. **Shift Start & Hub Manifest Parcel Loading**:
+   - Courier toggles Duty Status to \`ONLINE\` on \`/\`.
+   - Courier uses \`/scanner\` to scan each physical package at the local delivery station, confirming load against their assigned manifest.
+2. **Sequential Route Navigation & Customer Communication**:
+   - Courier reviews the optimized delivery stop sequence in \`/route\`.
+   - Selecting a stop opens \`ActiveDeliveryMode\` with 1-tap navigation opening Google Maps or Apple Maps.
+   - 1-tap phone dialer connects via a privacy-preserving proxy number to call the customer without exposing personal numbers.
+3. **Zero-Trust 4-Digit OTP Delivery Verification Gate**:
+   - At the customer doorstep, courier requests the 4-digit verification OTP delivered to the customer's phone.
+   - Courier submits the OTP via \`/api/v1/delivery-partner/stop/:id/verify-otp\`. Delivery handover cannot proceed without cryptographic OTP validation.
+4. **Proof-of-Delivery (POD) Photo & Digital Signature**:
+   - Device camera snaps a photo of the delivered parcel at the customer doorstep (uploaded to Cloudinary).
+   - Customer provides digital signature directly on the HTML5 canvas signature pad.
+5. **Cash-on-Delivery (COD) Collection & Ledger Entry**:
+   - For COD parcels, the required cash amount is highlighted prominently in Indian Rupees (₹).
+   - Courier logs cash received, instantaneously updating their physical cash custody ledger.
+6. **Delivery Exception Handling (Customer Unavailable / Door Locked)**:
+   - If customer is unreachable after mandatory 2 call attempts, courier selects failure reason (\`CUSTOMER_UNAVAILABLE\`, \`WRONG_ADDRESS\`, \`CUSTOMER_REFUSED\`).
+   - The stop is rescheduled or flagged for NDR triage at the control tower.
+
+### Primary API Contracts Directory
+| Method & Endpoint | Auth Role | Description & Primary Parameters |
+| :--- | :--- | :--- |
+| \`POST /api/v1/delivery-partner/auth/login\` | Guest | Courier authentication with phone credentials. |
+| \`PATCH /api/v1/delivery-partner/shift/toggle\` | Courier | Toggle courier duty state between \`ONLINE\` and \`OFFLINE\`. |
+| \`GET /api/v1/delivery-partner/route/active\` | Courier | Retrieve today's assigned delivery route, stops, and packages. |
+| \`POST /api/v1/delivery-partner/scan/load\` | Courier | Validate parcel barcode during morning hub loading. |
+| \`POST /api/v1/delivery-partner/stop/:id/verify-otp\` | Courier | Cryptographically validate customer 4-digit handover OTP. |
+| \`POST /api/v1/delivery-partner/stop/:id/complete\` | Courier | Complete delivery with POD image, digital signature, and COD amount. |
+| \`POST /api/v1/delivery-partner/stop/:id/fail\` | Courier | Record delivery exception reason code. |
+| \`POST /api/v1/delivery-partner/telemetry/ping\` | Courier | Stream background GPS coordinates. |
+| \`GET /api/v1/delivery-partner/earnings\` | Courier | View daily commission payouts and performance bonuses. |
+
+### Real-Time Telemetry & Geolocation Broadcasts
+| Event Name | Direction | Payload & Action |
+| :--- | :--- | :--- |
+| \`delivery:location_ping\` | Client -> Server | Periodic GPS beacon broadcast (\`{ lat, lng, heading, speed, routeId }\`) sent to server. |
+| \`delivery:otp_generated\` | Server -> Client | Notification received when OTP is dispatched to customer. |
+| \`order:status_updated\` | Server -> Client | Confirmation broadcast when parcel transitions to \`DELIVERED\`. |
     `
   },
   {

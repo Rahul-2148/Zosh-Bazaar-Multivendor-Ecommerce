@@ -51,7 +51,7 @@ export class SandboxAdapter extends PaymentRailAdapter {
     return "SUCCESS";
   }
 
-  async createIntent({ intent, attempt, user, metadata, scenario }) {
+  async createIntent({ intent: _intent, attempt, user: _user, metadata, scenario }) {
     const simOutcome = this._determineOutcome({ attempt, metadata, amount: attempt?.amount, scenario });
     const providerReference = `sbx_pay_${attempt?.attemptId || Date.now()}_${Date.now()}`;
 
@@ -211,9 +211,9 @@ export class SandboxAdapter extends PaymentRailAdapter {
   }
 
   async refund(arg1, arg2, arg3) {
-    let refundObj, refundAmount, providerReference;
+    let refundObj, refundAmount, _providerReference;
     if (typeof arg1 === "string") {
-      providerReference = arg1;
+      _providerReference = arg1;
       refundAmount = arg2;
       refundObj = {
         refundId: `sbx_ref_${Date.now()}`,
@@ -224,7 +224,7 @@ export class SandboxAdapter extends PaymentRailAdapter {
     } else {
       refundObj = arg1?.refund || arg1 || {};
       refundAmount = refundObj.amount;
-      providerReference = arg1?.attempt?.providerReference;
+      _providerReference = arg1?.attempt?.providerReference;
     }
 
     const outcome = this._determineOutcome({ payload: refundObj.metadata, amount: refundAmount });
@@ -251,7 +251,7 @@ export class SandboxAdapter extends PaymentRailAdapter {
     };
   }
 
-  async verifyWebhook({ payload, signature, rawBody }) {
+  async verifyWebhook({ payload, signature, rawBody: _rawBody }) {
     // Sandbox webhooks require header "x-sandbox-signature" === "valid_sandbox_sig" or pass in test env
     const isValid = signature === "valid_sandbox_sig" || process.env.NODE_ENV !== "production";
     return {
@@ -263,7 +263,7 @@ export class SandboxAdapter extends PaymentRailAdapter {
     };
   }
 
-  async reconcile({ startDate, endDate }) {
+  async reconcile({ startDate: _startDate, endDate: _endDate }) {
     return [
       {
         referenceId: `sbx_feed_01`,

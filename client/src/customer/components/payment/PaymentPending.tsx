@@ -3,7 +3,6 @@ import { CircularProgress, Button, Typography, Alert } from "@mui/material";
 import {
   HourglassEmptyOutlined,
   RefreshOutlined,
-  WarningAmberOutlined,
   ArrowBack,
   SecurityOutlined,
 } from "@mui/icons-material";
@@ -21,7 +20,7 @@ interface PaymentPendingProps {
 
 export const PaymentPending: React.FC<PaymentPendingProps> = ({
   intentId,
-  attemptId,
+  attemptId: _attemptId,
   amount,
   method,
   onSuccess,
@@ -75,6 +74,7 @@ export const PaymentPending: React.FC<PaymentPendingProps> = ({
       clearInterval(timer);
       clearInterval(pollInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intentId]);
 
   const minutes = Math.floor(secondsLeft / 60);

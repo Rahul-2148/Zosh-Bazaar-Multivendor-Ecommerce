@@ -1,6 +1,6 @@
 # Zosh Bazaar — OpenAPI 3.1 Endpoint Coverage & Audit Report
 
-**Generated**: 2026-10-10T06:44:48.101Z  
+**Generated**: 2026-10-10T14:22:36.322Z  
 **Specification**: OpenAPI 3.1.0  
 **Backend Framework**: Express 5.1.0 (Node.js LTS)
 

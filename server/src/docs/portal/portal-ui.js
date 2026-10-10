@@ -12,6 +12,25 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function() {
+      try {
+        var urlParams = new URLSearchParams(window.location.search);
+        var themeParam = urlParams.get('theme');
+        var savedTheme = localStorage.getItem('zb-docs-theme');
+        var theme = 'dark';
+        if (themeParam === 'light' || themeParam === 'dark') {
+          theme = themeParam;
+          localStorage.setItem('zb-docs-theme', themeParam);
+        } else if (savedTheme === 'light' || savedTheme === 'dark') {
+          theme = savedTheme;
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+          theme = 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>Zosh Bazaar — Enterprise Developer Portal & API Reference</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/></svg>">
@@ -54,12 +73,12 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       --bg-surface: #ffffff;
       --bg-surface-elevated: #f1f5f9;
       --bg-surface-hover: #e2e8f0;
-      --border-subtle: rgba(0, 0, 0, 0.07);
-      --border-strong: rgba(0, 0, 0, 0.14);
-      --border-glow: rgba(37, 99, 235, 0.3);
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --border-glow: rgba(37, 99, 235, 0.35);
       --text-main: #0f172a;
-      --text-muted: #475569;
-      --text-faint: #94a3b8;
+      --text-muted: #334155;
+      --text-faint: #64748b;
       --accent-primary: #2563eb;
       --accent-primary-hover: #1d4ed8;
       --accent-primary-glow: rgba(37, 99, 235, 0.18);
@@ -275,16 +294,26 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       top: var(--header-height);
       bottom: 0;
       left: 0;
+      height: calc(100vh - var(--header-height));
       background: var(--bg-surface);
       border-right: 1px solid var(--border-subtle);
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 16px 10px 80px 10px;
+      overflow: hidden;
+      padding: 0;
       z-index: 80;
       transition: width 0.26s var(--ease-smooth), transform 0.26s var(--ease-smooth);
       will-change: width, transform;
       display: flex;
       flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    #sidebarNavigation {
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px 10px;
+      box-sizing: border-box;
     }
 
     /* Mobile Backdrop Overlay */
@@ -306,19 +335,17 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
 
     /* Sidebar Footer Toggle (Desktop) */
     .sidebar-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: var(--sidebar-width);
+      flex-shrink: 0;
+      position: relative;
+      width: 100%;
       background: var(--bg-surface);
       border-top: 1px solid var(--border-subtle);
-      border-right: 1px solid var(--border-subtle);
       padding: 10px 12px;
-      z-index: 85;
-      transition: width 0.26s var(--ease-smooth);
-      will-change: width;
+      z-index: 2;
+      box-sizing: border-box;
       display: flex;
       align-items: center;
+      transition: padding 0.26s var(--ease-smooth);
     }
     .sidebar-collapse-btn {
       width: 100%;
@@ -366,6 +393,9 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       body.sidebar-mini {
         --sidebar-width: var(--sidebar-width-mini);
       }
+      body.sidebar-mini #sidebarNavigation {
+        padding: 14px 6px;
+      }
       body.sidebar-mini .nav-category-title {
         opacity: 0;
         height: 0;
@@ -392,6 +422,9 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
         padding: 0;
         white-space: nowrap;
         display: none;
+      }
+      body.sidebar-mini .sidebar-footer {
+        padding: 10px 8px;
       }
       body.sidebar-mini .sidebar-collapse-btn {
         justify-content: center;
@@ -539,13 +572,77 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       line-height: 1.22;
     }
 
-    /* Modern Markdown */
-    .markdown-body h1 { font-size: 24px; font-weight: 800; margin: 30px 0 14px; letter-spacing: -0.02em; }
-    .markdown-body h2 { font-size: 19.5px; font-weight: 700; margin: 26px 0 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
-    .markdown-body h3 { font-size: 16px; font-weight: 700; margin: 20px 0 8px; }
-    .markdown-body p { margin-bottom: 14px; color: var(--text-muted); font-size: 14.5px; }
-    .markdown-body ul, .markdown-body ol { margin-bottom: 14px; padding-left: 22px; color: var(--text-muted); }
-    .markdown-body li { margin-bottom: 6px; }
+    /* Modern Markdown Typography & Structure */
+    .markdown-body h1 { font-size: 24px; font-weight: 800; margin: 32px 0 14px; letter-spacing: -0.02em; }
+    .markdown-body h2 { font-size: 20px; font-weight: 700; margin: 28px 0 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 8px; }
+    .markdown-body h3 { font-size: 16.5px; font-weight: 700; margin: 24px 0 10px; color: var(--text-main); }
+    .markdown-body h4 { font-size: 14.5px; font-weight: 700; margin: 18px 0 8px; color: var(--text-main); }
+    .markdown-body p { margin-bottom: 14px; color: var(--text-muted); font-size: 14.5px; line-height: 1.65; }
+    .markdown-body strong { color: var(--text-main); font-weight: 700; }
+    .markdown-body a { color: var(--accent-primary); text-decoration: none; font-weight: 600; }
+    .markdown-body a:hover { text-decoration: underline; }
+
+    /* Lists & Nested Workflows Hierarchy */
+    .markdown-body ol {
+      margin: 12px 0 20px 24px;
+      padding-left: 6px;
+      color: var(--text-muted);
+    }
+    .markdown-body ol > li {
+      margin-bottom: 12px;
+      font-size: 14.5px;
+      line-height: 1.6;
+    }
+    .markdown-body ol > li > strong {
+      color: var(--text-main);
+      font-size: 15px;
+    }
+    .markdown-body ul {
+      margin: 8px 0 12px 20px;
+      padding-left: 6px;
+      list-style-type: disc;
+      color: var(--text-muted);
+    }
+    .markdown-body ul > li {
+      margin-bottom: 6px;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .markdown-body ul ul {
+      margin: 4px 0 6px 18px;
+      list-style-type: circle;
+    }
+    .markdown-body hr.divider {
+      border: 0;
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 28px 0;
+    }
+    .markdown-body blockquote {
+      margin: 16px 0;
+      padding: 12px 18px;
+      background: var(--bg-surface);
+      border-left: 3px solid var(--accent-primary);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .markdown-body code {
+      background: var(--bg-surface-elevated);
+      color: var(--accent-primary);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      border: 1px solid var(--border-subtle);
+    }
+    .markdown-body pre code {
+      background: transparent;
+      padding: 0;
+      border: none;
+      font-size: 13px;
+      color: inherit;
+    }
 
     /* Code Blocks */
     .code-container {
@@ -647,11 +744,11 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       letter-spacing: 0.04em;
       flex-shrink: 0;
     }
-    .method-badge.get { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); }
-    .method-badge.post { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.35); }
-    .method-badge.patch { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); }
-    .method-badge.put { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.35); }
-    .method-badge.delete { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .method-badge.get { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .method-badge.post { background: rgba(59, 130, 246, 0.18); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .method-badge.patch { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .method-badge.put { background: rgba(139, 92, 246, 0.18); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); }
+    .method-badge.delete { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
 
     /* ==========================================================
        TAGDA API REFERENCE OVERHAUL & FULL RESPONSIVENESS
@@ -1005,7 +1102,7 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       display: none;
       padding: 20px;
       border-top: 1px solid var(--border-subtle);
-      background: rgba(0, 0, 0, 0.14);
+      background: rgba(11, 15, 25, 0.65);
       animation: fadeIn 0.2s ease;
     }
     .api-card.expanded .api-card-body {
@@ -1073,9 +1170,9 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       padding: 4px 10px;
       border-radius: var(--radius-sm);
     }
-    .resp-pill.success { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35); }
-    .resp-pill.client-err { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); }
-    .resp-pill.server-err { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .resp-pill.success { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .resp-pill.client-err { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .resp-pill.server-err { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
 
     /* Search Modal */
     .modal-backdrop {
@@ -1137,6 +1234,397 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
     .result-item:hover, .result-item.selected {
       background: var(--bg-surface-elevated);
       color: var(--text-main);
+    }
+
+    /* ==========================================================
+       DEDICATED LIGHT THEME UI OVERHAUL & CONTRAST EXCELLENCE
+       ========================================================== */
+    [data-theme="light"] {
+      color: #0f172a;
+    }
+
+    /* Light Theme Header */
+    [data-theme="light"] header.portal-header {
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    }
+    [data-theme="light"] .brand-title {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    [data-theme="light"] .brand-tag {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+    [data-theme="light"] .btn-icon-toggle,
+    [data-theme="light"] .theme-toggle,
+    [data-theme="light"] .btn-header,
+    [data-theme="light"] .search-trigger {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    [data-theme="light"] .btn-icon-toggle:hover,
+    [data-theme="light"] .theme-toggle:hover,
+    [data-theme="light"] .btn-header:hover,
+    [data-theme="light"] .search-trigger:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+    [data-theme="light"] .btn-header.primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.25);
+    }
+    [data-theme="light"] .btn-header.primary:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+    [data-theme="light"] .search-shortcut {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #64748b;
+    }
+
+    /* Light Theme Sidebar */
+    [data-theme="light"] aside.portal-sidebar {
+      background: #ffffff;
+      border-right: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .nav-category-title {
+      color: #64748b;
+    }
+    [data-theme="light"] .nav-item {
+      color: #475569;
+    }
+    [data-theme="light"] .nav-item:hover {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    [data-theme="light"] .nav-item.active {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 600;
+      border-left: 3px solid #2563eb;
+    }
+    [data-theme="light"] .nav-badge {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .nav-item.active .nav-badge {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+    [data-theme="light"] .sidebar-footer {
+      background: #ffffff;
+      border-top: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .sidebar-collapse-btn {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    [data-theme="light"] .sidebar-collapse-btn:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* Light Theme Main Content & Prose */
+    [data-theme="light"] .content-header {
+      border-bottom: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .content-title {
+      color: #0f172a;
+    }
+    [data-theme="light"] .markdown-body h1,
+    [data-theme="light"] .markdown-body h2,
+    [data-theme="light"] .markdown-body h3,
+    [data-theme="light"] .markdown-body h4 {
+      color: #0f172a;
+    }
+    [data-theme="light"] .markdown-body h2 {
+      border-bottom: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .markdown-body p,
+    [data-theme="light"] .markdown-body ul,
+    [data-theme="light"] .markdown-body ol,
+    [data-theme="light"] .markdown-body li {
+      color: #334155;
+    }
+    [data-theme="light"] .markdown-body strong {
+      color: #0f172a;
+    }
+    [data-theme="light"] .markdown-body blockquote {
+      background: #f8fafc;
+      border-left: 3px solid #2563eb;
+      color: #475569;
+    }
+    [data-theme="light"] .markdown-body code {
+      background: #f1f5f9;
+      color: #1d4ed8;
+      border: 1px solid #cbd5e1;
+    }
+
+    /* Light Theme API Hero Card */
+    [data-theme="light"] .api-hero-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #eff6ff 100%);
+      border: 1px solid #bfdbfe;
+      box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08), 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+    [data-theme="light"] .api-hero-card::after {
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, transparent 70%);
+    }
+    [data-theme="light"] .api-hero-title {
+      color: #0f172a;
+    }
+    [data-theme="light"] .api-hero-desc {
+      color: #475569;
+    }
+    [data-theme="light"] .api-stat-chip {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    [data-theme="light"] .api-stat-chip .chip-label {
+      color: #64748b;
+    }
+    [data-theme="light"] .api-stat-chip .chip-val {
+      color: #0f172a;
+    }
+
+    /* Light Theme Control Panel & Filters */
+    [data-theme="light"] .api-control-panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+    [data-theme="light"] .portal-quick-label {
+      color: #64748b;
+    }
+    [data-theme="light"] .portal-quick-bar {
+      border-bottom: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .portal-chip {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    [data-theme="light"] .portal-chip:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+    [data-theme="light"] .portal-chip.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    }
+    [data-theme="light"] .method-pill-btn {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+    [data-theme="light"] .method-pill-btn:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+    [data-theme="light"] .method-pill-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+    }
+    [data-theme="light"] .pill-count {
+      background: rgba(0, 0, 0, 0.07);
+      color: inherit;
+    }
+    [data-theme="light"] .tag-select {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #0f172a;
+    }
+    [data-theme="light"] .tag-select option {
+      background: #ffffff;
+      color: #0f172a;
+    }
+    [data-theme="light"] .api-search-input {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #0f172a;
+    }
+    [data-theme="light"] .api-search-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    [data-theme="light"] .api-search-clear {
+      color: #94a3b8;
+    }
+    [data-theme="light"] .api-search-clear:hover {
+      color: #0f172a;
+    }
+
+    /* Light Theme API Cards */
+    [data-theme="light"] .api-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+    [data-theme="light"] .api-card:hover {
+      border-color: #93c5fd;
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+    [data-theme="light"] .api-card.expanded {
+      border-color: #2563eb;
+      box-shadow: 0 10px 30px rgba(37, 99, 235, 0.12), 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+    [data-theme="light"] .api-path {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    [data-theme="light"] .path-param {
+      color: #d97706;
+    }
+    [data-theme="light"] .api-summary {
+      color: #475569;
+    }
+    [data-theme="light"] .api-auth-badge {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .api-auth-badge.secured {
+      background: #fffbeb;
+      color: #b45309;
+      border-color: #fde68a;
+    }
+    [data-theme="light"] .api-tag-badge {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .api-card-body {
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .section-subtitle {
+      color: #64748b;
+    }
+
+    /* Method Badges - WCAG AAA Contrast in Light Mode */
+    [data-theme="light"] .method-badge.get { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    [data-theme="light"] .method-badge.post { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    [data-theme="light"] .method-badge.patch { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    [data-theme="light"] .method-badge.put { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    [data-theme="light"] .method-badge.delete { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    /* Response Pills in Light Mode */
+    [data-theme="light"] .resp-pill.success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    [data-theme="light"] .resp-pill.client-err { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    [data-theme="light"] .resp-pill.server-err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    /* Tables in Light Mode */
+    [data-theme="light"] .table-container {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    [data-theme="light"] th {
+      background: #f8fafc;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      font-weight: 700;
+    }
+    [data-theme="light"] td {
+      color: #334155;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    [data-theme="light"] tr:hover td {
+      background: #f8fafc;
+    }
+
+    /* Developer-Grade Dark IDE Code Blocks in Both Modes */
+    [data-theme="light"] .snippet-tabs-bar {
+      background: #1e293b;
+      border-color: #334155;
+    }
+    [data-theme="light"] .snippet-tab-btn {
+      color: #94a3b8;
+    }
+    [data-theme="light"] .snippet-tab-btn:hover {
+      color: #f8fafc;
+    }
+    [data-theme="light"] .snippet-tab-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    [data-theme="light"] .code-container {
+      background: #0b0f19;
+      border-color: #1e293b;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    }
+    [data-theme="light"] .code-header {
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+      color: #9ca3af;
+    }
+    [data-theme="light"] pre {
+      color: #e2e8f0;
+    }
+    [data-theme="light"] .copy-btn {
+      border-color: #374151;
+      color: #9ca3af;
+    }
+    [data-theme="light"] .copy-btn:hover {
+      color: #ffffff;
+      background: #1f2937;
+    }
+    [data-theme="light"] code {
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+    }
+    pre code {
+      background: transparent !important;
+      color: inherit !important;
+      border: none !important;
+    }
+
+    /* Light Theme Search Modal */
+    [data-theme="light"] .modal-backdrop {
+      background: rgba(15, 23, 42, 0.45);
+    }
+    [data-theme="light"] .search-modal {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.16);
+    }
+    [data-theme="light"] .modal-input-wrapper {
+      border-bottom: 1px solid #e2e8f0;
+    }
+    [data-theme="light"] .modal-input {
+      color: #0f172a;
+    }
+    [data-theme="light"] .result-item {
+      color: #475569;
+    }
+    [data-theme="light"] .result-item:hover,
+    [data-theme="light"] .result-item.selected {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    [data-theme="light"] .floating-nav-tooltip {
+      background: #0f172a;
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     }
 
     /* ==========================================================
@@ -1242,7 +1730,7 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       <a href="#overview" class="header-brand">
         <div class="brand-icon">ZB</div>
         <span class="brand-title">Zosh Bazaar</span>
-        <span class="brand-tag">v2.4 Developer Portal</span>
+        <span class="brand-tag">Developer Portal</span>
       </a>
     </div>
 
@@ -1328,7 +1816,7 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       'overview': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>',
       'quickstart': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>',
       'security-rbac': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-      'payments-ledger': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" stroke-width="2"/><line x1="2" y1="10" x2="22" y2="10" stroke-width="2"/></svg>',
+      'payments-ledger': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3h12M6 8h12M6 13h3c6.667 0 6.667-10 0-10H6m0 10l8.5 8"/></svg>',
       'realtime-socket': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>',
       'portal-customer': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>',
       'portal-seller': '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22" stroke-width="2"/></svg>',
@@ -1344,57 +1832,173 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       document.body.classList.add('sidebar-mini');
     }
 
-    // Markdown simple renderer
+    // Robust Markdown Renderer with nested lists, tables, code blocks and typography
     function renderMarkdown(md) {
       if (!md) return '';
-      let html = md
-        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        .replace(/\\*\\*(.*?)\\*\\*/gim, '<strong>$1</strong>')
-        .replace(/\`\`\`([a-z0-9_-]*)\\n([\\s\\S]*?)\`\`\`/gim, (match, lang, code) => {
-          return '<div class="code-container">' +
-                 '<div class="code-header"><span>' + (lang || 'code') + '</span><button class="copy-btn" onclick="copySnippet(this)">Copy</button></div>' +
-                 '<pre><code>' + escapeHtml(code.trim()) + '</code></pre></div>';
-        })
-        .replace(/\`([^\\\`]+)\`/gim, '<code>$1</code>')
-        .replace(/\\|(.+)\\|/g, (match) => match);
 
-      const lines = html.split('\\n');
+      const codeBlocks = [];
+      let text = md.replace(/\`\`\`([a-z0-9_-]*)\\n([\\s\\S]*?)\`\`\`/gim, (match, lang, code) => {
+        const idx = codeBlocks.length;
+        codeBlocks.push(
+          '<div class="code-container">' +
+          '<div class="code-header"><span>' + (lang || 'code') + '</span><button class="copy-btn" onclick="copySnippet(this)">Copy</button></div>' +
+          '<pre><code>' + escapeHtml(code.trim()) + '</code></pre></div>'
+        );
+        return '\\n\\n@@CODEBLOCK_' + idx + '@@\\n\\n';
+      });
+
+      function parseInline(str) {
+        if (!str) return '';
+        return str
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+          .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
+          .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+          .replace(/\`([^\\\`]+)\`/g, '<code>$1</code>')
+          .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      }
+
+      const lines = text.split('\\n');
+      const output = [];
+
       let inTable = false;
-      let tableHtml = '';
-      let newLines = [];
+      let tableHeaderParsed = false;
+      let listStack = [];
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('|') && line.endsWith('|')) {
-          if (!inTable) {
-            inTable = true;
-            tableHtml = '<div class="table-container"><table>';
-          }
-          const cells = line.split('|').slice(1, -1);
-          if (lines[i+1] && lines[i+1].includes('---')) {
-            tableHtml += '<thead><tr>' + cells.map(c => '<th>' + c.trim() + '</th>').join('') + '</tr></thead><tbody>';
-            i++;
-          } else {
-            tableHtml += '<tr>' + cells.map(c => '<td>' + c.trim() + '</td>').join('') + '</tr>';
-          }
-        } else {
-          if (inTable) {
-            inTable = false;
-            tableHtml += '</tbody></table></div>';
-            newLines.push(tableHtml);
-            tableHtml = '';
-          }
-          newLines.push(lines[i]);
+      function closeAllLists() {
+        while (listStack.length > 0) {
+          const top = listStack.pop();
+          output.push('</li></' + top.type + '>');
         }
       }
-      if (inTable) {
-        tableHtml += '</tbody></table></div>';
-        newLines.push(tableHtml);
+
+      function closeTable() {
+        if (inTable) {
+          output.push('</tbody></table></div>');
+          inTable = false;
+          tableHeaderParsed = false;
+        }
       }
 
-      return newLines.join('\\n').replace(/\\n\\n+/g, '<p></p>');
+      for (let i = 0; i < lines.length; i++) {
+        const rawLine = lines[i];
+        const trimmed = rawLine.trim();
+
+        if (!trimmed) {
+          closeTable();
+          closeAllLists();
+          continue;
+        }
+
+        if (trimmed.startsWith('@@CODEBLOCK_')) {
+          closeTable();
+          closeAllLists();
+          output.push(trimmed);
+          continue;
+        }
+
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+          closeAllLists();
+          const cells = trimmed.split('|').slice(1, -1).map(c => parseInline(c.trim()));
+          if (!inTable) {
+            inTable = true;
+            tableHeaderParsed = false;
+            output.push('<div class="table-container"><table><thead><tr>' + cells.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>');
+          } else if (!tableHeaderParsed && cells.every(c => c.replace(/[:-\\s]/g, '') === '')) {
+            tableHeaderParsed = true;
+          } else {
+            output.push('<tr>' + cells.map(c => '<td>' + c + '</td>').join('') + '</tr>');
+          }
+          continue;
+        } else {
+          closeTable();
+        }
+
+        if (trimmed.startsWith('#')) {
+          closeAllLists();
+          const m = trimmed.match(/^(#{1,6})\\s+(.*)$/);
+          if (m) {
+            const level = m[1].length;
+            output.push('<h' + level + '>' + parseInline(m[2]) + '</h' + level + '>');
+            continue;
+          }
+        }
+
+        if (trimmed.startsWith('>')) {
+          closeAllLists();
+          const quoteText = trimmed.replace(/^>\\s*/, '');
+          output.push('<blockquote>' + parseInline(quoteText) + '</blockquote>');
+          continue;
+        }
+
+        if (/^(\\*\\*\\*|---|___)$/.test(trimmed)) {
+          closeAllLists();
+          output.push('<hr class="divider">');
+          continue;
+        }
+
+        const orderedMatch = rawLine.match(/^(\\s*)(\\d+)\\.\\s+(.*)$/);
+        const unorderedMatch = rawLine.match(/^(\\s*)([-*])\\s+(.*)$/);
+
+        if (orderedMatch || unorderedMatch) {
+          const isOrdered = !!orderedMatch;
+          const indent = (isOrdered ? orderedMatch[1] : unorderedMatch[1]).length;
+          const content = parseInline(isOrdered ? orderedMatch[3] : unorderedMatch[3]);
+          const listType = isOrdered ? 'ol' : 'ul';
+
+          if (listStack.length === 0) {
+            listStack.push({ type: listType, indent: indent });
+            output.push('<' + listType + '><li>' + content);
+          } else {
+            const current = listStack[listStack.length - 1];
+            if (indent > current.indent) {
+              listStack.push({ type: listType, indent: indent });
+              output.push('<' + listType + '><li>' + content);
+            } else if (indent < current.indent) {
+              while (listStack.length > 0 && listStack[listStack.length - 1].indent > indent) {
+                const popped = listStack.pop();
+                output.push('</li></' + popped.type + '>');
+              }
+              if (listStack.length > 0 && listStack[listStack.length - 1].type === listType) {
+                output.push('</li><li>' + content);
+              } else {
+                if (listStack.length > 0) {
+                  const popped = listStack.pop();
+                  output.push('</li></' + popped.type + '>');
+                }
+                listStack.push({ type: listType, indent: indent });
+                output.push('<' + listType + '><li>' + content);
+              }
+            } else {
+              if (current.type === listType) {
+                output.push('</li><li>' + content);
+              } else {
+                output.push('</li></' + current.type + '><' + listType + '><li>' + content);
+                current.type = listType;
+              }
+            }
+          }
+          continue;
+        }
+
+        if (listStack.length > 0 && rawLine.match(/^\\s{2,}\\S/)) {
+          output.push('<div class="list-item-desc">' + parseInline(trimmed) + '</div>');
+          continue;
+        }
+
+        closeAllLists();
+        output.push('<p>' + parseInline(trimmed) + '</p>');
+      }
+
+      closeTable();
+      closeAllLists();
+
+      let html = output.join('\\n');
+
+      html = html.replace(/@@CODEBLOCK_(\\d+)@@/g, (match, idx) => {
+        return codeBlocks[Number(idx)] || '';
+      });
+
+      return html;
     }
 
     function escapeHtml(str) {
@@ -1435,6 +2039,9 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
         el.addEventListener('mouseleave', () => {
           floatingTooltip.classList.remove('visible');
         });
+        el.addEventListener('click', () => {
+          floatingTooltip.classList.remove('visible');
+        });
       });
     }
 
@@ -1459,7 +2066,7 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
         items.forEach(it => {
           const isActive = activeView === it.id ? 'active' : '';
           const iconSvg = SECTION_ICONS[it.id] || SECTION_ICONS['overview'];
-          html += '<a class="nav-item ' + isActive + '" onclick="switchView(\\'' + it.id + '\\')" data-tooltip-title="' + escapeHtml(it.title) + '" data-tooltip-badge="' + (it.badge || '') + '" title="' + escapeHtml(it.title) + '">';
+          html += '<a class="nav-item ' + isActive + '" onclick="switchView(\\'' + it.id + '\\')" data-tooltip-title="' + escapeHtml(it.title) + '" data-tooltip-badge="' + (it.badge || '') + '">';
           html += '<span class="nav-item-icon">' + iconSvg + '</span>';
           html += '<span class="nav-item-title">' + it.title + '</span>';
           if (it.badge) html += '<span class="nav-badge">' + it.badge + '</span>';
@@ -1721,9 +2328,9 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
           // Tabbed Code Snippet Switcher (cURL / Fetch / Python)
           html += '<div class="section-subtitle">Production Code Snippets</div>';
           html += '<div class="snippet-tabs-bar" id="tabs-' + idx + '">';
-          html += '<button class="snippet-tab-btn active" onclick="switchSnippetTab(' + idx + ', \\'curl\\')">cURL</button>';
-          html += '<button class="snippet-tab-btn" onclick="switchSnippetTab(' + idx + ', \\'fetch\\')">JavaScript (fetch)</button>';
-          html += '<button class="snippet-tab-btn" onclick="switchSnippetTab(' + idx + ', \\'python\\')">Python (requests)</button>';
+          html += '<button class="snippet-tab-btn active" onclick="switchSnippetTab(this, ' + idx + ', \\'curl\\')">cURL</button>';
+          html += '<button class="snippet-tab-btn" onclick="switchSnippetTab(this, ' + idx + ', \\'fetch\\')">JavaScript (fetch)</button>';
+          html += '<button class="snippet-tab-btn" onclick="switchSnippetTab(this, ' + idx + ', \\'python\\')">Python (requests)</button>';
           html += '</div>';
 
           // Generated code snippets
@@ -1773,7 +2380,7 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       if (card) card.classList.toggle('expanded');
     };
 
-    window.switchSnippetTab = function(idx, lang) {
+    window.switchSnippetTab = function(btn, idx, lang) {
       const tabsBar = document.getElementById('tabs-' + idx);
       const codeTarget = document.getElementById('code-target-' + idx);
       const langLabel = document.getElementById('lang-label-' + idx);
@@ -1782,8 +2389,8 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       if (!tabsBar || !codeTarget || !dataEl) return;
       const data = JSON.parse(dataEl.textContent);
 
-      tabsBar.querySelectorAll('.snippet-tab-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
+      tabsBar.querySelectorAll('.snippet-tab-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
 
       langLabel.innerText = lang.toUpperCase();
       codeTarget.innerText = data[lang] || '';
@@ -1956,28 +2563,90 @@ export function renderDeveloperPortalHtml({ sections, openApiSpec }) {
       }
     };
 
-    // Theme Toggle
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('zb-docs-theme', next);
-    });
+    // Dynamic Theme Icons & Controller
+    const SUN_ICON = '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>';
+    const MOON_ICON = '<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>';
 
-    const savedTheme = localStorage.getItem('zb-docs-theme');
-    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-
-    // Initial Hash Routing
-    if (window.location.hash) {
-      const hash = window.location.hash.replace('#', '');
-      if (hash === 'api-reference' || SECTIONS.some(s => s.id === hash)) {
-        activeView = hash;
+    function updateThemeIcon(theme) {
+      const btn = document.getElementById('themeToggle');
+      if (btn) {
+        if (theme === 'light') {
+          btn.innerHTML = MOON_ICON;
+          btn.setAttribute('title', 'Switch to Dark Mode (Ctrl+D)');
+          btn.setAttribute('aria-label', 'Switch to Dark Mode');
+        } else {
+          btn.innerHTML = SUN_ICON;
+          btn.setAttribute('title', 'Switch to Light Mode (Ctrl+D)');
+          btn.setAttribute('aria-label', 'Switch to Light Mode');
+        }
       }
     }
 
-    renderSidebar();
-    renderContent();
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      updateThemeIcon(theme);
+    }
+
+    function toggleThemeMode() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      try {
+        localStorage.setItem('zb-docs-theme', next);
+      } catch (e) {}
+
+      // Clean query parameter from URL so it doesn't lock future refreshes
+      try {
+        const cleanUrl = new URL(window.location.href);
+        if (cleanUrl.searchParams.has('theme')) {
+          cleanUrl.searchParams.delete('theme');
+          window.history.replaceState({}, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash);
+        }
+      } catch (e) {}
+    }
+
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', toggleThemeMode);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        toggleThemeMode();
+      }
+    });
+
+    // Theme initialization sync
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    updateThemeIcon(currentTheme);
+
+    // Clean theme query parameter from URL on initial load so future refreshes use localStorage
+    try {
+      const initUrl = new URL(window.location.href);
+      if (initUrl.searchParams.has('theme')) {
+        initUrl.searchParams.delete('theme');
+        window.history.replaceState({}, '', initUrl.pathname + (initUrl.search ? initUrl.search : '') + initUrl.hash);
+      }
+    } catch (e) {}
+
+    // Hash Routing & Deep Linking
+    function handleHashRoute() {
+      if (window.location.hash) {
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'api-reference' || SECTIONS.some(s => s.id === hash)) {
+          activeView = hash;
+        }
+      }
+      renderSidebar();
+      renderContent();
+    }
+
+    window.addEventListener('hashchange', () => {
+      handleHashRoute();
+    });
+
+    handleHashRoute();
   </script>
 </body>
 </html>`;

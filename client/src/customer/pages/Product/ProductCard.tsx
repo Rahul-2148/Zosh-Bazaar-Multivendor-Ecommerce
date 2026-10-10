@@ -45,14 +45,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       : item.category1 || item.category || "all")
       .toString()
       .trim()
-      .replace(/[\/\s]+/g, "-");
+      .replace(/[/\s]+/g, "-");
 
   const titleSlug =
     (item.title || "product")
       .toString()
       .trim()
       .slice(0, 60)
-      .replace(/[\/\s]+/g, "-")
+      .replace(/[/\s]+/g, "-")
       .replace(/[^\w-]/g, "") || "product";
 
   const productUrl = `/product-details/${encodeURIComponent(categorySlug)}/${encodeURIComponent(

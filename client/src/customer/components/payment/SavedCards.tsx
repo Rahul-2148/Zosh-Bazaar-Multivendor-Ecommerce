@@ -1,6 +1,6 @@
 import React from "react";
 import { TextField, Button, CircularProgress } from "@mui/material";
-import { CreditCardOutlined, CheckCircle, SecurityOutlined } from "@mui/icons-material";
+import { CreditCardOutlined, CheckCircle } from "@mui/icons-material";
 
 interface SavedCardItem {
   _id: string;

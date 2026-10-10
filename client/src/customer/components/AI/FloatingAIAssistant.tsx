@@ -11,8 +11,6 @@ import {
   ArrowRight,
   Sliders,
   CheckCircle2,
-  Clock,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
   Cpu,
@@ -38,6 +36,8 @@ interface Message {
   structuredComparison?: StructuredComparison;
   actionPayloads?: ActionPayload[];
 }
+
+const createFloatMsgId = (prefix: string) => `${prefix}_${Date.now()}`;
 
 export const FloatingAIAssistant: React.FC = () => {
   const navigate = useNavigate();
@@ -112,7 +112,7 @@ export const FloatingAIAssistant: React.FC = () => {
     if (!text || loading) return;
 
     const userMessage: Message = {
-      id: `usr_${Date.now()}`,
+      id: createFloatMsgId("usr"),
       role: "user",
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -134,7 +134,7 @@ export const FloatingAIAssistant: React.FC = () => {
       }
 
       const assistantMsg: Message = {
-        id: `asst_${Date.now()}`,
+        id: createFloatMsgId("asst"),
         role: "assistant",
         content: res.reply,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),

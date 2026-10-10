@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   AutoAwesome,
-  Speed,
-  TrendingDown,
-  TrendingUp,
-  Search,
-  CheckCircle,
-  WarningAmber,
-  Shield,
   Psychology,
   Refresh,
   Hub,
@@ -16,19 +9,13 @@ import {
 import {
   Button,
   CircularProgress,
-  TextField,
   Chip,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
 } from "@mui/material";
 import apiClient from "../../api/apiClient";
 
 export const AdminAICenter: React.FC = () => {
   const [observability, setObservability] = useState<any>(null);
-  const [obsLoading, setObsLoading] = useState(true);
+  const [_obsLoading, setObsLoading] = useState(true);
 
   // Copilot Query State
   const [copilotQuery, setCopilotQuery] = useState("Why did sales drop in audio?");
@@ -85,6 +72,7 @@ export const AdminAICenter: React.FC = () => {
     fetchObservability();
     handleRunCopilot("Why did sales drop in audio?");
     handleRunExplorer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Checkbox, FormControlLabel } from "@mui/material";
-import { AccountBalanceWalletOutlined, CheckCircle, AddCircleOutline } from "@mui/icons-material";
+import { AccountBalanceWalletOutlined, AddCircleOutline } from "@mui/icons-material";
 
 interface WalletPaymentProps {
   walletBalance: number;

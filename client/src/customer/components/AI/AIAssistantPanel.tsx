@@ -11,7 +11,6 @@ import {
   RotateCcw,
   Sliders,
   ArrowRight,
-  ShieldCheck,
   CheckCircle2,
   Mic,
 } from "lucide-react";
@@ -37,6 +36,8 @@ import AIComparisonMatrix from "./AIComparisonMatrix";
 import VisualSearchLensModal from "./VisualSearchLensModal";
 import { isSpeechRecognitionSupported } from "../../../utils/speechSupport";
 
+const createPanelMsgId = (prefix: string) => `${prefix}_${Date.now()}`;
+
 export const AIAssistantPanel: React.FC = () => {
   const dispatch = useDispatch();
   const {
@@ -46,7 +47,6 @@ export const AIAssistantPanel: React.FC = () => {
     messages,
     loading,
     isStreaming,
-    activeExecutionSteps,
   } = useSelector((state: RootState) => state.aiAssistant);
 
   const [inputText, setInputText] = useState("");
@@ -206,7 +206,7 @@ export const AIAssistantPanel: React.FC = () => {
     if (!text || loading || isStreaming) return;
 
     const userMessage: ChatMessage = {
-      id: `usr_${Date.now()}`,
+      id: createPanelMsgId("usr"),
       role: "user",
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -218,7 +218,7 @@ export const AIAssistantPanel: React.FC = () => {
     dispatch(setIsStreaming(true));
     dispatch(setActiveExecutionSteps([]));
 
-    const assistantMsgId = `asst_${Date.now()}`;
+    const assistantMsgId = createPanelMsgId("asst");
     const initialAssistantMsg: ChatMessage = {
       id: assistantMsgId,
       role: "assistant",

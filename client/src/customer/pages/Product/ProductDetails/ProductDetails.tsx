@@ -5,7 +5,6 @@ import {
   FlashOn,
   LocalShipping,
   Remove,
-  Shield,
   Star,
   VerifiedUserOutlined,
   LocationOnOutlined,
@@ -22,6 +21,7 @@ import {
   AccountBalanceWalletOutlined,
   ReceiptLongOutlined,
   ThumbUpOutlined,
+  Straighten,
 } from "@mui/icons-material";
 import { Button, Alert, CircularProgress } from "@mui/material";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -30,6 +30,8 @@ import SimilarProducts from "./SimilarProducts";
 import PriceHistoryWidget from "./PriceHistoryWidget";
 import AIReviewSummary from "./AIReviewSummary";
 import ContextualPDPAskAI from "../../../components/AI/ContextualPDPAskAI";
+import SizeChartModal from "./SizeChartModal";
+import CompleteTheLook from "./CompleteTheLook";
 import { aiTracker } from "../../../../services/aiEventTracker";
 import { useAppDispatch, useAppSelector } from "../../../../Redux Toolkit/Store";
 import { fetchProductById } from "../../../../Redux Toolkit/features/customer/ProductSlice";
@@ -131,7 +133,7 @@ const ProductDetails: React.FC = () => {
 
   // Reset selected image index when hero image or option group changes
   useEffect(() => {
-    setSelectedImageIndex(0);
+    void Promise.resolve().then(() => setSelectedImageIndex(0));
   }, [resolution.heroImage, resolution.matchedOptionGroupName]);
 
   // Review Form State
@@ -139,6 +141,7 @@ const ProductDetails: React.FC = () => {
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewComment, setReviewComment] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showSizeChart, setShowSizeChart] = useState(false);
 
   // Delivery Serviceability State
   const activePin = location?.activeLocation?.pincode;
@@ -605,17 +608,30 @@ const ProductDetails: React.FC = () => {
 
                 {resolution.attributeDefinitions.map((attr) => {
                   const isColorAttr = attr.key.toLowerCase().includes("color");
+                  const isSizeAttr = attr.key.toLowerCase().includes("size");
                   const currentVal = resolution.selectedAttributes[attr.key] || "";
 
                   return (
                     <div key={attr.key} className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-extrabold uppercase tracking-wider text-muted-foreground">
-                          {attr.name}:
-                        </span>
-                        <span className="font-black text-foreground capitalize">
-                          {currentVal || "Select"}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold uppercase tracking-wider text-muted-foreground">
+                            {attr.name}:
+                          </span>
+                          <span className="font-black text-foreground capitalize">
+                            {currentVal || "Select"}
+                          </span>
+                        </div>
+
+                        {isSizeAttr && (
+                          <button
+                            type="button"
+                            onClick={() => setShowSizeChart(true)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer"
+                          >
+                            <Straighten sx={{ fontSize: 14 }} /> Size Chart
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -1111,6 +1127,11 @@ const ProductDetails: React.FC = () => {
         </div>
 
         {/* ============================================================== */}
+        {/* COMPLETE THE LOOK / OUTFIT RECOMMENDATION RAIL */}
+        {/* ============================================================== */}
+        {currentProduct && <CompleteTheLook currentProduct={currentProduct} />}
+
+        {/* ============================================================== */}
         {/* SIMILAR PRODUCTS RECOMMENDATION RAIL */}
         {/* ============================================================== */}
         <section className="mt-12">
@@ -1127,36 +1148,91 @@ const ProductDetails: React.FC = () => {
       </div>
 
       {/* ============================================================== */}
+      {/* SIZE CHART & FIT GUIDANCE MODAL */}
+      {/* ============================================================== */}
+      <SizeChartModal
+        isOpen={showSizeChart}
+        onClose={() => setShowSizeChart(false)}
+        selectedSize={resolution.selectedAttributes["size"] || resolution.selectedAttributes["Size"]}
+        onSelectSize={(size) => {
+          const sizeAttr = resolution.attributeDefinitions.find((a) =>
+            a.key.toLowerCase().includes("size")
+          );
+          if (sizeAttr) {
+            resolution.selectOption(sizeAttr.key, size);
+          }
+        }}
+        category={
+          currentProduct?.category?.name?.toLowerCase().includes("shoe") ||
+          currentProduct?.category?.name?.toLowerCase().includes("footwear")
+            ? "footwear"
+            : currentProduct?.category?.name?.toLowerCase().includes("women")
+            ? "women"
+            : currentProduct?.category?.name?.toLowerCase().includes("kid")
+            ? "kids"
+            : "men"
+        }
+      />
+
+      {/* ============================================================== */}
       {/* MOBILE STICKY BOTTOM COMMERCE BAR */}
       {/* ============================================================== */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-2.5 bg-card/95 backdrop-blur-md border-t border-border z-40 flex items-center gap-2.5 shadow-2xl">
-        <button
-          type="button"
-          onClick={handleAddCartItem}
-          disabled={isOutOfStock}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all select-none cursor-pointer ${
-            isOutOfStock
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-[#ff9f00] hover:bg-[#f39700] active:scale-95 shadow-sm"
-          }`}
-        >
-          <AddShoppingCart sx={{ fontSize: 16 }} />
-          <span>{cartSuccess ? "Added" : "Add to Cart"}</span>
-        </button>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-2.5 pb-[max(10px,env(safe-area-inset-bottom))] bg-card/95 backdrop-blur-md border-t border-border z-40 flex items-center justify-between gap-3 shadow-2xl">
+        <div className="min-w-0 pr-1">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className="text-base font-black text-foreground tracking-tight">
+              ₹{displaySellingPrice?.toLocaleString("en-IN")}
+            </span>
+            {displayMrpPrice && displayMrpPrice > displaySellingPrice && (
+              <span className="text-xs text-muted-foreground line-through">
+                ₹{displayMrpPrice?.toLocaleString("en-IN")}
+              </span>
+            )}
+          </div>
+          {displayDiscountPercent && displayDiscountPercent > 0 ? (
+            <span className="text-[10px] font-extrabold text-[#388e3c]">
+              {displayDiscountPercent}% Off
+            </span>
+          ) : isOutOfStock ? (
+            <span className="text-[10px] font-extrabold text-destructive">
+              Out of stock
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold text-emerald-600">
+              In Stock
+            </span>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onClick={handleBuyNow}
-          disabled={isOutOfStock}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all select-none cursor-pointer ${
-            isOutOfStock
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-[#fb641b] hover:bg-[#e85b17] active:scale-95 shadow-sm"
-          }`}
-        >
-          <FlashOn sx={{ fontSize: 16 }} />
-          <span>Buy Now</span>
-        </button>
+        <div className="flex items-center gap-2 flex-1 max-w-[260px]">
+          <button
+            type="button"
+            onClick={handleAddCartItem}
+            disabled={isOutOfStock}
+            className={`flex-1 flex items-center justify-center gap-1 py-2.5 px-3 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all select-none cursor-pointer ${
+              isOutOfStock
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-[#ff9f00] hover:bg-[#f39700] active:scale-95 shadow-sm"
+            }`}
+          >
+            <AddShoppingCart sx={{ fontSize: 15 }} />
+            <span>{cartSuccess ? "Added" : "Cart"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleBuyNow}
+            disabled={isOutOfStock}
+            className={`flex-1 flex items-center justify-center gap-1 py-2.5 px-3 rounded-xl text-white font-black text-xs uppercase tracking-wider transition-all select-none cursor-pointer ${
+              isOutOfStock
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-[#fb641b] hover:bg-[#e85b17] active:scale-95 shadow-sm"
+            }`}
+          >
+            <FlashOn sx={{ fontSize: 15 }} />
+            <span>Buy Now</span>
+          </button>
+        </div>
       </div>
     </div>
   );

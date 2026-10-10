@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import {
   Button,
   Checkbox,
-  Divider,
   FormControl,
   FormControlLabel,
   Radio,
@@ -104,14 +103,16 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
 
   // Keep section open if user has an active filter in that category
   useEffect(() => {
-    setOpenSections((prev) => ({
-      ...prev,
-      availability: currentInStock ? true : (prev.availability ?? true),
-      price: (currentMinPrice || currentMaxPrice) ? true : (prev.price ?? true),
-      brand: (searchParams.get("brand") ? true : (prev.brand ?? true)),
-      ratings: currentRating ? true : (prev.ratings ?? true),
-      discount: currentMinDiscount ? true : (prev.discount ?? true),
-    }));
+    void Promise.resolve().then(() => {
+      setOpenSections((prev) => ({
+        ...prev,
+        availability: currentInStock ? true : (prev.availability ?? true),
+        price: (currentMinPrice || currentMaxPrice) ? true : (prev.price ?? true),
+        brand: (searchParams.get("brand") ? true : (prev.brand ?? true)),
+        ratings: currentRating ? true : (prev.ratings ?? true),
+        discount: currentMinDiscount ? true : (prev.discount ?? true),
+      }));
+    });
   }, [currentInStock, currentMinPrice, currentMaxPrice, searchParams, currentRating, currentMinDiscount]);
 
   const selectedBrands = useMemo(() => {

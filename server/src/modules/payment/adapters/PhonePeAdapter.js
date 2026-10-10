@@ -89,7 +89,7 @@ export class PhonePeAdapter extends PaymentRailAdapter {
     if (!saltKey) return false;
 
     const base64Body = typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody);
-    const [expectedHash, index] = signature.split("###");
+    const [expectedHash, _index] = signature.split("###");
     if (!expectedHash) return false;
 
     const stringToHash = `${base64Body}${saltKey}`;
@@ -105,7 +105,7 @@ export class PhonePeAdapter extends PaymentRailAdapter {
     }
   }
 
-  async createIntent({ intent, attempt, user, metadata }) {
+  async createIntent({ intent: _intent, attempt, user, metadata: _metadata }) {
     this.assertProductionReady("createIntent");
 
     const merchantTransactionId = attempt.attemptId;

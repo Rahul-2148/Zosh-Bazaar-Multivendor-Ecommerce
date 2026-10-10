@@ -49,8 +49,10 @@ const Products: React.FC = () => {
 
   // Reset pagination and accumulated list when category, sort, or filters change
   useEffect(() => {
-    setPage(1);
-    setAccumulatedProducts([]);
+    void Promise.resolve().then(() => {
+      setPage(1);
+      setAccumulatedProducts([]);
+    });
   }, [categoryId, sort, minPrice, maxPrice, minDiscount, inStock, brand]);
 
   // Trigger product fetch when category, sort, page, or searchParams change
@@ -75,17 +77,19 @@ const Products: React.FC = () => {
   useEffect(() => {
     const rawList = Array.isArray(product.products) ? product.products : [];
     if (rawList.length === 0 && page === 1 && !product.loading) {
-      setAccumulatedProducts([]);
+      void Promise.resolve().then(() => setAccumulatedProducts([]));
       return;
     }
 
     if (page === 1) {
-      setAccumulatedProducts(rawList);
+      void Promise.resolve().then(() => setAccumulatedProducts(rawList));
     } else if (rawList.length > 0) {
-      setAccumulatedProducts((prev) => {
-        const existingIds = new Set(prev.map((p) => p._id));
-        const newUnique = rawList.filter((p: any) => !existingIds.has(p._id));
-        return [...prev, ...newUnique];
+      void Promise.resolve().then(() => {
+        setAccumulatedProducts((prev) => {
+          const existingIds = new Set(prev.map((p) => p._id));
+          const newUnique = rawList.filter((p: any) => !existingIds.has(p._id));
+          return [...prev, ...newUnique];
+        });
       });
     }
   }, [product.products, page, product.loading]);

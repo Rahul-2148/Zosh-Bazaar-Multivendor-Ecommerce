@@ -18,9 +18,10 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({ productId: propProduc
   useEffect(() => {
     if (!activeProductId) return;
 
-    setLoading(true);
-    fetchProductRecommendations(activeProductId, "pdp_similar", 6)
-      .then((res) => {
+    void Promise.resolve().then(() => {
+      setLoading(true);
+      return fetchProductRecommendations(activeProductId, "pdp_similar", 6);
+    }).then((res) => {
         if (res && res.recommendations && res.recommendations.length > 0) {
           const formatted = res.recommendations.map((item) => ({
             _id: item.productId,

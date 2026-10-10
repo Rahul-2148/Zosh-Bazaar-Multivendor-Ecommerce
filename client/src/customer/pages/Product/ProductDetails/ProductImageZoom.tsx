@@ -6,7 +6,6 @@ import {
   ZoomIn,
   CheckCircle,
 } from "@mui/icons-material";
-import { Button } from "@mui/material";
 import SaveButton from "../../Wishlist/components/SaveButton";
 
 interface ProductImageZoomProps {

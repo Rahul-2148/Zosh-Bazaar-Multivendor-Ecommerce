@@ -89,7 +89,7 @@ export class RazorpayAdapter extends PaymentRailAdapter {
     return this.verifyRazorpayWebhookSignature(rawBody, signature, secret);
   }
 
-  async createIntent({ intent, attempt, user, metadata }) {
+  async createIntent({ intent, attempt, user, metadata: _metadata }) {
     try {
       const isProd =
         process.env.NODE_ENV === "production" ||
@@ -283,7 +283,7 @@ export class RazorpayAdapter extends PaymentRailAdapter {
         };
       }
       return { status: PaymentAttemptStatus.PENDING, providerReference: payment.id };
-    } catch (error) {
+    } catch {
       return { status: attempt.status, providerReference: attempt.providerReference };
     }
   }
@@ -382,7 +382,7 @@ export class RazorpayAdapter extends PaymentRailAdapter {
     };
   }
 
-  async reconcile({ startDate, endDate }) {
+  async reconcile({ startDate: _startDate, endDate: _endDate }) {
     // In production, queries Razorpay Settlements API
     return [];
   }

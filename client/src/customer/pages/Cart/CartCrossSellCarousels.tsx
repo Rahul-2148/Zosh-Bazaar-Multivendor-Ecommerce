@@ -239,7 +239,7 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
 
   const { product, wishlist } = useAppSelector((store) => store);
   const [aiRecommendations, setAiRecommendations] = useState<RecommendationItem[]>([]);
-  const [recentlyViewed, setRecentlyViewed] = useState<IRecentlyViewedItem[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<IRecentlyViewedItem[]>(() => getRecentlyViewedProducts());
   const [activeWishlistTab, setActiveWishlistTab] = useState("all");
   const [addingId, setAddingId] = useState<string | null>(null);
 
@@ -260,9 +260,8 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
     };
   }, [cartProductIds]);
 
-  // Load recently viewed from localStorage
+  // Listen for recently viewed updates from localStorage
   useEffect(() => {
-    setRecentlyViewed(getRecentlyViewedProducts());
     const handleUpdate = () => setRecentlyViewed(getRecentlyViewedProducts());
     window.addEventListener("recentlyViewedUpdated", handleUpdate);
     return () => window.removeEventListener("recentlyViewedUpdated", handleUpdate);

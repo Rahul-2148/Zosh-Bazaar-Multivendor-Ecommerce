@@ -86,10 +86,10 @@ export class BankPayoutAdapter extends PayoutRailAdapter {
    * Validate and verify seller bank beneficiary before initiating payout.
    */
   async validateBeneficiary({
-    accountNumber,
-    ifscCode,
-    accountHolderName,
-    sellerId,
+    accountNumber: _accountNumber,
+    ifscCode: _ifscCode,
+    accountHolderName: _accountHolderName,
+    sellerId: _sellerId,
   }) {
     const creds = this.getCredentialStatus();
     if (!creds.configured) {
@@ -106,7 +106,7 @@ export class BankPayoutAdapter extends PayoutRailAdapter {
     throw new Error("Live Bank API request requires active corporate banking credentials");
   }
 
-  async getBeneficiaryStatus({ beneficiaryReference }) {
+  async getBeneficiaryStatus({ beneficiaryReference: _beneficiaryReference }) {
     const creds = this.getCredentialStatus();
     if (!creds.configured) {
       return {
@@ -122,14 +122,14 @@ export class BankPayoutAdapter extends PayoutRailAdapter {
    * Enforces idempotency via sellerId + settlementBatchId + idempotencyKey.
    */
   async createPayout({
-    sellerId,
-    amount,
-    currency = "INR",
+    sellerId: _sellerId,
+    amount: _amount,
+    currency: _currency = "INR",
     beneficiaryReference,
-    bankAccountMasked,
-    ifsc,
+    bankAccountMasked: _bankAccountMasked,
+    ifsc: _ifsc,
     referenceId,
-    idempotencyKey,
+    idempotencyKey: _idempotencyKey,
   }) {
     const isProd =
       process.env.NODE_ENV === "production" ||
@@ -164,7 +164,7 @@ export class BankPayoutAdapter extends PayoutRailAdapter {
   /**
    * Authoritatively query status of an in-flight payout.
    */
-  async getPayoutStatus({ payoutReference, externalReference }) {
+  async getPayoutStatus({ payoutReference: _payoutReference, externalReference: _externalReference }) {
     const creds = this.getCredentialStatus();
     if (!creds.configured) {
       return {
@@ -180,7 +180,7 @@ export class BankPayoutAdapter extends PayoutRailAdapter {
     return this.getPayoutStatus(params);
   }
 
-  async cancelPayout({ payoutReference, reason = "" }) {
+  async cancelPayout({ payoutReference, reason: _reason = "" }) {
     const creds = this.getCredentialStatus();
     if (!creds.configured) {
       return {

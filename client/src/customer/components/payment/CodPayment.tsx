@@ -1,5 +1,5 @@
 import React from "react";
-import { LocalAtmOutlined, InfoOutlined, CheckCircle, WarningAmberOutlined } from "@mui/icons-material";
+import { LocalAtmOutlined, InfoOutlined, WarningAmberOutlined } from "@mui/icons-material";
 
 interface CodPaymentProps {
   available: boolean;

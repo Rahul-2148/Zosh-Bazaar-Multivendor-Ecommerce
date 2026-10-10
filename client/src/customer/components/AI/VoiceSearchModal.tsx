@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Mic, MicOff, X, Volume2, Sparkles } from "lucide-react";
+import { Mic, MicOff, X, Volume2 } from "lucide-react";
 
 interface VoiceSearchModalProps {
   isOpen: boolean;
@@ -31,10 +31,12 @@ export const VoiceSearchModal: React.FC<VoiceSearchModalProps> = ({
           // ignore
         }
       }
-      setIsListening(false);
-      setTranscript("");
-      setInterim("");
-      setErrorMsg(null);
+      void Promise.resolve().then(() => {
+        setIsListening(false);
+        setTranscript("");
+        setInterim("");
+        setErrorMsg(null);
+      });
       return;
     }
 
@@ -42,7 +44,7 @@ export const VoiceSearchModal: React.FC<VoiceSearchModalProps> = ({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setIsListening(false);
+      void Promise.resolve().then(() => setIsListening(false));
       return;
     }
 
@@ -99,8 +101,10 @@ export const VoiceSearchModal: React.FC<VoiceSearchModalProps> = ({
       recognition.start();
     } catch (err) {
       console.error("Failed to start voice recognition:", err);
-      setErrorMsg("Unable to access microphone. Please check your browser permissions.");
-      setIsListening(false);
+      void Promise.resolve().then(() => {
+        setErrorMsg("Unable to access microphone. Please check your browser permissions.");
+        setIsListening(false);
+      });
     }
 
     return () => {

@@ -14,17 +14,17 @@ export const AIReviewSummary: React.FC<AIReviewSummaryProps> = ({ productId }) =
   useEffect(() => {
     if (!productId) return;
     let isMounted = true;
-    setLoading(true);
-
-    aiCommerceService
-      .getReviewSummary(productId)
-      .then((res) => {
-        if (isMounted) setData(res);
-      })
-      .catch((err) => console.error("Error loading review highlights:", err))
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+    void Promise.resolve().then(() => {
+      if (!isMounted) return;
+      setLoading(true);
+      return aiCommerceService.getReviewSummary(productId);
+    }).then((res) => {
+      if (res && isMounted) setData(res);
+    }).catch((err) => {
+      console.error("Error loading review highlights:", err);
+    }).finally(() => {
+      if (isMounted) setLoading(false);
+    });
 
     return () => {
       isMounted = false;

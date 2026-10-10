@@ -18,9 +18,6 @@ import {
   AccountBalanceOutlined,
   LocalShippingOutlined,
   CreditScoreOutlined,
-  CardGiftcardOutlined,
-  FlashOnOutlined,
-  LocalOfferOutlined,
 } from "@mui/icons-material";
 import { Api as api } from "../../../config/Api";
 import { UpiPayment } from "./UpiPayment";
@@ -31,7 +28,6 @@ import { NetBanking } from "./NetBanking";
 import { Emi } from "./Emi";
 import { CodPayment } from "./CodPayment";
 import { PaymentOffers } from "./PaymentOffers";
-import { PaymentSummary } from "./PaymentSummary";
 import { SecurityInfo } from "./SecurityInfo";
 import { PaymentPending } from "./PaymentPending";
 import { PaymentFailure } from "./PaymentFailure";
@@ -50,7 +46,7 @@ export const PaymentPage: React.FC<PaymentPageProps> = ({
   initialAmount,
   deliveryAddress,
   onPaymentComplete,
-  onBackToPackages,
+  onBackToPackages: _onBackToPackages,
 }) => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -132,7 +128,7 @@ export const PaymentPage: React.FC<PaymentPageProps> = ({
           headers: { Authorization: `Bearer ${jwt}` },
         });
         setWalletBalance(walletRes.data?.wallet?.availableBalance || 0);
-      } catch (wErr) {
+      } catch {
         setWalletBalance(0);
       }
     } catch (err: any) {
@@ -146,11 +142,13 @@ export const PaymentPage: React.FC<PaymentPageProps> = ({
     }
   };
 
+  const orderIdsKey = orderIds?.join(",") || "";
   useEffect(() => {
     if (orderIds && orderIds.length > 0) {
-      initializeCheckout();
+      void Promise.resolve().then(() => initializeCheckout());
     }
-  }, [orderIds.join(",")]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderIdsKey]);
 
   // Method Eligibility Helper
   const isMethodEligible = (methodKey: string) => {

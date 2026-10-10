@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { TextField, Button, CircularProgress } from "@mui/material";
-import { QrCode2Outlined, CheckCircle, SmartphoneOutlined } from "@mui/icons-material";
+import { QrCode2Outlined, CheckCircle } from "@mui/icons-material";
 
 interface UpiPaymentProps {
   payableAmount: number;
@@ -32,7 +32,7 @@ export const UpiPayment: React.FC<UpiPaymentProps> = ({
   onChangeUpiId,
   showQr,
   onToggleQr,
-  qrPayload,
+  qrPayload: _qrPayload,
   onConfirmPayment,
   loading,
   availableApps,

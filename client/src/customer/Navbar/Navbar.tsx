@@ -16,7 +16,6 @@ import {
   AdminPanelSettingsOutlined,
   KeyboardArrowDown,
   CameraAltOutlined,
-  AutoAwesome,
   MicNoneOutlined,
 } from "@mui/icons-material";
 import {
@@ -46,7 +45,6 @@ import SearchSuggestionsDropdown from "./SearchSuggestionsDropdown";
 import VisualSearchLensModal from "../components/AI/VisualSearchLensModal";
 import VoiceSearchModal from "../components/AI/VoiceSearchModal";
 import { isSpeechRecognitionSupported } from "../../utils/speechSupport";
-import { openAssistant } from "../../Redux Toolkit/features/customer/AiAssistantSlice";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../Redux Toolkit/Store";
 import { performLogout } from "../../Redux Toolkit/features/Auth/AuthSlice";

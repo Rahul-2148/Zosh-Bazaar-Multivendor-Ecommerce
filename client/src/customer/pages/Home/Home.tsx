@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Storefront, CategoryOutlined, ChevronRight } from "@mui/icons-material";
-import { Button, CircularProgress } from "@mui/material";
+import { Button } from "@mui/material";
 import HeroBannerCarousel from "./HeroBannerCarousel";
 import CategoryQuickRail from "./CategoryQuickRail";
 import TrustStrip from "./TrustStrip";
@@ -10,8 +10,10 @@ import ProductRail from "./ProductRail";
 import HomeGrid from "./Grid/Grid";
 import Deal from "./Deal/Deal";
 import HomeCategory from "./HomeCategory/HomeCategory";
+import HomeSkeleton from "./HomeSkeleton";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import { fetchMarketplaceFeed } from "../../../Redux Toolkit/features/customer/HomeCategorySlice";
+import { fetchBuyAgainProducts } from "../../../Redux Toolkit/features/customer/UserSlice";
 import { fetchHomeRecommendations } from "../../../services/aiRecommendationService";
 import { aiTracker } from "../../../services/aiEventTracker";
 import sellerBannerImage from "../../../assets/seller_banner_image.jpg";
@@ -19,6 +21,7 @@ import sellerBannerImage from "../../../assets/seller_banner_image.jpg";
 const Home = () => {
   const dispatch = useAppDispatch();
   const { marketplaceFeed, loading } = useAppSelector((store) => store.homeCategory);
+  const { buyAgain } = useAppSelector((store) => store.user);
 
   const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
   const [aiSubtitle, setAiSubtitle] = useState<string>("Personalized picks powered by Zosh AI");
@@ -34,6 +37,11 @@ const Home = () => {
 
   useEffect(() => {
     dispatch(fetchMarketplaceFeed());
+
+    const jwt = typeof window !== "undefined" ? localStorage.getItem("jwt") : null;
+    if (jwt) {
+      dispatch(fetchBuyAgainProducts());
+    }
 
     // Fetch dynamic multi-stage AI recommendations for customer homepage
     fetchHomeRecommendations(6, "home_for_you").then((res) => {
@@ -82,14 +90,7 @@ const Home = () => {
   }, [dispatch]);
 
   if (loading && !marketplaceFeed) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-3">
-        <CircularProgress size={36} color="primary" />
-        <p className="text-xs text-muted-foreground font-medium">
-          Loading Zosh Bazaar Marketplace...
-        </p>
-      </div>
-    );
+    return <HomeSkeleton />;
   }
 
   const feed = marketplaceFeed || {
@@ -117,6 +118,17 @@ const Home = () => {
       {/* 4. Live Flash Deals Section with Countdown */}
       {feed.flashDeals && feed.flashDeals.length > 0 && (
         <FlashDealsSection deals={feed.flashDeals} />
+      )}
+
+      {/* 4.2. Buy Again Rail for Returning Customers */}
+      {buyAgain && buyAgain.length > 0 && (
+        <ProductRail
+          title="Buy Again"
+          subtitle="Quickly re-order products from your past deliveries with live catalog pricing"
+          products={buyAgain}
+          badge="Past Orders"
+          viewAllUrl="/account/buy-again"
+        />
       )}
 
       {/* 4.5. AI Personalized Recommender Rail */}

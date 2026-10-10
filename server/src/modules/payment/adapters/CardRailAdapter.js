@@ -118,7 +118,7 @@ export class CardRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async authorize({ attempt, payload }) {
+  async authorize({ attempt, payload: _payload }) {
     return {
       status: PaymentAttemptStatus.AUTHORIZED,
       authorized: true,
@@ -126,7 +126,7 @@ export class CardRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async capture({ attempt, payload }) {
+  async capture({ attempt, payload: _payload }) {
     return {
       status: PaymentAttemptStatus.CAPTURED,
       captured: true,
@@ -134,7 +134,7 @@ export class CardRailAdapter extends PaymentRailAdapter {
     };
   }
 
-  async refund({ refund, attempt, order }) {
+  async refund({ refund, attempt: _attempt, order: _order }) {
     return {
       gatewayRefundId: `card_ref_${refund.refundId}_${Date.now()}`,
       status: "COMPLETED",

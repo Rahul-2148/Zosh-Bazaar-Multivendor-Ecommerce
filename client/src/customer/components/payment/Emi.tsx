@@ -1,18 +1,11 @@
 import React, { useState } from "react";
 import {
-  Typography,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
   Button,
   Chip,
-  Alert,
 } from "@mui/material";
 import {
   CreditScoreOutlined,
-  CalendarMonthOutlined,
   InfoOutlined,
-  CheckCircle,
 } from "@mui/icons-material";
 
 interface EmiPlan {

@@ -77,7 +77,7 @@ export const PaymentsView: React.FC = () => {
     if (jwt) {
       dispatch(fetchPaymentMethods());
       dispatch(fetchCustomerTransactions());
-      fetchWallet();
+      void Promise.resolve().then(() => fetchWallet());
     }
   }, [dispatch, jwt]);
 

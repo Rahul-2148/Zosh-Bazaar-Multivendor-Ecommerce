@@ -130,7 +130,7 @@ export class PayUAdapter extends PaymentRailAdapter {
     }
   }
 
-  verifyWebhookSignature(rawBody, signature, secret) {
+  verifyWebhookSignature(rawBody, signature, _secret) {
     // PayU response hashes are verified via verifyResponseHash
     if (typeof rawBody === "object" && rawBody !== null) {
       return this.verifyResponseHash({
@@ -141,7 +141,7 @@ export class PayUAdapter extends PaymentRailAdapter {
     return false;
   }
 
-  async createIntent({ intent, attempt, user, metadata }) {
+  async createIntent({ intent, attempt, user, metadata: _metadata }) {
     this.assertProductionReady("createIntent");
 
     const txnid = attempt.attemptId;
@@ -306,7 +306,7 @@ export class PayUAdapter extends PaymentRailAdapter {
     }
   }
 
-  async refund({ refund, attempt, order }) {
+  async refund({ refund, attempt, order: _order }) {
     const txnid = attempt?.providerReference || refund.metadata?.txnid;
     if (!txnid) {
       throw new Error("Missing transaction reference for PayU refund");
