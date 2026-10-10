@@ -593,13 +593,13 @@ class ProductService {
 
       let product = await Product.findOne(query)
         .populate("category")
-        .populate("seller", "sellerName email businessDetails mobile");
+        .populate("seller", "sellerName email businessDetails mobile accountStatus isEmailVerified createdAt");
 
       if (!product && !isObjectId) {
         // Fallback search by title
         product = await Product.findOne({ title: new RegExp(`^${identifier}$`, "i") })
           .populate("category")
-          .populate("seller", "sellerName email businessDetails mobile");
+          .populate("seller", "sellerName email businessDetails mobile accountStatus isEmailVerified createdAt");
       }
 
       if (!product) throw new Error("Product not found");

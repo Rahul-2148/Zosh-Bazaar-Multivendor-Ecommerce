@@ -89,11 +89,18 @@ const orderSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    deliveryDate: {
+    invoiceNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
+    invoiceDate: {
       type: Date,
-      default: function () {
-        return new Date(this.orderDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-      },
+    },
+    invoiceSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
   },
   {

@@ -103,6 +103,7 @@ const Navbar = () => {
   });
 
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const mobileSearchContainerRef = useRef<HTMLDivElement | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { mode, isDark, setTheme } = useAppTheme();
@@ -221,10 +222,9 @@ const Navbar = () => {
   // Click outside to close suggestions dropdown
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        searchContainerRef.current &&
-        !searchContainerRef.current.contains(e.target as Node)
-      ) {
+      const inDesktop = searchContainerRef.current?.contains(e.target as Node);
+      const inMobile = mobileSearchContainerRef.current?.contains(e.target as Node);
+      if (!inDesktop && !inMobile) {
         setShowSuggestions(false);
       }
     };
@@ -700,6 +700,75 @@ const Navbar = () => {
         </div>
       </div>
 
+      {/* Mobile Dedicated Compact Search Bar (< sm) */}
+      <div ref={mobileSearchContainerRef} className="sm:hidden px-3 pt-1 pb-2 bg-card border-b border-border/70 relative">
+        <form onSubmit={handleSearch} className="relative">
+          <div className="flex items-center h-[38px] w-full bg-muted/60 hover:bg-muted border border-border focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 rounded-xl px-2.5 transition-all duration-150">
+            <Search sx={{ fontSize: 18 }} className="text-muted-foreground mr-1.5 shrink-0" />
+            <InputBase
+              placeholder="Search products, brands, outfits..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              className="flex-1 text-xs text-foreground font-medium"
+              inputProps={{ "aria-label": "Search products on mobile" }}
+            />
+            {searchQuery && (
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setSearchQuery("");
+                  dispatch(clearSearchSuggestions());
+                }}
+                className="p-0.5"
+              >
+                <Close sx={{ fontSize: 15 }} className="text-muted-foreground" />
+              </IconButton>
+            )}
+            {hasSpeechSupport && (
+              <IconButton
+                size="small"
+                onClick={() => setVoiceModalOpen(true)}
+                aria-label="Voice Search"
+                className="p-1 text-primary shrink-0"
+              >
+                <MicNoneOutlined sx={{ fontSize: 18 }} />
+              </IconButton>
+            )}
+            <IconButton
+              size="small"
+              onClick={() => setLensModalOpen(true)}
+              aria-label="Visual Search Lens"
+              className="p-1 text-teal-600 dark:text-teal-400 shrink-0"
+            >
+              <CameraAltOutlined sx={{ fontSize: 18 }} />
+            </IconButton>
+          </div>
+        </form>
+
+        {showSuggestions && (
+          <SearchSuggestionsDropdown
+            suggestions={searchSuggestions}
+            recentSearches={recentSearches}
+            onSelectSearch={(query) => {
+              setSearchQuery(query);
+              setShowSuggestions(false);
+              saveRecentSearch(query);
+              navigate(`/search?q=${encodeURIComponent(query)}`);
+            }}
+            onClearRecent={() => {
+              setRecentSearches([]);
+              localStorage.removeItem("zosh_recent_searches");
+            }}
+            loading={false}
+            searchQuery={searchQuery}
+          />
+        )}
+      </div>
+
       {/* Mobile Location Sub-bar (< md) */}
       <div className="md:hidden flex items-center justify-between px-3.5 py-1.5 bg-muted/40 dark:bg-surface/60 border-b border-border/70 text-xs">
         <button
@@ -964,7 +1033,7 @@ const Navbar = () => {
       />
     </header>
     {/* Structural layout spacer to prevent page content from being obscured underneath fixed header */}
-    <div className="h-[142px] sm:h-[100px] md:h-[68px] lg:h-[110px] shrink-0 pointer-events-none" aria-hidden="true" />
+    <div className="h-[136px] sm:h-[100px] md:h-[68px] lg:h-[110px] shrink-0 pointer-events-none" aria-hidden="true" />
   </>
   );
 };

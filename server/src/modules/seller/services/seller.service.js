@@ -1,7 +1,11 @@
 import bcrypt from "bcrypt";
+import mongoose from "mongoose";
 import { Address } from "../../../models/address.model.js";
 import { Seller } from "../../../models/seller.model.js";
+import { Product } from "../../../models/product.model.js";
+import { Review } from "../../../models/review.model.js";
 import { VerificationCode } from "../../../models/VerificationCode.js";
+import AccountStatus from "../../../domain/AccountStatus.js";
 import generateOTP from "../../../utils/generateOtp.js";
 import jwtProvider from "../../../utils/jwtProvider.js";
 import sendVerificationEmail from "../../../utils/sendEmail.js";
@@ -128,6 +132,119 @@ class SellerService {
     }
 
     return seller;
+  }
+
+  async getPublicSellerProfile(sellerId) {
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      throw new Error("Invalid seller ID format");
+    }
+
+    const seller = await Seller.findById(sellerId).populate("pickupAddress");
+    if (!seller) {
+      throw new Error("Seller not found");
+    }
+
+    // Check account status against terminated states
+    const isTerminated = [
+      AccountStatus.DELETED,
+      AccountStatus.DELETING,
+      AccountStatus.BANNED,
+      AccountStatus.CLOSED,
+    ].includes(seller.accountStatus);
+
+    if (isTerminated) {
+      throw new Error("Seller storefront is permanently closed");
+    }
+
+    // Derive stable public seller code
+    const sellerCode = `ZB-SLR-${seller._id.toString().slice(-6).toUpperCase()}`;
+
+    // Query active published catalog products count
+    const publishedProducts = await Product.find({
+      seller: seller._id,
+      status: "PUBLISHED",
+    }).select("_id");
+    const activeProductsCount = publishedProducts.length;
+    const productIds = publishedProducts.map((p) => p._id);
+
+    // True review aggregation across seller's published products
+    let rating = null;
+    let ratingCount = 0;
+    const ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+
+    if (productIds.length > 0) {
+      const stats = await Review.aggregate([
+        { $match: { product: { $in: productIds }, status: "APPROVED" } },
+        {
+          $group: {
+            _id: "$rating",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      let totalRatingSum = 0;
+      for (const item of stats) {
+        const star = Math.round(item._id);
+        if (star >= 1 && star <= 5) {
+          ratingBreakdown[star] = (ratingBreakdown[star] || 0) + item.count;
+          ratingCount += item.count;
+          totalRatingSum += item._id * item.count;
+        }
+      }
+
+      if (ratingCount > 0) {
+        rating = Math.round((totalRatingSum / ratingCount) * 10) / 10;
+      }
+    }
+
+    // Calculate tenure in months
+    const joinedDate = seller.createdAt || new Date();
+    const tenureMonths = Math.max(
+      1,
+      Math.round((Date.now() - new Date(joinedDate).getTime()) / (1000 * 60 * 60 * 24 * 30.44))
+    );
+
+    // Safe location representation
+    const city = seller.pickupAddress?.city || "Regional Logistics Hub";
+    const state = seller.pickupAddress?.state || "India";
+
+    // Format safe masked GSTIN for business transparency without full data leakage
+    const rawGstin = seller.GSTIN || "";
+    const maskedGstin =
+      rawGstin.length >= 15
+        ? `${rawGstin.slice(0, 2)}••••••••${rawGstin.slice(-3)}`
+        : rawGstin
+        ? "GST Registered Merchant"
+        : null;
+
+    const isVerified =
+      seller.accountStatus === AccountStatus.ACTIVE && Boolean(seller.isEmailVerified);
+
+    return {
+      sellerId: seller._id,
+      sellerCode,
+      businessName:
+        seller.businessDetails?.businessName || seller.sellerName || "Zosh Marketplace Partner",
+      sellerName: seller.sellerName,
+      businessLogo: seller.businessDetails?.businessLogo || null,
+      banner: seller.businessDetails?.banner || null,
+      isVerified,
+      accountStatus: seller.accountStatus,
+      rating, // null when no reviews exist; never fabricated
+      ratingCount, // 0 when no reviews exist
+      ratingBreakdown,
+      activeProductsCount,
+      shipsFrom: {
+        city,
+        state,
+      },
+      fulfillmentMethod: "Zosh Express Logistics (Direct / Hub)",
+      returnPolicy: "7 Days Replacement & Return Policy backed by Zosh Bazaar Buyer Guarantee",
+      maskedGstin,
+      joinedDate,
+      tenureMonths,
+    };
   }
 
   async getAllSellers(status) {

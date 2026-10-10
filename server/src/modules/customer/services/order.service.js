@@ -9,6 +9,7 @@ import OrderStatus, { VALID_ORDER_TRANSITIONS } from "../../../domain/OrderStatu
 import PaymentStatus from "../../../domain/PaymentStatus.js";
 import { emitOrderCreated, emitOrderStatusUpdated } from "../../../realtime/socket.js";
 import { emailEvents } from "../../email/index.js";
+import TaxService from "./tax.service.js";
 
 class OrderService {
   /**
@@ -709,6 +710,317 @@ class OrderService {
       totalPages: Math.ceil(totalOrders / limit),
       currentPage: page,
     };
+  }
+
+  _formatInvoiceResponseForRequester(snapshot, requester) {
+    if (!requester || !snapshot) return snapshot;
+    const isSeller = requester.role === "SELLER" || requester.role === "ROLE_SELLER";
+    const isAdmin = requester.role === "ROLE_ADMIN" || requester.role === "ROLE_SUPER_ADMIN";
+
+    if (isSeller && !isAdmin) {
+      const requesterSellerId = (requester._id || requester.id)?.toString();
+      const redacted = JSON.parse(JSON.stringify(snapshot));
+
+      // 1. Redact buyer sensitive personal identity fields from merchant view
+      if (redacted.buyer) {
+        redacted.buyer.email = "customer[PROTECTED]@zoshbazaar.in";
+        if (redacted.buyer.mobile) {
+          const m = String(redacted.buyer.mobile);
+          redacted.buyer.mobile = m.length >= 4 ? `••••••${m.slice(-4)}` : "PROTECTED";
+        }
+      }
+
+      // 2. Strict tenant isolation: Filter line items strictly to this seller's package
+      if (Array.isArray(redacted.lineItems) && requesterSellerId) {
+        redacted.lineItems = redacted.lineItems.filter((item) => {
+          const itemSellerId = (item.sellerId?._id || item.sellerId || redacted.seller?.sellerId)?.toString();
+          return !itemSellerId || itemSellerId === requesterSellerId;
+        });
+
+        // Recompute financial summary to ensure seller only sees their financial totals
+        let totalTaxableAmount = 0;
+        let totalCgst = 0;
+        let totalSgst = 0;
+        let totalIgst = 0;
+        let grandTotal = 0;
+
+        redacted.lineItems.forEach((item, idx) => {
+          item.itemIndex = idx + 1;
+          totalTaxableAmount += Number(item.taxableAmount || 0);
+          totalCgst += Number(item.cgstAmount || 0);
+          totalSgst += Number(item.sgstAmount || 0);
+          totalIgst += Number(item.igstAmount || 0);
+          grandTotal += Number(item.lineTotal || 0);
+        });
+
+        redacted.financials = {
+          ...redacted.financials,
+          totalTaxableAmount: Math.round(totalTaxableAmount * 100) / 100,
+          totalCgst: Math.round(totalCgst * 100) / 100,
+          totalSgst: Math.round(totalSgst * 100) / 100,
+          totalIgst: Math.round(totalIgst * 100) / 100,
+          totalTaxAmount: Math.round((totalCgst + totalSgst + totalIgst) * 100) / 100,
+          grandTotal: Math.round(grandTotal * 100) / 100,
+        };
+      }
+
+      return redacted;
+    }
+
+    return snapshot;
+  }
+
+  async generateOrderInvoice(orderId, requester = null) {
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      throw new Error("Invalid order ID format");
+    }
+
+    const order = await Order.findById(orderId).populate([
+      {
+        path: "seller",
+        select:
+          "sellerName email businessDetails mobile GSTIN pickupAddress accountStatus accountType isCompositionScheme",
+        populate: { path: "pickupAddress" },
+      },
+      {
+        path: "orderItems",
+        populate: { path: "product", populate: { path: "category" } },
+      },
+      { path: "shippingAddress" },
+      { path: "user", select: "fullName email mobile" },
+    ]);
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // 1. Strict Multi-Vendor and Customer Tenant Isolation
+    if (requester) {
+      const requesterUserId = (requester._id || requester.id)?.toString();
+      const orderUserId = (order.user?._id || order.user)?.toString();
+      const orderSellerId = (order.seller?._id || order.seller)?.toString();
+
+      const isOwner = requesterUserId && orderUserId === requesterUserId;
+      const isSeller =
+        (requester.role === "SELLER" || requester.role === "ROLE_SELLER");
+      const isAdmin =
+        requester.role === "ROLE_ADMIN" || requester.role === "ROLE_SUPER_ADMIN";
+
+      const sellerHasAccess =
+        isSeller &&
+        (orderSellerId === requesterUserId ||
+          (order.orderItems || []).some(
+            (item) => (item.seller?._id || item.seller)?.toString() === requesterUserId
+          ));
+
+      if (!isOwner && !sellerHasAccess && !isAdmin) {
+        throw new Error("Access denied: You are not authorized to view this invoice");
+      }
+    }
+
+    // 2. Return immutable authoritative invoice snapshot if already generated & persisted
+    if (order.invoiceSnapshot) {
+      return this._formatInvoiceResponseForRequester(order.invoiceSnapshot, requester);
+    }
+
+    // 3. Concurrency-safe unique invoice number generation
+    const invoiceDate = order.invoiceDate || order.orderDate || order.createdAt || new Date();
+    const d = new Date(invoiceDate);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const fy =
+      month >= 4
+        ? `${year}-${(year + 1).toString().slice(-2)}`
+        : `${year - 1}-${year.toString().slice(-2)}`;
+    const invoiceNumber =
+      order.invoiceNumber || `INV-ZB-${fy}-${order._id.toString().slice(-6).toUpperCase()}`;
+
+    // 4. Seller tax regime determination (Regular vs Composition vs Unregistered)
+    const sellerRegime = TaxService.determineSellerTaxRegime(order.seller);
+
+    // 5. Place of Supply & Missing Particulars Validation
+    const sellerAddress = order.seller?.pickupAddress || {};
+    const shippingAddress = order.shippingAddress || {};
+
+    const cleanStr = (s) => (s ? String(s).trim().toLowerCase().replace(/[^a-z0-9]/g, "") : "");
+    const sellerState = cleanStr(sellerAddress.state);
+    const buyerState = cleanStr(shippingAddress.state);
+
+    const hasValidStates = Boolean(sellerState && buyerState);
+    const isIntraState = hasValidStates && sellerState === buyerState;
+
+    // Determine document type and validation status
+    let documentTitle = sellerRegime.documentTitle;
+    let invoiceStatus = "ISSUED";
+
+    if (order.orderStatus === OrderStatus.CANCELLED) {
+      documentTitle = "VOID / CANCELLED TRANSACTION";
+      invoiceStatus = "VOID";
+    } else if (!hasValidStates) {
+      documentTitle = "PROFORMA INVOICE / ORDER RECEIPT";
+      invoiceStatus = "DRAFT_PENDING_TAX_VALIDATION";
+    } else if (order.paymentStatus !== PaymentStatus.PAID) {
+      documentTitle = `${sellerRegime.documentTitle} (PROFORMA)`;
+      invoiceStatus = "PROFORMA";
+    }
+
+    const taxType = !hasValidStates
+      ? "UNRESOLVED_PLACE_OF_SUPPLY"
+      : !sellerRegime.canCollectTax
+      ? "NIL_RATED_OR_EXEMPT"
+      : isIntraState
+      ? "INTRA_STATE"
+      : "INTER_STATE";
+
+    const sellerStateCode = TaxService.resolveStateCode(sellerAddress.state);
+    const buyerStateCode = TaxService.resolveStateCode(shippingAddress.state);
+
+    // 6. Line Items Calculation with Statutory Schedule & Valuation Thresholds
+    let totalTaxableAmount = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+
+    const lineItems = (order.orderItems || []).map((item, idx) => {
+      const prod = item.product || {};
+      const unitSellingPrice = Number(item.sellingPrice || item.price || 0);
+
+      // Statutory tax classification evaluating valuation thresholds
+      const taxClassification = TaxService.classifyProductTax(prod, unitSellingPrice);
+
+      const taxCalc = TaxService.computeItemTax({
+        unitSellingPrice,
+        quantity: item.quantity,
+        discount: item.discount,
+        taxClassification,
+        sellerRegime,
+        isIntraState,
+      });
+
+      totalTaxableAmount += taxCalc.taxableAmount;
+      totalCgst += taxCalc.cgstAmount;
+      totalSgst += taxCalc.sgstAmount;
+      totalIgst += taxCalc.igstAmount;
+
+      return {
+        itemIndex: idx + 1,
+        orderItemId: item._id,
+        productId: prod._id,
+        sellerId: (item.seller?._id || item.seller || order.seller?._id || order.seller)?.toString(),
+        productTitle: item.productTitle || prod.title || "Marketplace Product",
+        sku: item.sku || prod.sku || "ZB-GEN-SKU",
+        variantTitle: item.variantTitle || "",
+        hsnCode: taxCalc.hsnCode,
+        hsnDescription: taxClassification.description,
+        isStatutoryClassified: taxClassification.isStatutoryClassified,
+        quantity: taxCalc.quantity,
+        unitSellingPrice: taxCalc.unitSellingPrice,
+        grossAmount: taxCalc.grossAmount,
+        discount: taxCalc.discount,
+        netGross: taxCalc.netGross,
+        taxableAmount: taxCalc.taxableAmount,
+        gstRatePercent: taxCalc.gstRatePercent,
+        cgstRate: taxCalc.cgstRate,
+        cgstAmount: taxCalc.cgstAmount,
+        sgstRate: taxCalc.sgstRate,
+        sgstAmount: taxCalc.sgstAmount,
+        igstRate: taxCalc.igstRate,
+        igstAmount: taxCalc.igstAmount,
+        totalTax: taxCalc.totalTax,
+        lineTotal: taxCalc.lineTotal,
+      };
+    });
+
+    totalTaxableAmount = Math.round(totalTaxableAmount * 100) / 100;
+    totalCgst = Math.round(totalCgst * 100) / 100;
+    totalSgst = Math.round(totalSgst * 100) / 100;
+    totalIgst = Math.round(totalIgst * 100) / 100;
+    const totalTaxAmount = Math.round((totalCgst + totalSgst + totalIgst) * 100) / 100;
+    const grandTotal = Math.round(Number(order.totalSellingPrice || 0) * 100) / 100;
+
+    const fullInvoice = {
+      invoiceNumber,
+      invoiceDate,
+      orderId: order._id,
+      orderDate: order.orderDate || order.createdAt,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      documentTitle,
+      invoiceStatus,
+      taxRegime: sellerRegime.regime,
+      regimeNote: sellerRegime.regimeNote,
+      placeOfSupply: shippingAddress.state || "Unresolved",
+      placeOfSupplyStateCode: buyerStateCode,
+      sellerStateCode,
+      taxType,
+      isIntraState,
+      canCollectTax: sellerRegime.canCollectTax,
+      platform: {
+        companyName: "Zosh Bazaar India Private Limited",
+        cin: "U74999MH2023PTC398241",
+        platformGstin: "27AABCZ9876Q1Z5",
+        platformAddress:
+          "Zosh Bazaar Fulfillment Network, Kurla West, Mumbai, Maharashtra - 400070",
+      },
+      seller: {
+        sellerId: order.seller?._id,
+        sellerCode: `ZB-SLR-${(order.seller?._id || "000000").toString().slice(-6).toUpperCase()}`,
+        businessName:
+          order.seller?.businessDetails?.businessName ||
+          order.seller?.sellerName ||
+          "Zosh Certified Marketplace Merchant",
+        sellerName: order.seller?.sellerName,
+        gstin: order.seller?.GSTIN || null,
+        isGstRegistered: sellerRegime.isGstRegistered,
+        taxRegime: sellerRegime.regime,
+        address: sellerAddress.address || "Certified Regional Warehouse Hub",
+        locality: sellerAddress.locality || "",
+        city: sellerAddress.city || "Mumbai",
+        state: sellerAddress.state || "Maharashtra",
+        pincode: sellerAddress.pincode || 400001,
+        phone: order.seller?.mobile,
+        email: order.seller?.email,
+      },
+      buyer: {
+        name: shippingAddress.name || order.user?.fullName || "Valued Customer",
+        address: shippingAddress.address || "Delivery Address",
+        locality: shippingAddress.locality || "",
+        city: shippingAddress.city || "",
+        state: shippingAddress.state || "",
+        pincode: shippingAddress.pincode || "",
+        mobile: shippingAddress.mobile || order.user?.mobile || "",
+        email: order.user?.email || "",
+      },
+      lineItems,
+      financials: {
+        totalMrpPrice: order.totalMrpPrice,
+        discount: order.discount || 0,
+        totalTaxableAmount,
+        totalCgst,
+        totalSgst,
+        totalIgst,
+        totalTaxAmount,
+        shippingFee: 0,
+        grandTotal,
+      },
+    };
+
+    // 7. Atomic persistence under concurrency
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: order._id, invoiceSnapshot: null },
+      {
+        $set: {
+          invoiceNumber,
+          invoiceDate,
+          invoiceSnapshot: fullInvoice,
+        },
+      },
+      { new: true }
+    );
+
+    const authoritativeSnapshot =
+      updatedOrder?.invoiceSnapshot || order.invoiceSnapshot || fullInvoice;
+    return this._formatInvoiceResponseForRequester(authoritativeSnapshot, requester);
   }
 }
 

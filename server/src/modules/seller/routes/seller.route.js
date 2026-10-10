@@ -22,7 +22,8 @@ sellerRouter.get("/report", sellerAuthMiddleware, sellerController.getSellerRepo
 sellerRouter.get("/all-sellers", authMiddleware, adminOnly, sellerController.getAllSellers);
 sellerRouter.delete("/:id", authMiddleware, adminOnly, sellerController.deleteSeller);
 
-// Public route for fetching seller info by ID (for product pages)
+// Public routes for fetching seller info by ID (for product pages and seller details modal)
+sellerRouter.get("/:id/public-profile", sellerController.getPublicSellerProfile);
 sellerRouter.get("/:id", sellerController.getSellerById);
 
 export default sellerRouter;

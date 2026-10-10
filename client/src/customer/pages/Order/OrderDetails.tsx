@@ -19,7 +19,9 @@ import {
   Close,
   TimelineOutlined,
   AutoAwesome,
+  ReceiptLongOutlined,
 } from "@mui/icons-material";
+import InvoiceModal from "./InvoiceModal";
 import { useAppDispatch, useAppSelector } from "../../../Redux Toolkit/Store";
 import { openAssistant } from "../../../Redux Toolkit/features/customer/AiAssistantSlice";
 import { useEffect, useState } from "react";
@@ -48,6 +50,9 @@ const OrderDetails = () => {
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnReason, setReturnReason] = useState("");
   const [returnSuccess, setReturnSuccess] = useState(false);
+
+  // Invoice Modal State
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
 
   useEffect(() => {
     if (orderId && jwt) {
@@ -166,7 +171,23 @@ const OrderDetails = () => {
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="small"
+            startIcon={<ReceiptLongOutlined />}
+            onClick={() => setInvoiceModalOpen(true)}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              borderRadius: "0.65rem",
+              borderColor: "border.main",
+            }}
+          >
+            Tax Invoice
+          </Button>
+
           {isCancellable && (
             <Button
               variant="outlined"
@@ -632,6 +653,13 @@ const OrderDetails = () => {
           </div>
         </Box>
       </Modal>
+
+      {/* GST Tax Invoice Modal */}
+      <InvoiceModal
+        open={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        order={currentOrder}
+      />
     </div>
   );
 };

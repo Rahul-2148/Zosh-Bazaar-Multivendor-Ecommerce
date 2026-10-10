@@ -214,6 +214,38 @@ class OrderController {
       next(error);
     }
   }
+
+  async getOrderInvoice(req, res, next) {
+    try {
+      const { orderId } = req.params;
+      const requester = req.seller
+        ? { _id: req.seller._id, role: "SELLER" }
+        : req.user;
+      const invoice = await OrderService.generateOrderInvoice(orderId, requester);
+      return res.status(200).json({
+        message: "Order tax invoice generated successfully",
+        invoice,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      if (error.message?.includes("Access denied")) {
+        return res.status(403).json({
+          message: error.message,
+          error: true,
+          success: false,
+        });
+      }
+      if (error.message?.includes("not found")) {
+        return res.status(404).json({
+          message: error.message,
+          error: true,
+          success: false,
+        });
+      }
+      next(error);
+    }
+  }
 }
 
 export default new OrderController();

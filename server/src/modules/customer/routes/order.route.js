@@ -42,6 +42,9 @@ orderRouter.post(
   orderController.requestReturn
 );
 
+// Get order tax invoice
+orderRouter.get("/:orderId/invoice", authMiddleware, orderController.getOrderInvoice);
+
 // Get order by id
 orderRouter.get("/:orderId", authMiddleware, orderController.getOrderById);
 

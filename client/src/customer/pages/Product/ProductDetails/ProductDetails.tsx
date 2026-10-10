@@ -19,7 +19,6 @@ import {
   AssignmentReturnOutlined,
   WorkspacePremiumOutlined,
   AccountBalanceWalletOutlined,
-  ReceiptLongOutlined,
   ThumbUpOutlined,
   Straighten,
 } from "@mui/icons-material";
@@ -32,6 +31,7 @@ import AIReviewSummary from "./AIReviewSummary";
 import ContextualPDPAskAI from "../../../components/AI/ContextualPDPAskAI";
 import SizeChartModal from "./SizeChartModal";
 import CompleteTheLook from "./CompleteTheLook";
+import SellerDetailsModal from "./SellerDetailsModal";
 import { aiTracker } from "../../../../services/aiEventTracker";
 import { useAppDispatch, useAppSelector } from "../../../../Redux Toolkit/Store";
 import { fetchProductById } from "../../../../Redux Toolkit/features/customer/ProductSlice";
@@ -142,6 +142,7 @@ const ProductDetails: React.FC = () => {
   const [reviewComment, setReviewComment] = useState("");
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showSizeChart, setShowSizeChart] = useState(false);
+  const [showSellerDetails, setShowSellerDetails] = useState(false);
 
   // Delivery Serviceability State
   const activePin = location?.activeLocation?.pincode;
@@ -786,33 +787,58 @@ const ProductDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Seller Information (Verified Seller Card) */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-4">
+            {/* Seller Information (Interactive Verified Seller Card) */}
+            <div
+              onClick={() => setShowSellerDetails(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowSellerDetails(true);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="View seller details and performance profile"
+              className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs hover:border-primary/50 hover:bg-muted/20 transition-all flex items-center justify-between gap-4 cursor-pointer group focus:outline-hidden focus:ring-2 focus:ring-primary/40"
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 group-hover:scale-105 transition-transform">
                   <StorefrontOutlined sx={{ fontSize: 22 }} />
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
-                    Sold By
-                  </span>
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-sm font-black text-foreground">
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                      Sold By
+                    </span>
+                    {currentProduct.seller?.accountStatus === "ACTIVE" && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded-full">
+                        <Verified sx={{ fontSize: 11 }} />
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <h4 className="text-sm font-black text-foreground group-hover:text-primary transition-colors">
                       {currentProduct.seller?.businessDetails?.businessName ||
                         currentProduct.seller?.sellerName ||
-                        "Zosh Marketplace Certified Seller"}
+                        "Zosh Marketplace Certified Merchant"}
                     </h4>
-                    <span className="inline-flex items-center gap-0.5 bg-[#388e3c] text-white text-[10px] font-black px-1.5 py-0.2 rounded">
-                      4.4 ★
-                    </span>
+                    {currentProduct.seller?.rating ? (
+                      <span className="inline-flex items-center gap-0.5 bg-[#388e3c] text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                        {Number(currentProduct.seller.rating).toFixed(1)} ★
+                      </span>
+                    ) : null}
                   </div>
-                  <p className="text-[11px] text-muted-foreground font-medium">
-                    Verified Vendor • 7 Days Replacement Policy • GST Invoice Available
+                  <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                    Zosh Express Logistics • 7 Days Replacement • GST Invoice Available
                   </p>
                 </div>
               </div>
 
-              <ReceiptLongOutlined className="text-muted-foreground/50 hidden sm:block" sx={{ fontSize: 24 }} />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-primary shrink-0">
+                <span className="hidden sm:inline">About this seller</span>
+                <ChevronRight sx={{ fontSize: 18 }} className="group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </div>
 
             {/* Contextual AI Shopping Assistant */}
@@ -1171,6 +1197,22 @@ const ProductDetails: React.FC = () => {
             : currentProduct?.category?.name?.toLowerCase().includes("kid")
             ? "kids"
             : "men"
+        }
+      />
+
+      {/* ============================================================== */}
+      {/* SELLER DETAILS MODAL / MOBILE BOTTOM SHEET */}
+      {/* ============================================================== */}
+      <SellerDetailsModal
+        isOpen={showSellerDetails}
+        onClose={() => setShowSellerDetails(false)}
+        sellerId={
+          typeof currentProduct?.seller === "string"
+            ? currentProduct.seller
+            : currentProduct?.seller?._id
+        }
+        initialSeller={
+          typeof currentProduct?.seller === "object" ? currentProduct.seller : null
         }
       />
 

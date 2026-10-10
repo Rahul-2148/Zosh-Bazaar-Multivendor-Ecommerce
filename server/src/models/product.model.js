@@ -268,6 +268,15 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    hsnCode: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    gstRate: {
+      type: Number,
+      default: null,
+    },
     // Authoritative Derived Projection Fields (Section 14)
     minSellingPrice: { type: Number },
     maxSellingPrice: { type: Number },

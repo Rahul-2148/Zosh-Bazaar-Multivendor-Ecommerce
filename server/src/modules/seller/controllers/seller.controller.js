@@ -169,7 +169,7 @@ class SellerController {
 
   async getSellerById(req, res) {
     try {
-      const seller = await sellerService.getSellerById(req.params.id);
+      const seller = await sellerService.getPublicSellerProfile(req.params.id);
       res.status(200).json({
         seller: seller,
         message: "Seller fetched successfully",
@@ -178,7 +178,23 @@ class SellerController {
       });
     } catch (error) {
       res
-        .status(400)
+        .status(404)
+        .json({ message: error.message, error: true, success: false });
+    }
+  }
+
+  async getPublicSellerProfile(req, res) {
+    try {
+      const profile = await sellerService.getPublicSellerProfile(req.params.id);
+      res.status(200).json({
+        seller: profile,
+        message: "Public seller profile fetched successfully",
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      res
+        .status(404)
         .json({ message: error.message, error: true, success: false });
     }
   }

@@ -18,4 +18,11 @@ sellerOrderRouter.patch(
   orderController.updateOrderStatus
 );
 
+// get order tax invoice for seller
+sellerOrderRouter.get(
+  "/:orderId/invoice",
+  sellerAuthMiddleware,
+  orderController.getOrderInvoice
+);
+
 export default sellerOrderRouter;
