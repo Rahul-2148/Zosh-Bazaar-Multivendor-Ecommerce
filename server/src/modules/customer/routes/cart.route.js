@@ -6,6 +6,7 @@ const cartRouter = express.Router();
 
 cartRouter.get("/", authMiddleware, CartController.findUserCartHandler);
 cartRouter.post("/add", authMiddleware, CartController.addItemToCart);
+cartRouter.post("/merge", authMiddleware, CartController.mergeCartHandler);
 cartRouter.delete("/item/:cartItemId", authMiddleware, CartController.deleteCartItemHandler);
 cartRouter.put("/item/:cartItemId", authMiddleware, CartController.updateCartItemHandler);
 

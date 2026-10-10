@@ -277,6 +277,25 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    canonicalId: {
+      type: String,
+      trim: true,
+      default: null,
+      index: true,
+    },
+    canonicalSku: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: null,
+      index: true,
+    },
+    barcode: {
+      type: String,
+      trim: true,
+      default: null,
+      index: true,
+    },
     // Authoritative Derived Projection Fields (Section 14)
     minSellingPrice: { type: Number },
     maxSellingPrice: { type: Number },

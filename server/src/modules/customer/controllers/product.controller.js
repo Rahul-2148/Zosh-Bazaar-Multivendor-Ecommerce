@@ -259,6 +259,100 @@ class ProductController {
       next(error);
     }
   }
+
+  async getOtherSellerOffers(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const result = await productService.getOtherSellerOffers(productId);
+      return res.status(200).json({
+        message: "Other seller offers retrieved successfully",
+        ...result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async compareProducts(req, res, next) {
+    try {
+      const { productIds } = req.body;
+      const result = await productService.compareProducts(productIds);
+      return res.status(200).json({
+        message: "Product comparison generated successfully",
+        ...result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getProductPriceHistory(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const result = await productService.getProductPriceHistory(productId);
+      return res.status(200).json({
+        message: "Product price history retrieved successfully",
+        ...result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async subscribePriceAlert(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const userId = req.user._id;
+      const result = await productService.subscribePriceAlert(userId, productId, req.body);
+      return res.status(200).json({
+        message: "Price alert configured successfully",
+        ...result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getProductQuestions(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const result = await productService.getProductQuestions(productId);
+      return res.status(200).json({
+        message: "Product questions retrieved successfully",
+        ...result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async askProductQuestion(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const userId = req.user._id;
+      const userName = req.user.fullName || "Verified Shopper";
+      const { question } = req.body;
+      const result = await productService.askProductQuestion(userId, productId, question, userName);
+      return res.status(201).json({
+        message: "Question submitted successfully",
+        question: result,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new ProductController();

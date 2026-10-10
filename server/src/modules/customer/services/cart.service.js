@@ -399,6 +399,47 @@ class CartService {
     await CartItem.findByIdAndDelete(cartItemId);
     return { message: "Item removed successfully" };
   }
+
+  /**
+   * Merges guest cart items into authenticated user cart upon login or checkout initialization.
+   * Revalidates stock and price, combining quantities for identical product/variant items.
+   */
+  async mergeGuestCart(user, guestItems = []) {
+    try {
+      const userId = user._id || user;
+      if (!Array.isArray(guestItems) || guestItems.length === 0) {
+        const error = new Error("No guest items provided to merge");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      for (const item of guestItems) {
+        const prodId = item.productId || item.product?._id || item.product;
+        if (!prodId) continue;
+
+        try {
+          await this.addCartItem(user, {
+            productId: prodId,
+            variantId: item.variantId || null,
+            quantity: Math.max(1, Number(item.quantity) || 1),
+            size: item.size || "",
+            ram: item.ram || "",
+            weight: item.weight || "",
+            capacity: item.capacity || "",
+          });
+        } catch (itemErr) {
+          console.warn(`[CartService] Guest cart item merge skipped (${prodId}):`, itemErr.message);
+        }
+      }
+
+      return await this.findUserCart(user);
+    } catch (error) {
+      if (error.statusCode) throw error;
+      const err = new Error(error.message);
+      err.statusCode = error.statusCode || 500;
+      throw err;
+    }
+  }
 }
 
 export default new CartService();

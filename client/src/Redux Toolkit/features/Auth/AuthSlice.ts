@@ -66,6 +66,25 @@ export const signup = createAsyncThunk<any, any>(
       if (response.data.role) {
         localStorage.setItem("role", response.data.role);
       }
+
+      // Automatically merge guest cart if items exist
+      try {
+        const guestCartRaw = localStorage.getItem("zosh_guest_cart");
+        if (guestCartRaw) {
+          const guestItems = JSON.parse(guestCartRaw);
+          if (Array.isArray(guestItems) && guestItems.length > 0) {
+            await Api.post(
+              "/cart/merge",
+              { guestItems },
+              { headers: { Authorization: `Bearer ${response.data.jwt}` } }
+            );
+            localStorage.removeItem("zosh_guest_cart");
+          }
+        }
+      } catch (mergeErr) {
+        console.warn("[Auth] Guest cart merge warning:", mergeErr);
+      }
+
       if (response.data.role === "ROLE_ADMIN") {
         signupRequest.navigate("/admin");
       } else {
@@ -93,6 +112,25 @@ export const signin = createAsyncThunk<any, any>(
       if (response.data.role) {
         localStorage.setItem("role", response.data.role);
       }
+
+      // Automatically merge guest cart if items exist
+      try {
+        const guestCartRaw = localStorage.getItem("zosh_guest_cart");
+        if (guestCartRaw) {
+          const guestItems = JSON.parse(guestCartRaw);
+          if (Array.isArray(guestItems) && guestItems.length > 0) {
+            await Api.post(
+              "/cart/merge",
+              { guestItems },
+              { headers: { Authorization: `Bearer ${response.data.jwt}` } }
+            );
+            localStorage.removeItem("zosh_guest_cart");
+          }
+        }
+      } catch (mergeErr) {
+        console.warn("[Auth] Guest cart merge warning:", mergeErr);
+      }
+
       if (response.data.role === "ROLE_ADMIN") {
         signinRequest.navigate("/admin");
       } else {

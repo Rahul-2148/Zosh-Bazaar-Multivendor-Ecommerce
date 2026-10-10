@@ -32,6 +32,9 @@ import ContextualPDPAskAI from "../../../components/AI/ContextualPDPAskAI";
 import SizeChartModal from "./SizeChartModal";
 import CompleteTheLook from "./CompleteTheLook";
 import SellerDetailsModal from "./SellerDetailsModal";
+import { SellerOffersSection, type SellerOfferItem } from "./SellerOffersSection";
+import { ProductComparisonSection } from "./ProductComparisonSection";
+import { ProductQnASection } from "./ProductQnASection";
 import { aiTracker } from "../../../../services/aiEventTracker";
 import { useAppDispatch, useAppSelector } from "../../../../Redux Toolkit/Store";
 import { fetchProductById } from "../../../../Redux Toolkit/features/customer/ProductSlice";
@@ -143,6 +146,12 @@ const ProductDetails: React.FC = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [showSellerDetails, setShowSellerDetails] = useState(false);
+  const [selectedSellerOffer, setSelectedSellerOffer] = useState<SellerOfferItem | null>(null);
+
+  // Reset selected seller offer when route product changes
+  useEffect(() => {
+    setSelectedSellerOffer(null);
+  }, [productId]);
 
   // Delivery Serviceability State
   const activePin = location?.activeLocation?.pincode;
@@ -239,12 +248,23 @@ const ProductDetails: React.FC = () => {
   }, [currentProduct]);
 
   // Effective prices, variant, and media resolved authoritatively
+  // If an alternate seller offer is actively selected, its authentic price, SKU, and stock override default
   const matchingVariant = resolution.selectedVariant;
-  const displaySellingPrice = resolution.sellingPrice;
-  const displayMrpPrice = resolution.mrpPrice;
-  const displayDiscountPercent = resolution.discountPercent;
-  const displayStock = resolution.countInStock;
-  const isOutOfStock = resolution.isOutOfStock;
+  const displaySellingPrice = selectedSellerOffer
+    ? selectedSellerOffer.pricing.sellingPrice
+    : resolution.sellingPrice;
+  const displayMrpPrice = selectedSellerOffer
+    ? selectedSellerOffer.pricing.mrpPrice
+    : resolution.mrpPrice;
+  const displayDiscountPercent = selectedSellerOffer
+    ? selectedSellerOffer.pricing.discountPercent
+    : resolution.discountPercent;
+  const displayStock = selectedSellerOffer
+    ? selectedSellerOffer.inventory.countInStock
+    : resolution.countInStock;
+  const isOutOfStock = selectedSellerOffer
+    ? !selectedSellerOffer.inventory.inStock
+    : resolution.isOutOfStock;
   const galleryImages = resolution.galleryImages;
 
   const handleQuantityChange = (delta: number) => {
@@ -257,12 +277,27 @@ const ProductDetails: React.FC = () => {
   const handleAddCartItem = () => {
     if (!productId || !currentProduct || isOutOfStock) return;
 
+    // Use selected alternate seller's product document if active
+    const targetProductId = selectedSellerOffer
+      ? selectedSellerOffer.productId
+      : currentProduct._id;
+    const targetSku = selectedSellerOffer
+      ? selectedSellerOffer.sku
+      : matchingVariant?.sku || (currentProduct as any).sku || "";
+
     dispatch(
       addItemToCart({
         jwt: localStorage.getItem("jwt") || "",
-        productId: currentProduct._id,
+        productId: targetProductId,
         variantId: matchingVariant?._id,
-        selectedVariant: matchingVariant
+        selectedVariant: selectedSellerOffer
+          ? {
+              sku: targetSku,
+              title: selectedSellerOffer.title,
+              attributes: matchingVariant?.attributes,
+              image: galleryImages[0] || resolution.heroImage,
+            }
+          : matchingVariant
           ? {
               sku: matchingVariant.sku,
               title: matchingVariant.title,
@@ -841,6 +876,46 @@ const ProductDetails: React.FC = () => {
               </div>
             </div>
 
+            {/* Active Selected Alternate Seller Notice */}
+            {selectedSellerOffer && (
+              <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <StorefrontOutlined className="text-primary" sx={{ fontSize: 18 }} />
+                  <span>
+                    Selected Offer: <strong>{selectedSellerOffer.seller.businessName || selectedSellerOffer.seller.sellerName}</strong> at ₹{selectedSellerOffer.pricing.sellingPrice.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSellerOffer(null)}
+                  className="text-primary hover:underline font-bold text-[11px] cursor-pointer"
+                >
+                  Reset to default seller
+                </button>
+              </div>
+            )}
+
+            {/* Other Seller Offers Comparison Rail */}
+            {currentProduct?._id && (
+              <SellerOffersSection
+                productId={currentProduct._id}
+                currentSellerId={
+                  typeof currentProduct.seller === "string"
+                    ? currentProduct.seller
+                    : currentProduct.seller?._id
+                }
+                currentPrice={resolution.sellingPrice}
+                selectedOfferProductId={selectedSellerOffer?.productId}
+                onSelectOffer={(offer) => {
+                  if (selectedSellerOffer?.productId === offer.productId) {
+                    setSelectedSellerOffer(null);
+                  } else {
+                    setSelectedSellerOffer(offer);
+                  }
+                }}
+              />
+            )}
+
             {/* Contextual AI Shopping Assistant */}
             <ContextualPDPAskAI product={currentProduct} />
           </main>
@@ -944,6 +1019,13 @@ const ProductDetails: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* ============================================================== */}
+        {/* MULTI-PRODUCT SPECIFICATION COMPARISON MATRIX */}
+        {/* ============================================================== */}
+        {currentProduct?._id && (
+          <ProductComparisonSection currentProductId={currentProduct._id} />
+        )}
 
         {/* ============================================================== */}
         {/* RATINGS & REVIEWS SECTION */}
@@ -1151,6 +1233,16 @@ const ProductDetails: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* ============================================================== */}
+        {/* VERIFIED COMMUNITY & SELLER QUESTIONS & ANSWERS */}
+        {/* ============================================================== */}
+        {currentProduct?._id && (
+          <ProductQnASection
+            productId={currentProduct._id}
+            productTitle={currentProduct.title}
+          />
+        )}
 
         {/* ============================================================== */}
         {/* COMPLETE THE LOOK / OUTFIT RECOMMENDATION RAIL */}

@@ -87,6 +87,22 @@ class CartController {
       next(error);
     }
   }
+
+  async mergeCartHandler(req, res, next) {
+    try {
+      const user = req.user;
+      const { items } = req.body || {};
+      const cart = await CartService.mergeGuestCart(user, items);
+      return res.status(200).json({
+        message: "Guest cart merged successfully",
+        cart,
+        error: false,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new CartController();

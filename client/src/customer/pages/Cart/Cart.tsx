@@ -159,6 +159,29 @@ const Cart: React.FC = () => {
           Zosh Assured quality inspection and fast fulfillment.
         </Typography>
 
+        {/* Guest Cart Detection Banner */}
+        {!jwt && (
+          <div className="p-4 my-2 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-200 text-xs sm:text-sm max-w-md w-full text-center">
+            <p className="font-bold">Have items saved on this device?</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 mb-3">
+              Log in to sync your cart, apply coupons, and proceed to secure checkout.
+            </p>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => navigate("/login?returnTo=/cart")}
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                borderRadius: "0.5rem",
+                bgcolor: "#2874f0",
+              }}
+            >
+              Sign In to View & Checkout
+            </Button>
+          </div>
+        )}
+
         <Button
           variant="contained"
           onClick={() => navigate("/products")}

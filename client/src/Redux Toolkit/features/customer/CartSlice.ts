@@ -54,6 +54,40 @@ export const addItemToCart = createAsyncThunk<
 >("/cart/addItemToCart", async (payload, { rejectWithValue }) => {
   try {
     const { jwt, ...data } = payload;
+    if (!jwt) {
+      // Store in guest cart localStorage
+      try {
+        const existingRaw = localStorage.getItem("zosh_guest_cart");
+        const existing = existingRaw ? JSON.parse(existingRaw) : [];
+        const index = existing.findIndex(
+          (item: any) =>
+            item.productId === data.productId &&
+            item.variantId === data.variantId &&
+            item.size === data.size
+        );
+        if (index > -1) {
+          existing[index].quantity += data.quantity;
+        } else {
+          existing.push({
+            productId: data.productId,
+            variantId: data.variantId,
+            selectedVariant: data.selectedVariant,
+            size: data.size,
+            ram: data.ram,
+            capacity: data.capacity,
+            quantity: data.quantity,
+          });
+        }
+        localStorage.setItem("zosh_guest_cart", JSON.stringify(existing));
+        return {
+          message: "Item saved to guest cart",
+          cartItem: { ...data, _id: "guest_" + Date.now() },
+        } as any;
+      } catch (err: any) {
+        return rejectWithValue({ message: "Failed to save to guest cart" });
+      }
+    }
+
     const response = await Api.post(`${API_URL}/add`, data, {
       headers: { Authorization: `Bearer ${jwt}` },
     });
@@ -99,6 +133,23 @@ export const deleteCartItem = createAsyncThunk<
       headers: { Authorization: `Bearer ${jwt}` },
     });
     console.log("delete cart item", response.data);
+    return response.data;
+  } catch (error: any) {
+    return rejectWithValue(error.response?.data || { message: error.message });
+  }
+});
+
+// 🔹 Merge Guest Cart
+export const mergeGuestCart = createAsyncThunk<
+  FetchCartResponse,
+  { jwt: string; items: any[] }
+>("/cart/mergeGuestCart", async ({ jwt, items }, { rejectWithValue }) => {
+  try {
+    const response = await Api.post(
+      `${API_URL}/merge`,
+      { items },
+      { headers: { Authorization: `Bearer ${jwt}` } }
+    );
     return response.data;
   } catch (error: any) {
     return rejectWithValue(error.response?.data || { message: error.message });
@@ -239,6 +290,21 @@ const cartSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
       state.message = action.payload?.message || "Failed to delete cart item";
+    });
+
+    // merge guest cart
+    builder.addCase(mergeGuestCart.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(mergeGuestCart.fulfilled, (state, action) => {
+      state.loading = false;
+      state.cart = action.payload.cart;
+      state.message = action.payload.message || "Cart merged successfully";
+    });
+    builder.addCase(mergeGuestCart.rejected, (state, action: any) => {
+      state.loading = false;
+      state.error = action.payload;
     });
   },
 });

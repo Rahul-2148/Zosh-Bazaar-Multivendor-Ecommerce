@@ -60,6 +60,22 @@ const savedItemSchema = new mongoose.Schema(
       enum: ["LOW", "MEDIUM", "HIGH"],
       default: "MEDIUM",
     },
+    targetPrice: {
+      type: Number,
+      default: null,
+    },
+    notifyOnPriceDrop: {
+      type: Boolean,
+      default: true,
+    },
+    notifyOnBackInStock: {
+      type: Boolean,
+      default: true,
+    },
+    targetPriceSetAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
