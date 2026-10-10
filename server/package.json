@@ -5,7 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "node tests/phase27PaymentPlatform12_3Audit.test.js && node tests/phase26PaymentPlatform12_1Audit.test.js && node tests/phase25PaymentPlatform12ReleaseGate.test.js && node tests/phase24PaymentPlatform11.test.js && node tests/phase23PaymentPlatform10.test.js && node tests/phase22PaymentPlatform9.test.js && node tests/phase21PaymentPlatform8Certification.test.js && node tests/phase20PaymentPlatform7.test.js && node tests/phase19PaymentPlatform6.test.js && node tests/phase18PaymentPlatform5.test.js && node tests/phase17PaymentRailPlatform.test.js && node tests/phase16ProductionHardening.test.js && node tests/phase15PaymentPlatform.test.js && node tests/phase14_2MediaAudit.test.js && node tests/phase14Audit.test.js && node tests/phase13Hardening.test.js",
+    "test": "node tests/phase28OpenApiDocsGate.test.js && node tests/phase27PaymentPlatform12_3Audit.test.js && node tests/phase26PaymentPlatform12_1Audit.test.js && node tests/phase25PaymentPlatform12ReleaseGate.test.js && node tests/phase24PaymentPlatform11.test.js && node tests/phase23PaymentPlatform10.test.js && node tests/phase22PaymentPlatform9.test.js && node tests/phase21PaymentPlatform8Certification.test.js && node tests/phase20PaymentPlatform7.test.js && node tests/phase19PaymentPlatform6.test.js && node tests/phase18PaymentPlatform5.test.js && node tests/phase17PaymentRailPlatform.test.js && node tests/phase16ProductionHardening.test.js && node tests/phase15PaymentPlatform.test.js && node tests/phase14_2MediaAudit.test.js && node tests/phase14Audit.test.js && node tests/phase13Hardening.test.js",
+    "docs:generate": "node scripts/generate-openapi.mjs",
+    "docs:validate": "node scripts/validate-openapi.mjs",
+    "test:docs": "node tests/phase28OpenApiDocsGate.test.js",
     "test:rails": "node tests/phase27PaymentPlatform12_3Audit.test.js && node tests/phase26PaymentPlatform12_1Audit.test.js && node tests/phase25PaymentPlatform12ReleaseGate.test.js && node tests/phase24PaymentPlatform11.test.js && node tests/phase23PaymentPlatform10.test.js && node tests/phase22PaymentPlatform9.test.js && node tests/phase21PaymentPlatform8Certification.test.js && node tests/phase20PaymentPlatform7.test.js && node tests/phase19PaymentPlatform6.test.js && node tests/phase18PaymentPlatform5.test.js && node tests/phase17PaymentRailPlatform.test.js",
     "test:payment": "node tests/phase27PaymentPlatform12_3Audit.test.js && node tests/phase26PaymentPlatform12_1Audit.test.js && node tests/phase25PaymentPlatform12ReleaseGate.test.js && node tests/phase24PaymentPlatform11.test.js && node tests/phase23PaymentPlatform10.test.js && node tests/phase22PaymentPlatform9.test.js && node tests/phase21PaymentPlatform8Certification.test.js && node tests/phase20PaymentPlatform7.test.js && node tests/phase19PaymentPlatform6.test.js && node tests/phase18PaymentPlatform5.test.js && node tests/phase17PaymentRailPlatform.test.js && node tests/phase16ProductionHardening.test.js && node tests/phase15PaymentPlatform.test.js",
     "test:hardening3": "node tests/phase16ProductionHardening.test.js",
@@ -47,6 +50,8 @@
     "nodemon": "^3.1.10",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.3",
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.9.1",
     "yup": "^1.7.0"
   },
   "devDependencies": {

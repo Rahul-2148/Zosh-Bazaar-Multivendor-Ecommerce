@@ -74,12 +74,39 @@ const AiAssistantView = lazyWithRetry(
   () => import("../customer/pages/Account/AiAssistantView")
 );
 
+const DocsRedirect = ({ to }: { to: string }) => {
+  if (typeof window !== "undefined") {
+    window.location.href = to;
+  }
+  return (
+    <div style={{ padding: "40px", textAlign: "center", fontFamily: "system-ui, sans-serif" }}>
+      <h2>Redirecting to Zosh Bazaar Documentation...</h2>
+      <p style={{ marginTop: "12px", color: "#64748b" }}>
+        If you are not redirected automatically,{" "}
+        <a href={to} style={{ color: "#2563eb", textDecoration: "underline" }}>
+          click here to open {to}
+        </a>
+        .
+      </p>
+    </div>
+  );
+};
+
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
     errorElement: <RouteErrorBoundary />,
     children: [
+      // Direct Documentation Redirects
+      {
+        path: "docs",
+        element: <DocsRedirect to="http://localhost:5000/docs" />,
+      },
+      {
+        path: "api-docs",
+        element: <DocsRedirect to="http://localhost:5000/api-docs" />,
+      },
       // Guest-Only Auth Routes (Login / Signup)
       {
         path: "login",

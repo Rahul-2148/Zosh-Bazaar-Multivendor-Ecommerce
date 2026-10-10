@@ -24,6 +24,7 @@ import { startDeletionWorker } from "./workers/deletionWorker.js";
 import emailPreviewRouter from "./modules/email/preview/email-preview.router.js";
 import { startEmailWorker } from "./modules/email/index.js";
 import paymentOutboxService from "./modules/payment/services/PaymentOutboxService.js";
+import docsRouter from "./docs/docs.router.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,7 +113,10 @@ app.use("/api/v1/logistics", logisticsRouter);
 // 5. Last-Mile Delivery Partner domain routes (Partner App: Port 5177)
 app.use("/api/v1/delivery-partner", deliveryPartnerRouter);
 
-// 6. Transactional Email Preview Studio (Development Mode Only)
+// 6. Enterprise OpenAPI 3.1 & Developer Documentation Portal
+app.use(docsRouter);
+
+// 7. Transactional Email Preview Studio (Development Mode Only)
 if (process.env.NODE_ENV !== "production") {
   app.use("/dev/emails", emailPreviewRouter);
 }
@@ -139,6 +143,8 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   const duration = Date.now() - bootStartTime;
   console.log(`🚀 [Server] Online & listening on port ${PORT} [ready in ${duration}ms]`);
+  console.log(`📚 [OpenAPI Docs] Swagger UI: http://localhost:${PORT}/api-docs`);
+  console.log(`📖 [Developer Portal] Guides: http://localhost:${PORT}/docs`);
   if (process.env.NODE_ENV !== "production") {
     console.log(`🎨 [Email Studio] Preview available at http://localhost:${PORT}/dev/emails`);
   }

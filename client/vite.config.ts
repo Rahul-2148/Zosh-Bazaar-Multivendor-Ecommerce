@@ -35,6 +35,16 @@ function muiIconsOptimizer() {
 export default defineConfig({
   plugins: [muiIconsOptimizer(), tailwindcss(), react()],
   server: {
+    proxy: {
+      "/docs": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+      "/api-docs": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+    },
     warmup: {
       clientFiles: [
         "./src/main.tsx",
