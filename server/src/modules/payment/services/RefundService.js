@@ -1,6 +1,6 @@
 import { Refund } from "../models/refund.model.js";
 import { Order } from "../../../models/order.model.js";
-import RefundStatus, { isValidRefundTransition } from "../domain/RefundStatus.js";
+import RefundStatus from "../domain/RefundStatus.js";
 import walletService from "./WalletService.js";
 import paymentRoutingService from "./PaymentRoutingService.js";
 import { PaymentAttempt } from "../models/paymentAttempt.model.js";

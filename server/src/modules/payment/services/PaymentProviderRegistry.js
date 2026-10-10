@@ -190,7 +190,6 @@ export class PaymentProviderRegistry {
       options.isProduction !== undefined
         ? options.isProduction
         : process.env.NODE_ENV === "production" || process.env.PAYMENT_ENV === "production";
-    const requiredCapability = options.requiredCapability;
 
     const matched = [];
 
@@ -246,7 +245,7 @@ export class PaymentProviderRegistry {
    * Implements strict circuit breaker state machine:
    * UP -> DEGRADED -> DOWN -> RECOVERING -> UP
    */
-  recordAttemptOutcome(providerId, { success = true, latencyMs = 100, isTimeout = false, error = null }) {
+  recordAttemptOutcome(providerId, { success = true, latencyMs = 100, isTimeout = false, error: _error = null }) {
     const provider = this.getProvider(providerId);
     if (!provider) return;
 

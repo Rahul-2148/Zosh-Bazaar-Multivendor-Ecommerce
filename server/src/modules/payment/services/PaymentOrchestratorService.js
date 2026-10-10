@@ -18,7 +18,6 @@ import SellerService from "../../seller/services/seller.service.js";
 import SellerReportService from "../../seller/services/sellerReport.service.js";
 import TransactionService from "../../customer/services/transaction.service.js";
 import { publishOrderStatusUpdated } from "../../../realtime/publishers.js";
-import { emailEvents } from "../../email/index.js";
 import paymentOutboxService from "./PaymentOutboxService.js";
 import paymentRoutingService from "./PaymentRoutingService.js";
 
@@ -187,7 +186,7 @@ class PaymentOrchestratorService {
     method,
     payload = {},
     metadata = {},
-    idempotencyKey = null,
+    _idempotencyKey = null,
   }) {
     const intent = await paymentIntentService.getIntentById(intentId);
 

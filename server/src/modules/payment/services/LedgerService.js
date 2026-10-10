@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import { LedgerJournal } from "../models/ledgerJournal.model.js";
 import { LedgerPosting } from "../models/ledgerPosting.model.js";
 import LedgerAccount, { EntryType } from "../domain/LedgerAccount.js";
@@ -136,7 +135,6 @@ class LedgerService {
     if (partyId) filter.partyId = String(partyId);
 
     const postings = await LedgerPosting.find(filter).lean();
-    let balance = 0;
 
     const isLiabilityOrEquityOrRevenue = [
       LedgerAccount.CUSTOMER_WALLET,

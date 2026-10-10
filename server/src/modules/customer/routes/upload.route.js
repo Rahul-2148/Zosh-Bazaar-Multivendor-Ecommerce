@@ -1,6 +1,6 @@
 import express from "express";
 import uploadController from "../controllers/upload.controller.js";
-import { uploadProductImages, uploadFlexibleMediaMemory } from "../../../middlewares/upload.middleware.js";
+import { uploadFlexibleMediaMemory } from "../../../middlewares/upload.middleware.js";
 import { mediaUploadLimiter } from "../../../middlewares/rateLimiter.middleware.js";
 
 const uploadRouter = express.Router();

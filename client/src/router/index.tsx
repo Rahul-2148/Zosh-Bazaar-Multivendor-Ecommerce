@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import RootLayout from "../layouts/RootLayout";
 import CustomerLayout from "../layouts/CustomerLayout";
@@ -75,9 +76,12 @@ const AiAssistantView = lazyWithRetry(
 );
 
 const DocsRedirect = ({ to }: { to: string }) => {
-  if (typeof window !== "undefined") {
-    window.location.href = to;
-  }
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.location.href = to;
+    }
+  }, [to]);
+
   return (
     <div style={{ padding: "40px", textAlign: "center", fontFamily: "system-ui, sans-serif" }}>
       <h2>Redirecting to Zosh Bazaar Documentation...</h2>

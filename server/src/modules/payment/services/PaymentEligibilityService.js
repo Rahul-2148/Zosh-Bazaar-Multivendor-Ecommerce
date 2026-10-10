@@ -12,7 +12,7 @@ class PaymentEligibilityService {
   /**
    * Deterministic evaluation of payment method eligibility based on order thresholds.
    */
-  getEligibleMethods({ orderAmount = 0, hasPhysicalGoods = true, userId = null }) {
+  getEligibleMethods({ orderAmount = 0, hasPhysicalGoods: _hasPhysicalGoods = true, userId: _userId = null }) {
     const isEmiEligible = orderAmount >= 2500;
     const isCodEligible = orderAmount <= 10000 && orderAmount > 0;
     return [
@@ -70,7 +70,7 @@ class PaymentEligibilityService {
    * @param {number} params.payableAmount
    * @param {Object} [params.shippingAddress]
    */
-  async evaluateEligibility({ userId, payableAmount, shippingAddress = null }) {
+  async evaluateEligibility({ userId, payableAmount, shippingAddress: _shippingAddress = null }) {
     const user = await User.findById(userId).select("savedPaymentMethods email fullName mobile role").lean();
     const wallet = await walletService.getOrCreateWallet(userId);
 

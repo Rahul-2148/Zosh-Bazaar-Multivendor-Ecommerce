@@ -3988,26 +3988,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Seller"
   /api/v1/seller/{id}:
-    delete:
-      tags:
-        - Seller Profile & Shop
-      summary: Delete Seller Account (Admin Only)
-      operationId: deleteSellerAdmin
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Seller deleted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessEnvelope"
     get:
       tags:
         - Seller Profile & Shop
@@ -4028,6 +4008,26 @@ paths:
             application/json:
               schema:
                 type: object
+    delete:
+      tags:
+        - Seller Profile & Shop
+      summary: Delete Seller Account (Admin Only)
+      operationId: deleteSellerAdmin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Seller deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
   /api/v1/seller/product:
     get:
       tags:
@@ -4169,44 +4169,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
-  /api/v1/seller/report:
-    get:
-      tags:
-        - Seller Analytics & Reports
-      summary: Get Seller Financial & Sales Performance Report
-      description: Aggregates total gross sales, commission deductions, net earnings,
-        and delivered units.
-      operationId: getSellerReport
-      security:
-        - SellerAuth: []
-      responses:
-        "200":
-          description: Seller report.
-          content:
-            application/json:
-              schema:
-                type: object
-    patch:
-      tags:
-        - Seller Analytics & Reports
-      summary: Admin Reconciliation Adjustment to Seller Report
-      description: Restricted to Platform Admin for manual dispute reconciliation.
-      operationId: updateSellerReportAdmin
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-      responses:
-        "200":
-          description: Report adjusted.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessEnvelope"
   /api/v1/transactions/seller:
     get:
       tags:
@@ -4310,6 +4272,44 @@ paths:
       responses:
         "200":
           description: Statuses updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+  /api/v1/seller/report:
+    get:
+      tags:
+        - Seller Analytics & Reports
+      summary: Get Seller Financial & Sales Performance Report
+      description: Aggregates total gross sales, commission deductions, net earnings,
+        and delivered units.
+      operationId: getSellerReport
+      security:
+        - SellerAuth: []
+      responses:
+        "200":
+          description: Seller report.
+          content:
+            application/json:
+              schema:
+                type: object
+    patch:
+      tags:
+        - Seller Analytics & Reports
+      summary: Admin Reconciliation Adjustment to Seller Report
+      description: Restricted to Platform Admin for manual dispute reconciliation.
+      operationId: updateSellerReportAdmin
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Report adjusted.
           content:
             application/json:
               schema:

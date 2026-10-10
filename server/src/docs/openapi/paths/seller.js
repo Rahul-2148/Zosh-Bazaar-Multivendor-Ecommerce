@@ -177,6 +177,16 @@ export const sellerPaths = {
         },
       },
     },
+    delete: {
+      tags: ["Seller Profile & Shop"],
+      summary: "Delete Seller Account (Admin Only)",
+      operationId: "deleteSellerAdmin",
+      security: [{ BearerAuth: [] }],
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+      responses: {
+        200: { description: "Seller deleted.", content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } },
+      },
+    },
   },
   "/api/v1/seller/product": {
     get: {
@@ -277,21 +287,6 @@ export const sellerPaths = {
       },
     },
   },
-  "/api/v1/seller/report": {
-    get: {
-      tags: ["Seller Analytics & Reports"],
-      summary: "Get Seller Financial & Sales Performance Report",
-      description: "Aggregates total gross sales, commission deductions, net earnings, and delivered units.",
-      operationId: "getSellerReport",
-      security: [{ SellerAuth: [] }],
-      responses: {
-        200: {
-          description: "Seller report.",
-          content: { "application/json": { schema: { type: "object" } } },
-        },
-      },
-    },
-  },
   "/api/v1/transactions/seller": {
     get: {
       tags: ["Seller Analytics & Reports"],
@@ -315,31 +310,6 @@ export const sellerPaths = {
       security: [{ BearerAuth: [] }],
       responses: {
         200: { description: "All sellers.", content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Seller" } } } } },
-      },
-    },
-  },
-  "/api/v1/seller/{id}": {
-    delete: {
-      tags: ["Seller Profile & Shop"],
-      summary: "Delete Seller Account (Admin Only)",
-      operationId: "deleteSellerAdmin",
-      security: [{ BearerAuth: [] }],
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      responses: {
-        200: { description: "Seller deleted.", content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } },
-      },
-    },
-    get: {
-      tags: ["Seller Profile & Shop"],
-      summary: "Public Storefront Seller Information",
-      description: "Returns public storefront information for display on product details page.",
-      operationId: "getPublicSellerById",
-      parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
-      responses: {
-        200: {
-          description: "Public seller details.",
-          content: { "application/json": { schema: { type: "object" } } },
-        },
       },
     },
   },

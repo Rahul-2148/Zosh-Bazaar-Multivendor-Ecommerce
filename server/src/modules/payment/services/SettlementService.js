@@ -502,6 +502,7 @@ export class SettlementService {
 
     hold.status = RiskHoldStatus.RELEASED;
     hold.releasedAt = new Date();
+    if (releasedBy) hold.releasedBy = releasedBy;
     await hold.save();
 
     // Reversing journal:
@@ -645,7 +646,7 @@ export class SettlementService {
     return { message: "Settlement batch calculated", batch };
   }
 
-  async executeBatchPayout(batchId, adapter = bankPayoutAdapter, options = {}) {
+  async executeBatchPayout(batchId, adapter = bankPayoutAdapter, _options = {}) {
     const batch = await SettlementBatch.findOne({ batchId }).populate("beneficiary");
     if (!batch) {
       throw new Error(`SettlementBatch "${batchId}" not found`);

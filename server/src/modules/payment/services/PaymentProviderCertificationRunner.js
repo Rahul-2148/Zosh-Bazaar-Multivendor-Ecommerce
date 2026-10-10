@@ -1,12 +1,9 @@
 import crypto from "crypto";
-import paymentProviderRegistry from "./PaymentProviderRegistry.js";
-import paymentRoutingService from "./PaymentRoutingService.js";
 import razorpayAdapter from "../adapters/RazorpayAdapter.js";
 import cashfreeAdapter from "../adapters/CashfreeAdapter.js";
 import payuAdapter from "../adapters/PayUAdapter.js";
 import phonepeAdapter from "../adapters/PhonePeAdapter.js";
 import { webhookAdapters } from "../adapters/webhook/ProviderWebhookAdapter.js";
-import PaymentAttemptStatus from "../domain/PaymentAttemptStatus.js";
 
 /**
  * Universal Payment Provider Certification Engine (Payment Platform 8.0)

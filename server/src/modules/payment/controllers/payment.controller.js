@@ -1,7 +1,6 @@
 import paymentOrchestratorService from "../services/PaymentOrchestratorService.js";
 import paymentEligibilityService from "../services/PaymentEligibilityService.js";
 import paymentOffersService from "../services/PaymentOffersService.js";
-import paymentPricingService from "../services/PaymentPricingService.js";
 import paymentIntentService from "../services/PaymentIntentService.js";
 import paymentWebhookService from "../services/PaymentWebhookService.js";
 import walletService from "../services/WalletService.js";
@@ -17,7 +16,6 @@ import { IdempotencyManager } from "../utils/idempotency.js";
 import { DistributedLock } from "../utils/distributedLock.js";
 import paymentProviderRegistry from "../services/PaymentProviderRegistry.js";
 import emiService from "../services/EmiService.js";
-import paymentRoutingService from "../services/PaymentRoutingService.js";
 import { SettlementBatch } from "../models/settlementBatch.model.js";
 import Money from "../utils/Money.js";
 

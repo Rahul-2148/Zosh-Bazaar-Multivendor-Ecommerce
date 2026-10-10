@@ -42,7 +42,7 @@ class UploadController {
       let folderPath = "zosh-bazaar/general";
 
       if (seller || user?.role === "SELLER") {
-        const sellerId = (seller?._id || user?._id).toString();
+        const sellerId = (seller?._id || user?._id)?.toString() || "unknown";
         const cleanProdId = sanitizeSlug(productId || "draft");
         if (cleanSubfolder === "options" && optionKey && optionValue) {
           const cleanOpt = sanitizeSlug(`${optionKey}-${optionValue}`);
@@ -88,7 +88,7 @@ class UploadController {
    * Authoritative server-side multi-media upload into Cloudinary or resilient disk storage
    * POST /api/v1/upload/cloudinary
    */
-  async uploadToCloudinary(req, res, next) {
+  async uploadToCloudinary(req, res, _next) {
     try {
       const user = req.user;
       const seller = req.seller;
@@ -137,7 +137,7 @@ class UploadController {
       let folderPath = "zosh-bazaar/general";
 
       if (seller || user?.role === "SELLER") {
-        const sellerId = (seller?._id || user?._id).toString();
+        const sellerId = (seller?._id || user?._id)?.toString() || "unknown";
         const cleanProdId = sanitizeSlug(productId || productSlug || "general");
         if (cleanSubfolder === "options" && optionKey && optionValue) {
           const cleanOpt = sanitizeSlug(`${optionKey}-${optionValue}`);
@@ -231,7 +231,7 @@ class UploadController {
    * Upload multiple product images (legacy disk upload - deprecated and disabled)
    * POST /api/v1/upload/product-images
    */
-  async uploadProductImages(req, res, next) {
+  async uploadProductImages(req, res, _next) {
     return res.status(410).json({
       success: false,
       error: true,

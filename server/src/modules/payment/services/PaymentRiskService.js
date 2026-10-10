@@ -15,7 +15,7 @@ class PaymentRiskService {
    * @param {string} [params.ipAddress]
    * @param {string} [params.rail]
    */
-  async evaluateRisk({ userId, amount, ipAddress = "127.0.0.1", rail = "UPI" }) {
+  async evaluateRisk({ userId, amount, ipAddress = "127.0.0.1", rail: _rail = "UPI" }) {
     let riskScore = 0;
     const reasons = [];
 
