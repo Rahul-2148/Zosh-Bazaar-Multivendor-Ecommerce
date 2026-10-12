@@ -331,3 +331,34 @@ export interface TransactionItem {
   };
   date: string;
 }
+
+export interface QuestionItem {
+  _id: string;
+  product: {
+    _id: string;
+    title: string;
+    slug?: string;
+    images?: string[];
+    sellingPrice?: number;
+    seller?: string | { _id: string; sellerName: string };
+  };
+  user?: {
+    _id: string;
+    fullName: string;
+  } | null;
+  userName?: string;
+  question: string;
+  answers?: Array<{
+    _id: string;
+    answer: string;
+    authorRole: string;
+    userName?: string;
+    createdAt?: string;
+  }>;
+  upvotes?: number;
+  isApproved: boolean;
+  moderationStatus: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason?: string | null;
+  moderatedAt?: string | null;
+  createdAt: string;
+}

@@ -13,6 +13,7 @@ import {
   LogoutOutlined,
   BrandingWatermarkOutlined,
   RateReviewOutlined,
+  QuestionAnswerOutlined,
   SettingsOutlined,
   WarehouseOutlined,
   ViewCarouselOutlined,
@@ -49,6 +50,7 @@ const navSections = [
       { path: "/products", label: "Product Catalog", icon: <Inventory2Outlined /> },
       { path: "/inventory", label: "Stock Control", icon: <WarehouseOutlined /> },
       { path: "/reviews", label: "Reviews", icon: <RateReviewOutlined /> },
+      { path: "/questions", label: "Q&A Moderation", icon: <QuestionAnswerOutlined /> },
     ],
   },
   {

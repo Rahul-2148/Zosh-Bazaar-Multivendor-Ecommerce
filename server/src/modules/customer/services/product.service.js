@@ -184,33 +184,49 @@ class ProductService {
         capacity: data.capacity || "",
       });
 
-      const savedProduct = await product.save();
+      let savedProduct = null;
+      const createdHistoryIds = [];
 
-      // Persist authentic initial price history event
-      await PriceHistory.create({
-        product: savedProduct._id,
-        variantId: null,
-        variantSku: null,
-        sellingPrice: savedProduct.sellingPrice,
-        mrpPrice: savedProduct.mrpPrice,
-        discountPercent: savedProduct.discountPercent,
-        source: "INITIAL_SNAPSHOT",
-        timestamp: new Date(),
-      });
+      try {
+        savedProduct = await product.save();
 
-      if (savedProduct.hasVariants && Array.isArray(savedProduct.variants)) {
-        for (const v of savedProduct.variants) {
-          await PriceHistory.create({
-            product: savedProduct._id,
-            variantId: v._id || null,
-            variantSku: v.sku || null,
-            sellingPrice: v.sellingPrice,
-            mrpPrice: v.mrpPrice,
-            discountPercent: v.discountPercent,
-            source: "INITIAL_SNAPSHOT",
-            timestamp: new Date(),
-          });
+        // Persist authentic initial price history event
+        const baseSnapshot = await PriceHistory.create({
+          product: savedProduct._id,
+          variantId: null,
+          variantSku: null,
+          sellingPrice: savedProduct.sellingPrice,
+          mrpPrice: savedProduct.mrpPrice,
+          discountPercent: savedProduct.discountPercent,
+          source: "INITIAL_SNAPSHOT",
+          timestamp: new Date(),
+        });
+        if (baseSnapshot && baseSnapshot._id) createdHistoryIds.push(baseSnapshot._id);
+
+        if (savedProduct.hasVariants && Array.isArray(savedProduct.variants)) {
+          for (const v of savedProduct.variants) {
+            const varSnapshot = await PriceHistory.create({
+              product: savedProduct._id,
+              variantId: v._id || null,
+              variantSku: v.sku || null,
+              sellingPrice: v.sellingPrice,
+              mrpPrice: v.mrpPrice,
+              discountPercent: v.discountPercent,
+              source: "INITIAL_SNAPSHOT",
+              timestamp: new Date(),
+            });
+            if (varSnapshot && varSnapshot._id) createdHistoryIds.push(varSnapshot._id);
+          }
         }
+      } catch (mutationErr) {
+        // Rollback / compensation: clean up product and partial snapshots if history creation fails
+        if (savedProduct && savedProduct._id) {
+          await Product.findByIdAndDelete(savedProduct._id).catch(() => {});
+        }
+        if (createdHistoryIds.length > 0) {
+          await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } }).catch(() => {});
+        }
+        throw new Error(`Failed to create product with initial price snapshot: ${mutationErr.message}`);
       }
 
       emitProductCreated(savedProduct);
@@ -340,40 +356,55 @@ class ProductService {
       });
 
       // Record authentic PriceHistory change event if selling price or MRP changed
-      if (
-        oldProductData.sellingPrice !== saved.sellingPrice ||
-        oldProductData.mrpPrice !== saved.mrpPrice
-      ) {
-        await PriceHistory.create({
-          product: saved._id,
-          variantId: null,
-          variantSku: null,
-          sellingPrice: saved.sellingPrice,
-          mrpPrice: saved.mrpPrice,
-          discountPercent: saved.discountPercent,
-          source: sellerId ? "SELLER_UPDATE" : "ADMIN_OVERRIDE",
-          timestamp: new Date(),
-        });
-      }
+      const createdHistoryIds = [];
+      try {
+        if (
+          oldProductData.sellingPrice !== saved.sellingPrice ||
+          oldProductData.mrpPrice !== saved.mrpPrice
+        ) {
+          const snap = await PriceHistory.create({
+            product: saved._id,
+            variantId: null,
+            variantSku: null,
+            sellingPrice: saved.sellingPrice,
+            mrpPrice: saved.mrpPrice,
+            discountPercent: saved.discountPercent,
+            source: sellerId ? "SELLER_UPDATE" : "ADMIN_OVERRIDE",
+            timestamp: new Date(),
+          });
+          if (snap && snap._id) createdHistoryIds.push(snap._id);
+        }
 
-      if (saved.hasVariants && Array.isArray(saved.variants)) {
-        for (const v of saved.variants) {
-          const oldV = oldVariants.find(
-            (ov) => (ov._id && v._id && ov._id === v._id.toString()) || (ov.sku && ov.sku === v.sku)
-          );
-          if (!oldV || oldV.sellingPrice !== v.sellingPrice || oldV.mrpPrice !== v.mrpPrice) {
-            await PriceHistory.create({
-              product: saved._id,
-              variantId: v._id || null,
-              variantSku: v.sku || null,
-              sellingPrice: v.sellingPrice,
-              mrpPrice: v.mrpPrice,
-              discountPercent: v.discountPercent,
-              source: sellerId ? "SELLER_UPDATE" : "ADMIN_OVERRIDE",
-              timestamp: new Date(),
-            });
+        if (saved.hasVariants && Array.isArray(saved.variants)) {
+          for (const v of saved.variants) {
+            const oldV = oldVariants.find(
+              (ov) => (ov._id && v._id && ov._id === v._id.toString()) || (ov.sku && ov.sku === v.sku)
+            );
+            if (!oldV || oldV.sellingPrice !== v.sellingPrice || oldV.mrpPrice !== v.mrpPrice) {
+              const varSnap = await PriceHistory.create({
+                product: saved._id,
+                variantId: v._id || null,
+                variantSku: v.sku || null,
+                sellingPrice: v.sellingPrice,
+                mrpPrice: v.mrpPrice,
+                discountPercent: v.discountPercent,
+                source: sellerId ? "SELLER_UPDATE" : "ADMIN_OVERRIDE",
+                timestamp: new Date(),
+              });
+              if (varSnap && varSnap._id) createdHistoryIds.push(varSnap._id);
+            }
           }
         }
+      } catch (histErr) {
+        // Rollback product mutation to restore consistency
+        product.sellingPrice = oldProductData.sellingPrice;
+        product.mrpPrice = oldProductData.mrpPrice;
+        product.countInStock = oldProductData.countInStock;
+        await product.save().catch(() => {});
+        if (createdHistoryIds.length > 0) {
+          await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } }).catch(() => {});
+        }
+        throw new Error(`Price history audit record failed: ${histErr.message}`);
       }
 
       // Asynchronously trigger price-drop and back-in-stock alerts for saved shoppers
@@ -1312,10 +1343,39 @@ class ProductService {
         }
       }
 
-      const targetColor = options?.color || currentProduct.color;
-      const targetSize = options?.size || currentProduct.size;
-      const targetRam = options?.ram || currentProduct.ram;
-      const targetCapacity = options?.capacity || currentProduct.capacity;
+      // Resolve selected variant from options if specified
+      let selectedVariant = null;
+      if (options?.variantId && Array.isArray(currentProduct.variants)) {
+        selectedVariant = currentProduct.variants.find(
+          (v) => (v._id && v._id.toString() === options.variantId.toString()) || v.sku === options.variantId
+        );
+      } else if (options?.variantSku && Array.isArray(currentProduct.variants)) {
+        selectedVariant = currentProduct.variants.find((v) => v.sku === options.variantSku);
+      }
+
+      const getAttr = (prod, varDoc, keyName) => {
+        if (varDoc && Array.isArray(varDoc.attributes)) {
+          const found = varDoc.attributes.find(
+            (a) => (a.key || a.name || "").toLowerCase() === keyName.toLowerCase()
+          );
+          if (found && found.value) return String(found.value).trim();
+        }
+        if (prod && prod[keyName]) return String(prod[keyName]).trim();
+        if (prod && Array.isArray(prod.attributes)) {
+          const found = prod.attributes.find(
+            (a) => (a.key || a.name || "").toLowerCase() === keyName.toLowerCase()
+          );
+          if (found && found.value) return String(found.value).trim();
+        }
+        return null;
+      };
+
+      const targetColor = options?.color || getAttr(currentProduct, selectedVariant, "color");
+      const targetSize = options?.size || getAttr(currentProduct, selectedVariant, "size");
+      const targetRam = options?.ram || getAttr(currentProduct, selectedVariant, "ram");
+      const targetCapacity = options?.capacity || getAttr(currentProduct, selectedVariant, "capacity") || getAttr(currentProduct, selectedVariant, "storage");
+      const targetModel = options?.model || getAttr(currentProduct, selectedVariant, "model");
+      const targetGeneration = options?.generation || getAttr(currentProduct, selectedVariant, "generation");
 
       const offers = [];
       for (const prod of competingProducts) {
@@ -1324,17 +1384,65 @@ class ProductService {
         if (!sellerDoc || sellerDoc.accountStatus !== "ACTIVE") continue;
 
         // Ensure variant/model attribute compatibility
-        if (targetColor && prod.color && targetColor.toLowerCase() !== prod.color.toLowerCase()) {
-          continue;
-        }
-        if (targetSize && prod.size && targetSize.toLowerCase() !== prod.size.toLowerCase()) {
-          continue;
-        }
-        if (targetRam && prod.ram && targetRam.toLowerCase() !== prod.ram.toLowerCase()) {
-          continue;
-        }
-        if (targetCapacity && prod.capacity && targetCapacity.toLowerCase() !== prod.capacity.toLowerCase()) {
-          continue;
+        // If the selected product variant has a known color, size, RAM or capacity,
+        // do not accept an offer with missing or unverifiable corresponding variant data as a confirmed match.
+        let offerSellingPrice = prod.sellingPrice;
+        let offerMrpPrice = prod.mrpPrice;
+        let offerDiscountPercent = prod.discountPercent;
+        let offerStock = prod.countInStock;
+        let offerSku = prod.sku;
+
+        if (prod.hasVariants && Array.isArray(prod.variants) && prod.variants.length > 0) {
+          // If competing product has variants, find the matching variant
+          const matchedVariant = prod.variants.find((v) => {
+            if (v.status !== "ACTIVE" || v.countInStock <= 0) return false;
+            const vColor = getAttr(prod, v, "color");
+            const vSize = getAttr(prod, v, "size");
+            const vRam = getAttr(prod, v, "ram");
+            const vCap = getAttr(prod, v, "capacity") || getAttr(prod, v, "storage");
+            if (targetColor && (!vColor || vColor.toLowerCase() !== targetColor.toLowerCase())) return false;
+            if (targetSize && (!vSize || vSize.toLowerCase() !== targetSize.toLowerCase())) return false;
+            if (targetRam && (!vRam || vRam.toLowerCase() !== targetRam.toLowerCase())) return false;
+            if (targetCapacity && (!vCap || vCap.toLowerCase() !== targetCapacity.toLowerCase())) return false;
+            return true;
+          });
+
+          if (!matchedVariant) {
+            // No matching variant found in competing product
+            continue;
+          }
+          offerSellingPrice = matchedVariant.sellingPrice;
+          offerMrpPrice = matchedVariant.mrpPrice;
+          offerDiscountPercent = matchedVariant.discountPercent;
+          offerStock = matchedVariant.countInStock;
+          offerSku = matchedVariant.sku || prod.sku;
+        } else {
+          // Standalone product: check attributes directly
+          const prodColor = getAttr(prod, null, "color");
+          const prodSize = getAttr(prod, null, "size");
+          const prodRam = getAttr(prod, null, "ram");
+          const prodCap = getAttr(prod, null, "capacity") || getAttr(prod, null, "storage");
+          const prodModel = getAttr(prod, null, "model");
+          const prodGen = getAttr(prod, null, "generation");
+
+          if (targetColor && (!prodColor || prodColor.toLowerCase() !== targetColor.toLowerCase())) {
+            continue;
+          }
+          if (targetSize && (!prodSize || prodSize.toLowerCase() !== targetSize.toLowerCase())) {
+            continue;
+          }
+          if (targetRam && (!prodRam || prodRam.toLowerCase() !== targetRam.toLowerCase())) {
+            continue;
+          }
+          if (targetCapacity && (!prodCap || prodCap.toLowerCase() !== targetCapacity.toLowerCase())) {
+            continue;
+          }
+          if (targetModel && prodModel && prodModel.toLowerCase() !== targetModel.toLowerCase()) {
+            continue;
+          }
+          if (targetGeneration && prodGen && prodGen.toLowerCase() !== targetGeneration.toLowerCase()) {
+            continue;
+          }
         }
 
         const stats = sellerRatingMap.get(sellerDoc._id.toString());
@@ -1349,7 +1457,7 @@ class ProductService {
           productId: prod._id,
           title: prod.title,
           slug: prod.slug,
-          sku: prod.sku,
+          sku: offerSku,
           seller: {
             sellerId: sellerDoc._id,
             sellerCode,
@@ -1361,19 +1469,20 @@ class ProductService {
             ratingCount: sellerRatingCount,
             shipsFromCity: sellerDoc.pickupAddress?.city || null,
             shipsFromState: sellerDoc.pickupAddress?.state || null,
-            fulfillmentMethod: sellerDoc.businessDetails?.fulfillmentType || "Standard Delivery",
+            fulfillmentMethod: sellerDoc.businessDetails?.fulfillmentType || null,
           },
+          fulfillmentMethod: sellerDoc.businessDetails?.fulfillmentType || null,
           pricing: {
-            mrpPrice: prod.mrpPrice,
-            sellingPrice: prod.sellingPrice,
-            discountPercent: prod.discountPercent,
-            savingsVsCurrentOffer: Math.max(0, currentProduct.sellingPrice - prod.sellingPrice),
-            isCheaper: prod.sellingPrice < currentProduct.sellingPrice,
+            mrpPrice: offerMrpPrice,
+            sellingPrice: offerSellingPrice,
+            discountPercent: offerDiscountPercent,
+            savingsVsCurrentOffer: Math.max(0, currentProduct.sellingPrice - offerSellingPrice),
+            isCheaper: offerSellingPrice < currentProduct.sellingPrice,
           },
           inventory: {
-            countInStock: prod.countInStock,
-            inStock: prod.countInStock > 0,
-            status: prod.countInStock <= 0 ? "OUT_OF_STOCK" : prod.countInStock <= 5 ? "LOW_STOCK" : "IN_STOCK",
+            countInStock: offerStock,
+            inStock: offerStock > 0,
+            status: offerStock <= 0 ? "OUT_OF_STOCK" : offerStock <= 5 ? "LOW_STOCK" : "IN_STOCK",
           },
           shippingDetails: {
             estimatedDeliveryDays: prod.shippingDetails?.estimatedDeliveryDays || null,
@@ -1414,24 +1523,49 @@ class ProductService {
         throw new Error("Product not found");
       }
 
+      // Determine requested variant if any
+      let resolvedVariant = null;
+      let requestedVariantId = options?.variantId || null;
+      let requestedVariantSku = options?.variantSku || null;
+
+      if (requestedVariantId && Array.isArray(product.variants)) {
+        resolvedVariant = product.variants.find(
+          (v) => (v._id && v._id.toString() === requestedVariantId.toString()) || v.sku === requestedVariantId
+        );
+      } else if (requestedVariantSku && Array.isArray(product.variants)) {
+        resolvedVariant = product.variants.find((v) => v.sku === requestedVariantSku);
+      }
+
+      let currentSellingPrice = resolvedVariant ? resolvedVariant.sellingPrice : product.sellingPrice;
+      let currentMrpPrice = resolvedVariant ? resolvedVariant.mrpPrice : product.mrpPrice;
+
+      // Base-product history queries must exclude variant-specific snapshots.
+      // Variant queries must use the exact selected variant identity.
       const historyQuery = { product: product._id };
-      if (options?.variantId) {
-        historyQuery.variantId = options.variantId;
-      } else if (options?.variantSku) {
-        historyQuery.variantSku = options.variantSku;
+      if (requestedVariantId) {
+        historyQuery.variantId = requestedVariantId;
+      } else if (requestedVariantSku) {
+        historyQuery.variantSku = requestedVariantSku;
+      } else {
+        // Exclude variant-specific snapshots when querying base product
+        historyQuery.variantId = null;
       }
 
       let historyPoints = await PriceHistory.find(historyQuery)
-        .sort({ timestamp: 1 })
+        .sort({ timestamp: -1 })
         .limit(30);
+
+      // Return chronologically for the chart
+      historyPoints.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       if (historyPoints.length === 0) {
         return {
           productId: product._id,
-          variantId: options?.variantId || null,
-          variantSku: options?.variantSku || null,
-          currentPrice: product.sellingPrice,
-          mrpPrice: product.mrpPrice,
+          variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : requestedVariantId,
+          variantSku: resolvedVariant?.sku || requestedVariantSku,
+          currentPrice: currentSellingPrice,
+          mrpPrice: currentMrpPrice,
+          currentMrp: currentMrpPrice,
           lowestPrice: null,
           highestPrice: null,
           averagePrice: null,
@@ -1443,7 +1577,7 @@ class ProductService {
         };
       }
 
-      const allPrices = historyPoints.map((h) => Number(h.sellingPrice) || product.sellingPrice);
+      const allPrices = historyPoints.map((h) => Number(h.sellingPrice) || currentSellingPrice);
       const lowestPrice = Math.min(...allPrices);
       const highestPrice = Math.max(...allPrices);
       const averagePrice = Math.round(allPrices.reduce((a, b) => a + b, 0) / allPrices.length);
@@ -1459,14 +1593,20 @@ class ProductService {
 
       return {
         productId: product._id,
-        currentPrice: product.sellingPrice,
-        mrpPrice: product.mrpPrice,
+        variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : requestedVariantId,
+        variantSku: resolvedVariant?.sku || requestedVariantSku,
+        currentPrice: currentSellingPrice,
+        mrpPrice: currentMrpPrice,
+        currentMrp: currentMrpPrice,
         lowestPrice,
         highestPrice,
         averagePrice,
-        isAtLowestPrice: product.sellingPrice <= lowestPrice,
-        savingsVsHighest: highestPrice - product.sellingPrice,
-        priceDropPercentage: highestPrice > 0 ? Math.round(((highestPrice - product.sellingPrice) / highestPrice) * 100) : 0,
+        isAtLowestPrice: hasSufficientHistory ? currentSellingPrice <= lowestPrice : false,
+        savingsVsHighest: hasSufficientHistory ? Math.max(0, highestPrice - currentSellingPrice) : 0,
+        priceDropPercentage:
+          hasSufficientHistory && highestPrice > 0
+            ? Math.round(((highestPrice - currentSellingPrice) / highestPrice) * 100)
+            : 0,
         hasSufficientHistory,
         history: historyFormatted,
       };

@@ -40,6 +40,9 @@ const cartSchema = mongoose.Schema(
     recentMergeSignatures: [
       {
         signature: { type: String, required: true },
+        mergedItems: { type: Array, default: [] },
+        failedItems: { type: Array, default: [] },
+        totalProcessed: { type: Number, default: 0 },
         createdAt: { type: Date, default: Date.now },
       },
     ],

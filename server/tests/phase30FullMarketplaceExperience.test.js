@@ -13,6 +13,8 @@ import { CartItem } from "../src/models/cartItem.model.js";
 import { Review } from "../src/models/review.model.js";
 import { Seller } from "../src/models/seller.model.js";
 import { Order } from "../src/models/order.model.js";
+import { PlatformSettings } from "../src/models/settings.model.js";
+import { CartMergeRecord } from "../src/models/cartMergeRecord.model.js";
 
 console.log("\n================================================================");
 console.log("🧪 ZOSH BAZAAR — PHASE 30 FULL MARKETPLACE EXPERIENCE TEST SUITE");
@@ -25,7 +27,7 @@ const testReport = {
   unitTests: [],
   serviceIntegrationTests: [],
   browserE2eNotes: [
-    "Browser E2E flows (PDP offers, price history widget, guest cart merge on login) verified via Chrome DevTools/Playwright.",
+    "Browser E2E tests were not run in this test suite; PDP interactions, moderation UI, and cart behaviors are validated via focused unit and service integration tests.",
   ],
 };
 
@@ -95,12 +97,18 @@ const originalCartSave = Cart.prototype.save;
 const originalReviewAggregate = Review.aggregate;
 const originalSellerFindById = Seller.findById;
 const originalOrderFindOne = Order.findOne;
+const originalPlatformSettingsFindOne = PlatformSettings.findOne;
+const originalCartMergeRecordFindOne = CartMergeRecord.findOne;
+const originalCartMergeRecordFindOneAndUpdate = CartMergeRecord.findOneAndUpdate;
 
 // Mock prototype save methods to avoid Mongoose buffer timeouts when disconnected
 CartItem.prototype.save = async function () { return this; };
 Cart.prototype.save = async function () { return this; };
 CartItem.findByIdAndDelete = async () => ({ message: "Deleted" });
 SavedItem.find = () => createChainableQuery([]);
+PlatformSettings.findOne = () => createChainableQuery(null);
+CartMergeRecord.findOne = async () => null;
+CartMergeRecord.findOneAndUpdate = async () => ({ status: "COMPLETED" });
 
 function restoreAllMocks() {
   Product.findOne = originalProductFindOne;
@@ -127,6 +135,9 @@ function restoreAllMocks() {
   Review.aggregate = originalReviewAggregate;
   Seller.findById = originalSellerFindById;
   Order.findOne = originalOrderFindOne;
+  PlatformSettings.findOne = originalPlatformSettingsFindOne;
+  CartMergeRecord.findOne = originalCartMergeRecordFindOne;
+  CartMergeRecord.findOneAndUpdate = originalCartMergeRecordFindOneAndUpdate;
 }
 
 async function main() {
@@ -285,6 +296,100 @@ async function main() {
       const result = await ProductService.getOtherSellerOffers(currentProductId.toString());
       assert.strictEqual(result.totalOtherOffers, 0);
       assert.strictEqual(result.offers.length, 0);
+    });
+
+    await runAsyncTest("ProductService.getOtherSellerOffers() returns fulfillmentMethod: null when unconfigured", async () => {
+      const currentProductId = new mongoose.Types.ObjectId();
+      const currentSellerId = new mongoose.Types.ObjectId();
+      const altProductId = new mongoose.Types.ObjectId();
+      const altSellerId = new mongoose.Types.ObjectId();
+
+      const currentProd = {
+        _id: currentProductId,
+        title: "Apple iPhone 15",
+        canonicalId: "CANON-IPHONE15",
+        brand: "Apple",
+        sellingPrice: 72999,
+        mrpPrice: 79999,
+        color: "Blue",
+        seller: { _id: currentSellerId, accountStatus: "ACTIVE", isEmailVerified: true },
+      };
+
+      const competingProd = {
+        _id: altProductId,
+        title: "Apple iPhone 15 128GB Blue",
+        canonicalId: "CANON-IPHONE15",
+        brand: "Apple",
+        sellingPrice: 70999,
+        mrpPrice: 79999,
+        countInStock: 4,
+        inStock: true,
+        status: "PUBLISHED",
+        color: "Blue",
+        seller: {
+          _id: altSellerId,
+          sellerName: "Gadget World",
+          accountStatus: "ACTIVE",
+          isEmailVerified: true,
+          businessDetails: { businessName: "Gadget World" }, // NO fulfillmentType configured!
+          pickupAddress: { city: "Mumbai", state: "Maharashtra" },
+        },
+      };
+
+      Product.findOne = () => createChainableQuery(currentProd);
+      Product.find = () => createChainableQuery([competingProd]);
+      Review.aggregate = async () => [];
+
+      const result = await ProductService.getOtherSellerOffers(currentProductId.toString());
+      assert.strictEqual(result.totalOtherOffers, 1);
+      assert.strictEqual(result.offers[0].fulfillmentMethod, null, "Fulfillment method should be null when unconfigured");
+    });
+
+    await runAsyncTest("ProductService.getOtherSellerOffers() rejects competing offers with incompatible variant attributes", async () => {
+      const currentProductId = new mongoose.Types.ObjectId();
+      const currentSellerId = new mongoose.Types.ObjectId();
+
+      const currentProd = {
+        _id: currentProductId,
+        title: "Nike Air Max",
+        canonicalId: "CANON-NIKE-AIRMAX",
+        brand: "Nike",
+        sellingPrice: 8999,
+        color: "Black",
+        size: "UK 9",
+        seller: { _id: currentSellerId, accountStatus: "ACTIVE" },
+      };
+
+      const mismatchedSizeProd = {
+        _id: new mongoose.Types.ObjectId(),
+        title: "Nike Air Max UK 8",
+        canonicalId: "CANON-NIKE-AIRMAX",
+        brand: "Nike",
+        sellingPrice: 7999,
+        countInStock: 3,
+        color: "Black",
+        size: "UK 8", // Incompatible size!
+        seller: { _id: new mongoose.Types.ObjectId(), accountStatus: "ACTIVE" },
+      };
+
+      const missingColorProd = {
+        _id: new mongoose.Types.ObjectId(),
+        title: "Nike Air Max White",
+        canonicalId: "CANON-NIKE-AIRMAX",
+        brand: "Nike",
+        sellingPrice: 7999,
+        countInStock: 3,
+        size: "UK 9",
+        color: "", // Missing color!
+        seller: { _id: new mongoose.Types.ObjectId(), accountStatus: "ACTIVE" },
+      };
+
+      Product.findOne = () => createChainableQuery(currentProd);
+      Product.find = () => createChainableQuery([mismatchedSizeProd, missingColorProd]);
+      Review.aggregate = async () => [];
+
+      const result = await ProductService.getOtherSellerOffers(currentProductId.toString());
+      assert.strictEqual(result.totalOtherOffers, 0, "Competing offers with mismatched or missing attributes must be rejected");
     });
 
     // ============================================================================
@@ -463,6 +568,76 @@ async function main() {
       assert.strictEqual(result.hasSufficientHistory, true);
       assert.strictEqual(result.lowestPrice, 20999);
       assert.strictEqual(result.highestPrice, 21999);
+    });
+
+    await runAsyncTest("ProductService.getProductPriceHistory() excludes variant snapshots from base product query", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      Product.findOne = () => createChainableQuery({
+        _id: prodId,
+        sellingPrice: 4999,
+        mrpPrice: 6999,
+      });
+
+      let capturedFilter = null;
+      let capturedSort = null;
+      let capturedLimit = null;
+      PriceHistory.find = (filter) => {
+        capturedFilter = filter;
+        const q = {
+          sort: (s) => { capturedSort = s; return q; },
+          limit: (l) => { capturedLimit = l; return q; },
+          lean: () => q,
+          exec: async () => [
+            { sellingPrice: 5499, mrpPrice: 6999, timestamp: new Date("2026-01-01") },
+            { sellingPrice: 4999, mrpPrice: 6999, timestamp: new Date("2026-02-01") },
+          ],
+          then: (res, rej) => Promise.resolve([
+            { sellingPrice: 5499, mrpPrice: 6999, timestamp: new Date("2026-01-01") },
+            { sellingPrice: 4999, mrpPrice: 6999, timestamp: new Date("2026-02-01") },
+          ]).then(res, rej),
+        };
+        return q;
+      };
+
+      const result = await ProductService.getProductPriceHistory(prodId.toString());
+      assert.strictEqual(capturedFilter.variantId, null, "Base query must explicitly exclude variant snapshots with variantId: null");
+      assert.deepStrictEqual(capturedSort, { timestamp: -1 }, "Must query newest 30 records first");
+      assert.strictEqual(capturedLimit, 30, "Must limit price history query to 30 records");
+      assert.strictEqual(result.history.length, 2);
+    });
+
+    await runAsyncTest("ProductService.getProductPriceHistory() resolves variant current price when variantId is specified", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const variantId = new mongoose.Types.ObjectId();
+      const product = {
+        _id: prodId,
+        sellingPrice: 1000,
+        mrpPrice: 1500,
+        variants: [
+          {
+            _id: variantId,
+            sku: "VAR-XL-RED",
+            sellingPrice: 1299,
+            mrpPrice: 1799,
+            status: "ACTIVE",
+          },
+        ],
+      };
+      product.variants.id = (id) => product.variants.find((v) => v._id.toString() === id.toString());
+
+      Product.findOne = () => createChainableQuery(product);
+      PriceHistory.find = () => createChainableQuery([
+        { sellingPrice: 1499, mrpPrice: 1799, timestamp: new Date("2026-01-01"), variantId },
+        { sellingPrice: 1299, mrpPrice: 1799, timestamp: new Date("2026-02-01"), variantId },
+      ]);
+
+      const result = await ProductService.getProductPriceHistory(prodId.toString(), {
+        variantId: variantId.toString(),
+      });
+
+      assert.strictEqual(result.currentPrice, 1299, "Current price should resolve to variant sellingPrice");
+      assert.strictEqual(result.currentMrp, 1799, "Current MRP should resolve to variant mrpPrice");
+      assert.strictEqual(result.isAtLowestPrice, true);
     });
 
     await runAsyncTest("ProductService.updateProduct() persists authentic PriceHistory snapshot on price change", async () => {
@@ -748,6 +923,47 @@ async function main() {
       assert.strictEqual(rejected.rejectionReason, "Contains promotional link");
     });
 
+    await runAsyncTest("AdminService.getQuestionModerationQueue() sanitizes customer author details without leaking PII", async () => {
+      const mockQuestion = {
+        _id: new mongoose.Types.ObjectId(),
+        question: "Is this water resistant?",
+        moderationStatus: "PENDING",
+        user: { fullName: "Aarav Gupta" }, // Note: No email, phone, or private data populated
+        product: { _id: new mongoose.Types.ObjectId(), title: "Smart Watch" },
+        createdAt: new Date(),
+      };
+
+      let populatedPaths = [];
+      ProductQuestion.find = () => {
+        const q = {
+          populate: (pathOrObj, selectFields) => {
+            if (typeof pathOrObj === "string") {
+              populatedPaths.push({ path: pathOrObj, select: selectFields });
+            } else {
+              populatedPaths.push(pathOrObj);
+            }
+            return q;
+          },
+          sort: () => q,
+          skip: () => q,
+          limit: () => q,
+          lean: () => q,
+          exec: async () => [mockQuestion],
+          then: (res, rej) => Promise.resolve([mockQuestion]).then(res, rej),
+        };
+        return q;
+      };
+      ProductQuestion.countDocuments = async () => 1;
+
+      const result = await AdminService.getQuestionModerationQueue({ status: "PENDING", page: 1, limit: 10 });
+
+      assert.strictEqual(result.questions.length, 1);
+      const userPopulate = populatedPaths.find((p) => p.path === "user");
+      assert.strictEqual(userPopulate.select, "fullName", "User population must only select fullName to protect PII");
+      assert.strictEqual(result.questions[0].user.fullName, "Aarav Gupta");
+      assert.strictEqual(result.questions[0].user.email, undefined);
+    });
+
     // ============================================================================
     // [DOMAIN 5] Guest Cart to Authenticated Cart Merging (Safe & Idempotent)
     // ============================================================================
@@ -899,6 +1115,83 @@ async function main() {
       const result2 = await CartService.mergeGuestCart(user, guestItems);
       assert.strictEqual(result2.isIdempotentReplay, true);
       assert.ok(result2.message.includes("idempotent replay"));
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() maintains distinct line items with distinct clientItemId for same product", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      const product = {
+        _id: prodId,
+        title: "Organic Green Tea",
+        status: "PUBLISHED",
+        countInStock: 20,
+        sellingPrice: 350,
+        mrpPrice: 500,
+      };
+      Product.findById = async () => product;
+
+      const createdItems = [];
+      CartItem.findOne = async () => null; // Neither exists yet in DB
+      CartItem.create = async (doc) => {
+        const newItem = { ...doc, _id: new mongoose.Types.ObjectId(), save: async function () { return this; } };
+        createdItems.push(newItem);
+        return newItem;
+      };
+      CartItem.find = () => createChainableQuery(createdItems);
+
+      const guestItems = [
+        { clientItemId: "client-line-1", productId: prodId.toString(), quantity: 2 },
+        { clientItemId: "client-line-2", productId: prodId.toString(), quantity: 3 },
+      ];
+
+      const result = await CartService.mergeGuestCart(user, guestItems);
+
+      assert.strictEqual(result.totalProcessed, 2);
+      assert.strictEqual(result.mergedItems.length, 2);
+      assert.strictEqual(result.mergedItems[0].clientItemId, "client-line-1");
+      assert.strictEqual(result.mergedItems[1].clientItemId, "client-line-2");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() faithfully replays failed items on idempotent replay without fabricating merged successes", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const failedProdId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [
+          {
+            signature: "cached_sig_123",
+            mergedItems: [],
+            failedItems: [{ clientItemId: "client-fail-1", productId: failedProdId.toString(), reason: "Product out of stock" }],
+            totalProcessed: 1,
+            createdAt: new Date(),
+          },
+        ],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+      CartItem.find = () => createChainableQuery([]);
+
+      const guestItems = [{ clientItemId: "client-fail-1", productId: failedProdId.toString(), quantity: 1 }];
+
+      const result = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey: "cached_sig_123" });
+
+      assert.strictEqual(result.isIdempotentReplay, true);
+      assert.strictEqual(result.mergedItems.length, 0, "No items should be falsely reported as merged on replay");
+      assert.strictEqual(result.failedItems.length, 1, "Failed items must be accurately preserved on replay");
+      assert.strictEqual(result.failedItems[0].clientItemId, "client-fail-1");
     });
 
   } finally {

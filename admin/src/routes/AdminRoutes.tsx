@@ -39,6 +39,11 @@ const ReviewModeration = lazy(() =>
     default: m.ReviewModeration,
   }))
 );
+const QuestionModeration = lazy(() =>
+  import("../pages/Questions/QuestionModeration").then((m) => ({
+    default: m.QuestionModeration,
+  }))
+);
 const PlatformSettings = lazy(() =>
   import("../pages/Settings/PlatformSettings").then((m) => ({
     default: m.PlatformSettings,
@@ -145,6 +150,8 @@ export const AdminRoutes = () => {
           <Route path="/brands" element={<Brands />} />
           <Route path="/inventory" element={<InventoryManager />} />
           <Route path="/reviews" element={<ReviewModeration />} />
+          <Route path="/questions" element={<QuestionModeration />} />
+          <Route path="/qna" element={<QuestionModeration />} />
           <Route path="/customers" element={<Customers />} />
           <Route path="/coupons" element={<Coupons />} />
           <Route path="/deals" element={<Deals />} />

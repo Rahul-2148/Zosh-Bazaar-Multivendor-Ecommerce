@@ -65,26 +65,34 @@ export const syncAndMergeGuestCart = async (jwt: string) => {
       return;
     }
 
+    // Ensure each guest item has a stable unique clientItemId
+    const normalizedGuestItems = guestItems.map((gi: any, idx: number) => ({
+      ...gi,
+      clientItemId: gi.clientItemId || gi._id || `guest_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`,
+    }));
+
+    // Persist normalized clientItemIds back to localStorage before request
+    localStorage.setItem("zosh_guest_cart", JSON.stringify(normalizedGuestItems));
+
     const response = await Api.post(
       "/cart/merge",
-      { items: guestItems, guestItems },
+      { items: normalizedGuestItems, guestItems: normalizedGuestItems },
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
 
     const mergedList: any[] = response.data?.mergedItems || [];
     const failedList: any[] = response.data?.failedItems || [];
 
-    // Filter out only items that the server confirmed as successfully merged
-    const remainingGuestItems = guestItems.filter((gi: any) => {
-      const isMerged = mergedList.some((mi: any) => {
-        if (gi._id && mi.clientItemId === gi._id) return true;
-        const giProd = gi.productId || gi.product?._id || gi.product;
-        const miProd = mi.productId || mi.item?.productId;
-        const giVar = gi.variantId || null;
-        const miVar = mi.variantId || mi.item?.variantId || null;
-        return giProd === miProd && giVar === miVar;
-      });
-      return !isMerged;
+    // Only remove items that the server confirmed as completely merged without stock-capping
+    // Match strictly using stable clientItemId, never by productId/variantId alone
+    const fullyMergedClientItemIds = new Set(
+      mergedList
+        .filter((mi: any) => !mi.partialStockApplied && mi.clientItemId)
+        .map((mi: any) => String(mi.clientItemId))
+    );
+
+    const remainingGuestItems = normalizedGuestItems.filter((gi: any) => {
+      return !fullyMergedClientItemIds.has(String(gi.clientItemId));
     });
 
     if (remainingGuestItems.length === 0) {

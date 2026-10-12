@@ -4,7 +4,14 @@ import { CartItem } from "../../../models/cartItem.model.js";
 import { Product, resolveMediaHierarchy } from "../../../models/product.model.js";
 import { Coupon } from "../../../models/coupon.model.js";
 import { PlatformSettings } from "../../../models/settings.model.js";
+import { CartMergeRecord } from "../../../models/cartMergeRecord.model.js";
 import { calculateDiscountPercentage } from "../../../utils/calculateDiscountPercentage.js";
+
+const canQueryModel = (model, method) => {
+  if (!model || typeof model[method] !== "function") return false;
+  if (mongoose.connection && mongoose.connection.readyState === 1) return true;
+  return model[method] !== mongoose.Model[method];
+};
 
 class CartService {
   async findUserCart(user) {
@@ -206,13 +213,15 @@ class CartService {
     let freeShippingThreshold = 500;
     let standardDeliveryFee = 40;
     try {
-      const platformSettings = await PlatformSettings.findOne();
-      if (platformSettings) {
-        if (typeof platformSettings.freeShippingThreshold === "number") {
-          freeShippingThreshold = platformSettings.freeShippingThreshold;
-        }
-        if (typeof platformSettings.shippingFee === "number") {
-          standardDeliveryFee = platformSettings.shippingFee;
+      if (canQueryModel(PlatformSettings, "findOne")) {
+        const platformSettings = await PlatformSettings.findOne();
+        if (platformSettings) {
+          if (typeof platformSettings.freeShippingThreshold === "number") {
+            freeShippingThreshold = platformSettings.freeShippingThreshold;
+          }
+          if (typeof platformSettings.shippingFee === "number") {
+            standardDeliveryFee = platformSettings.shippingFee;
+          }
         }
       }
     } catch {
@@ -468,42 +477,62 @@ class CartService {
       };
     }
 
-    // Idempotency check: compute deterministic signature from guest payload
+    // Idempotency check: compute deterministic signature from guest payload including clientItemId
     const signature =
       options.idempotencyKey ||
       guestItems
-        .map((i) => {
+        .map((i, idx) => {
+          const cid = i.clientItemId || i._id || i.id || `idx_${idx}`;
           const pid = i.productId || i.product?._id || i.product || "";
           const vid = i.variantId || i.selectedVariant?._id || "";
           const qty = Number(i.quantity) || 1;
-          return `${pid}:${vid}:${qty}`;
+          return `${cid}:${pid}:${vid}:${qty}`;
         })
         .sort()
         .join("|");
 
-    // Check if recent signatures contains this signature within 10 minutes
+    // Check if idempotency record exists in CartMergeRecord or recentSignatures within 10 minutes
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const recentSignatures = (cart.recentMergeSignatures || []).filter(
       (s) => new Date(s.createdAt) > tenMinutesAgo
     );
 
-    const isDuplicateReplay = recentSignatures.some(
-      (s) => s.signature === signature
-    );
+    let recordedMerge = null;
+    try {
+      if (canQueryModel(CartMergeRecord, "findOne")) {
+        recordedMerge = await CartMergeRecord.findOne({
+          userId,
+          idempotencyKey: signature,
+        });
+      }
+    } catch {
+      // Continue safely if standalone or mocked
+    }
 
-    if (isDuplicateReplay) {
+    if (!recordedMerge) {
+      const matchInCart = recentSignatures.find((s) => s.signature === signature);
+      if (matchInCart) {
+        recordedMerge = matchInCart;
+      }
+    }
+
+    if (
+      recordedMerge &&
+      (recordedMerge.status === "COMPLETED" ||
+        recordedMerge.signature === signature ||
+        recordedMerge.idempotencyKey === signature)
+    ) {
       const currentCart = await this.findUserCart(user);
+      const recordedMerged = recordedMerge.mergedItems || [];
+      const recordedFailed = recordedMerge.failedItems || [];
       return {
         cart: currentCart,
-        mergedItems: guestItems.map((g) => ({
-          productId: g.productId || g.product?._id || g.product,
-          variantId: g.variantId || null,
-          quantityMerged: Number(g.quantity) || 1,
-          clientItemId: g._id || g.clientItemId || null,
-          isReplay: true,
-        })),
-        failedItems: [],
-        totalProcessed: guestItems.length,
+        mergedItems: recordedMerged.map((m) => ({ ...m, isReplay: true })),
+        failedItems: recordedFailed,
+        totalProcessed:
+          recordedMerge.totalProcessed !== undefined
+            ? recordedMerge.totalProcessed
+            : guestItems.length,
         isIdempotentReplay: true,
         message: "Guest cart merge already processed (idempotent replay)",
       };
@@ -720,9 +749,36 @@ class CartService {
       }
     }
 
-    // Persist idempotency signature
-    if (signature && mergedItems.length > 0) {
-      recentSignatures.push({ signature, createdAt: new Date() });
+    const totalProcessed = guestItems.length;
+
+    // Persist idempotency signature and accurate outcomes
+    try {
+      if (canQueryModel(CartMergeRecord, "findOneAndUpdate")) {
+        await CartMergeRecord.findOneAndUpdate(
+          { userId, idempotencyKey: signature },
+          {
+            $set: {
+              status: "COMPLETED",
+              mergedItems,
+              failedItems,
+              totalProcessed,
+            },
+          },
+          { upsert: true, new: true }
+        ).catch(() => {});
+      }
+    } catch {
+      // Continue safely
+    }
+
+    if (signature) {
+      recentSignatures.push({
+        signature,
+        mergedItems,
+        failedItems,
+        totalProcessed,
+        createdAt: new Date(),
+      });
       cart.recentMergeSignatures = recentSignatures.slice(-20);
       await cart.save();
     }

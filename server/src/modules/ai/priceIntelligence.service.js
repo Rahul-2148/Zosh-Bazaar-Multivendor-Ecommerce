@@ -32,27 +32,56 @@ class PriceIntelligenceService {
   /**
    * Retrieves historical price trend over 30d/90d for charts and displays.
    */
-  async getPriceHistory(productId, days = 90) {
+  async getPriceHistory(productId, daysOrOptions = 90) {
+    const days = typeof daysOrOptions === "object" ? Number(daysOrOptions?.days) || 90 : Number(daysOrOptions) || 90;
+    const requestedVariantId = typeof daysOrOptions === "object" ? daysOrOptions?.variantId || null : null;
+    const requestedVariantSku = typeof daysOrOptions === "object" ? daysOrOptions?.variantSku || null : null;
+
     const product = await Product.findById(productId).lean();
     if (!product) {
       throw new Error("Product not found");
     }
 
+    let resolvedVariant = null;
+    if (requestedVariantId && Array.isArray(product.variants)) {
+      resolvedVariant = product.variants.find(
+        (v) => (v._id && v._id.toString() === requestedVariantId.toString()) || v.sku === requestedVariantId
+      );
+    } else if (requestedVariantSku && Array.isArray(product.variants)) {
+      resolvedVariant = product.variants.find((v) => v.sku === requestedVariantSku);
+    }
+
+    const currentPrice = resolvedVariant ? resolvedVariant.sellingPrice : product.sellingPrice;
+    const mrpPrice = resolvedVariant ? resolvedVariant.mrpPrice : product.mrpPrice;
+
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const history = await PriceHistory.find({
+    const filter = {
       product: productId,
       timestamp: { $gte: cutoff },
-    })
-      .sort({ timestamp: 1 })
+    };
+
+    if (requestedVariantId) {
+      filter.variantId = requestedVariantId;
+    } else if (requestedVariantSku) {
+      filter.variantSku = requestedVariantSku;
+    } else {
+      filter.variantId = null;
+    }
+
+    const history = await PriceHistory.find(filter)
+      .sort({ timestamp: -1 })
+      .limit(30)
       .lean();
 
-    const currentPrice = product.sellingPrice;
-    const mrpPrice = product.mrpPrice;
+    // Return chronologically for chart
+    history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     // Build points strictly from authentic historical snapshots
     if (history.length === 0) {
       return {
         productId,
+        variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : requestedVariantId,
+        variantSku: resolvedVariant?.sku || requestedVariantSku,
         title: product.title,
         currentPrice,
         mrpPrice,
@@ -80,13 +109,15 @@ class PriceIntelligenceService {
     const highestPrice = Math.max(...prices);
     const avgPrice = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
 
+    const hasSufficientHistory = history.length >= 2;
+
     const priceDropPercent =
-      highestPrice > currentPrice
+      hasSufficientHistory && highestPrice > currentPrice
         ? Math.round(((highestPrice - currentPrice) / highestPrice) * 100)
         : 0;
 
     let trend = "STABLE";
-    if (prices.length >= 2) {
+    if (hasSufficientHistory && prices.length >= 2) {
       const first = prices[0];
       const last = prices[prices.length - 1];
       if (last < first * 0.97) trend = "FALLING";
@@ -95,18 +126,20 @@ class PriceIntelligenceService {
 
     return {
       productId,
+      variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : requestedVariantId,
+      variantSku: resolvedVariant?.sku || requestedVariantSku,
       title: product.title,
       currentPrice,
       mrpPrice,
-      lowestPrice,
-      highestPrice,
-      averagePrice: avgPrice,
+      lowestPrice: hasSufficientHistory ? lowestPrice : null,
+      highestPrice: hasSufficientHistory ? highestPrice : null,
+      averagePrice: hasSufficientHistory ? avgPrice : null,
       priceDropPercent,
       trend,
       points,
       currency: "INR",
       daysAnalyzed: days,
-      hasSufficientHistory: history.length >= 2,
+      hasSufficientHistory,
     };
   }
 

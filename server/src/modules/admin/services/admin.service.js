@@ -194,7 +194,7 @@ class AdminService {
     const [questions, totalQuestions] = await Promise.all([
       ProductQuestion.find(filter)
         .populate("product", "title slug images seller sellingPrice")
-        .populate("user", "fullName email mobile")
+        .populate("user", "fullName")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit),

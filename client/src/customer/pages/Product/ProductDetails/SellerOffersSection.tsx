@@ -27,7 +27,7 @@ export interface SellerOfferItem {
     ratingCount: number;
     shipsFromCity: string;
     shipsFromState: string;
-    fulfillmentMethod: string;
+    fulfillmentMethod: string | null;
   };
   pricing: {
     mrpPrice: number;
@@ -189,7 +189,11 @@ export const SellerOffersSection: React.FC<SellerOffersSectionProps> = ({
                     {offer.shippingDetails && (
                       <span className="flex items-center gap-1">
                         <LocalShippingOutlined sx={{ fontSize: 14 }} className="text-primary" />
-                        {offer.shippingDetails.freeShipping ? "Free Delivery" : "Standard Delivery"}
+                        {offer.shippingDetails.freeShipping
+                          ? "Free Delivery"
+                          : offer.seller.fulfillmentMethod
+                          ? offer.seller.fulfillmentMethod
+                          : "Delivery available"}
                         {offer.shippingDetails.estimatedDeliveryDays ? ` in ${offer.shippingDetails.estimatedDeliveryDays} days` : ""}
                       </span>
                     )}

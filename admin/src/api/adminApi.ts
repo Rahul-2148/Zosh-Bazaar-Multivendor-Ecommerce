@@ -161,6 +161,26 @@ export const adminApi = {
     return res.data;
   },
 
+  // Questions & Community Q&A Moderation
+  getQuestionModerationQueue: async (page: number = 1, status?: string) => {
+    const params: any = { page, limit: 20 };
+    if (status && status !== "ALL") params.status = status;
+    const res = await apiClient.get<any>("/admin/questions/moderation", { params });
+    return res.data;
+  },
+
+  moderateQuestion: async (
+    questionId: string,
+    action: "APPROVE" | "REJECT",
+    reason?: string
+  ) => {
+    const res = await apiClient.patch<any>(`/admin/questions/${questionId}/moderation`, {
+      action,
+      reason,
+    });
+    return res.data;
+  },
+
   // Orders
   getAllOrders: async (status?: string, page: number = 1) => {
     const params: any = { page, limit: 20 };
