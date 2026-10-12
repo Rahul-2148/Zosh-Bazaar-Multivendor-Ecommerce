@@ -498,8 +498,9 @@ class CartService {
     );
 
     let mergeRecord = null;
+    const modelCanQuery = canQueryModel(CartMergeRecord, "create") || canQueryModel(CartMergeRecord, "findOne");
 
-    if (canQueryModel(CartMergeRecord, "create") || canQueryModel(CartMergeRecord, "findOne")) {
+    if (modelCanQuery) {
       try {
         mergeRecord = await CartMergeRecord.create({
           userId,
@@ -507,21 +508,33 @@ class CartService {
           status: "IN_PROGRESS",
           lockedAt: new Date(),
           totalProcessed: guestItems.length,
+          mergedItems: [],
+          failedItems: [],
         });
       } catch (createErr) {
         const isDuplicateKey =
           createErr.code === 11000 ||
-          createErr.name === "MongoServerError" ||
-          /duplicate key/i.test(createErr.message);
+          (createErr.name === "MongoServerError" && createErr.code === 11000) ||
+          /E11000 duplicate key|duplicate key error/i.test(createErr.message);
 
-        if (isDuplicateKey) {
-          const existing = await CartMergeRecord.findOne({
-            userId,
-            idempotencyKey: signature,
-          });
+        if (!isDuplicateKey) {
+          // Unexpected database error during reservation: FAIL CLOSED!
+          throw createErr;
+        }
 
-          if (existing) {
-            if (existing.status === "COMPLETED") {
+        const existing = await CartMergeRecord.findOne({
+          userId,
+          idempotencyKey: signature,
+        });
+
+        if (existing) {
+          if (existing.status === "COMPLETED") {
+            const isExplicitRetry = Boolean(options.retryFailed || (options.attempt && options.attempt > 1));
+            const hasFailedOrPartial =
+              (existing.failedItems && existing.failedItems.length > 0) ||
+              (existing.mergedItems && existing.mergedItems.some((m) => m.partialStockApplied || (m.remainingQuantity && m.remainingQuantity > 0)));
+
+            if (!isExplicitRetry || !hasFailedOrPartial) {
               const currentCart = await this.findUserCart(user);
               return {
                 cart: currentCart,
@@ -534,39 +547,113 @@ class CartService {
                 isIdempotentReplay: true,
                 message: "Guest cart merge already processed (idempotent replay)",
               };
-            } else if (existing.status === "IN_PROGRESS") {
-              const lockTime = new Date(
-                existing.lockedAt || existing.updatedAt || existing.createdAt
-              ).getTime();
-              const recordAgeMs = Date.now() - lockTime;
-
-              if (recordAgeMs < 60000) {
-                const conflictError = new Error(
-                  "Guest cart merge is currently in progress. Please retry shortly."
-                );
-                conflictError.statusCode = 409;
-                conflictError.code = "MERGE_IN_PROGRESS";
-                throw conflictError;
-              }
-
-              // Stale in-progress reservation (> 60s); recover and take over
-              existing.status = "IN_PROGRESS";
-              existing.lockedAt = new Date();
-              await existing.save();
-              mergeRecord = existing;
-            } else if (existing.status === "FAILED") {
-              // Retry allowed for previously failed attempt
-              existing.status = "IN_PROGRESS";
-              existing.lockedAt = new Date();
-              await existing.save();
-              mergeRecord = existing;
             }
+
+            // Explicit retry: atomic conditional claim of the completed record
+            const claimed = await CartMergeRecord.findOneAndUpdate(
+              {
+                userId,
+                idempotencyKey: signature,
+                status: "COMPLETED",
+              },
+              {
+                $set: {
+                  status: "IN_PROGRESS",
+                  lockedAt: new Date(),
+                },
+              },
+              { new: true }
+            );
+
+            if (!claimed) {
+              const currentCart = await this.findUserCart(user);
+              return {
+                cart: currentCart,
+                mergedItems: (existing.mergedItems || []).map((m) => ({ ...m, isReplay: true })),
+                failedItems: existing.failedItems || [],
+                totalProcessed: existing.totalProcessed || guestItems.length,
+                isIdempotentReplay: true,
+                message: "Guest cart merge already processed (idempotent replay)",
+              };
+            }
+            mergeRecord = claimed;
+          } else if (existing.status === "IN_PROGRESS") {
+            const lockTime = new Date(
+              existing.lockedAt || existing.updatedAt || existing.createdAt
+            ).getTime();
+            const recordAgeMs = Date.now() - lockTime;
+
+            if (recordAgeMs < 60000) {
+              const conflictError = new Error(
+                "Guest cart merge is currently in progress. Please retry shortly."
+              );
+              conflictError.statusCode = 409;
+              conflictError.code = "MERGE_IN_PROGRESS";
+              throw conflictError;
+            }
+
+            // Stale in-progress reservation (> 60s): atomic conditional claim
+            const claimed = await CartMergeRecord.findOneAndUpdate(
+              {
+                userId,
+                idempotencyKey: signature,
+                status: "IN_PROGRESS",
+                lockedAt: existing.lockedAt,
+              },
+              {
+                $set: {
+                  status: "IN_PROGRESS",
+                  lockedAt: new Date(),
+                },
+              },
+              { new: true }
+            );
+
+            if (!claimed) {
+              const conflictError = new Error(
+                "Guest cart merge is currently in progress. Please retry shortly."
+              );
+              conflictError.statusCode = 409;
+              conflictError.code = "MERGE_IN_PROGRESS";
+              throw conflictError;
+            }
+            mergeRecord = claimed;
+          } else if (existing.status === "FAILED") {
+            // Atomic conditional claim of the failed record
+            const claimed = await CartMergeRecord.findOneAndUpdate(
+              {
+                userId,
+                idempotencyKey: signature,
+                status: "FAILED",
+              },
+              {
+                $set: {
+                  status: "IN_PROGRESS",
+                  lockedAt: new Date(),
+                },
+              },
+              { new: true }
+            );
+
+            if (!claimed) {
+              const conflictError = new Error(
+                "Guest cart merge retry is currently being processed by another worker."
+              );
+              conflictError.statusCode = 409;
+              conflictError.code = "MERGE_IN_PROGRESS";
+              throw conflictError;
+            }
+            mergeRecord = claimed;
           }
-        } else {
-          // Do not swallow unexpected database errors!
-          throw createErr;
         }
       }
+    }
+
+    if (modelCanQuery && !mergeRecord) {
+      const lockError = new Error("Unable to establish durable cart merge reservation. Merge aborted.");
+      lockError.statusCode = 503;
+      lockError.code = "RESERVATION_FAILED";
+      throw lockError;
     }
 
     if (!mergeRecord) {
@@ -587,6 +674,15 @@ class CartService {
       }
     }
 
+    const previouslyMergedMap = new Map();
+    if (mergeRecord && Array.isArray(mergeRecord.mergedItems)) {
+      mergeRecord.mergedItems.forEach((mi) => {
+        if (mi.clientItemId) {
+          previouslyMergedMap.set(String(mi.clientItemId), mi);
+        }
+      });
+    }
+
     const mergedItems = [];
     const failedItems = [];
 
@@ -597,6 +693,14 @@ class CartService {
           item.variantId || item.selectedVariant?._id || null;
         const requestedQty = Math.max(1, Number(item.quantity) || 1);
         const clientItemId = item._id || item.clientItemId || null;
+
+        if (clientItemId && previouslyMergedMap.has(String(clientItemId))) {
+          const prior = previouslyMergedMap.get(String(clientItemId));
+          if (prior.quantityMerged >= requestedQty) {
+            mergedItems.push(prior);
+            continue;
+          }
+        }
 
         if (!prodId) {
           failedItems.push({
@@ -822,6 +926,7 @@ class CartService {
       if (mergeRecord) {
         try {
           mergeRecord.status = "FAILED";
+          mergeRecord.mergedItems = mergedItems;
           mergeRecord.failedItems = [{ reason: processError.message }];
           await mergeRecord.save();
         } catch {}

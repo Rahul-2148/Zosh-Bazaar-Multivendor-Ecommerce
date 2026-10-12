@@ -206,12 +206,34 @@ class ProductService {
           }
         }
       } catch (mutationErr) {
-        // Rollback / compensation: clean up product and partial snapshots if history creation fails
+        let cleanupProductErr = null;
+        let cleanupHistoryErr = null;
+
         if (savedProduct && savedProduct._id) {
-          await Product.findByIdAndDelete(savedProduct._id).catch(() => {});
+          try {
+            await Product.findByIdAndDelete(savedProduct._id);
+          } catch (pDelErr) {
+            cleanupProductErr = pDelErr;
+            console.error("[ProductService] Failed to clean up orphaned product after snapshot failure:", pDelErr.message);
+          }
         }
         if (createdHistoryIds.length > 0) {
-          await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } }).catch(() => {});
+          try {
+            await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } });
+          } catch (hDelErr) {
+            cleanupHistoryErr = hDelErr;
+            console.error("[ProductService] Failed to clean up orphaned price snapshots after snapshot failure:", hDelErr.message);
+          }
+        }
+
+        if (cleanupProductErr || cleanupHistoryErr) {
+          const details = [
+            cleanupProductErr ? `product deletion failed: ${cleanupProductErr.message}` : null,
+            cleanupHistoryErr ? `snapshot deletion failed: ${cleanupHistoryErr.message}` : null,
+          ].filter(Boolean).join("; ");
+          throw new Error(
+            `Failed to create product with initial price snapshot (${mutationErr.message}) and compensation cleanup failed: ${details}`
+          );
         }
         throw new Error(`Failed to create product with initial price snapshot: ${mutationErr.message}`);
       }
@@ -432,8 +454,20 @@ class ProductService {
           throw new Error(`Price history audit record failed (${histErr.message}) and product rollback failed: ${rollbackSaveErr.message}`);
         }
 
+        let historyCleanupErr = null;
         if (createdHistoryIds.length > 0) {
-          await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } }).catch(() => {});
+          try {
+            await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } });
+          } catch (delErr) {
+            historyCleanupErr = delErr;
+            console.error("[ProductService] Inconsistent history snapshot cleanup failed:", delErr.message);
+          }
+        }
+
+        if (historyCleanupErr) {
+          throw new Error(
+            `Price history audit record failed (${histErr.message}) and snapshot cleanup failed (${historyCleanupErr.message}). Inconsistent state requires administrative attention.`
+          );
         }
         throw new Error(`Price history audit record failed: ${histErr.message}`);
       }
