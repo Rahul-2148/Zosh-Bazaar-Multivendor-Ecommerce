@@ -98,8 +98,59 @@ const originalReviewAggregate = Review.aggregate;
 const originalSellerFindById = Seller.findById;
 const originalOrderFindOne = Order.findOne;
 const originalPlatformSettingsFindOne = PlatformSettings.findOne;
+const originalCartMergeRecordCreate = CartMergeRecord.create;
 const originalCartMergeRecordFindOne = CartMergeRecord.findOne;
 const originalCartMergeRecordFindOneAndUpdate = CartMergeRecord.findOneAndUpdate;
+
+// In-memory store for CartMergeRecord to accurately test concurrency, locks, and idempotency
+const inMemoryMergeRecords = new Map();
+
+CartMergeRecord.create = async function (data) {
+  const key = `${data.userId}:${data.idempotencyKey}`;
+  if (inMemoryMergeRecords.has(key)) {
+    const err = new Error("E11000 duplicate key error collection: zosh_bazaar.cart_merge_records index: userId_1_idempotencyKey_1 dup key");
+    err.code = 11000;
+    throw err;
+  }
+  const record = {
+    ...data,
+    _id: new mongoose.Types.ObjectId(),
+    createdAt: data.createdAt || new Date(),
+    lockedAt: data.lockedAt || new Date(),
+    updatedAt: new Date(),
+    save: async function () {
+      inMemoryMergeRecords.set(key, this);
+      return this;
+    },
+  };
+  inMemoryMergeRecords.set(key, record);
+  return record;
+};
+
+CartMergeRecord.findOne = async function (query) {
+  const key = `${query.userId}:${query.idempotencyKey}`;
+  return inMemoryMergeRecords.get(key) || null;
+};
+
+CartMergeRecord.findOneAndUpdate = async function (filter, update) {
+  const key = `${filter.userId}:${filter.idempotencyKey}`;
+  let record = inMemoryMergeRecords.get(key);
+  if (!record) {
+    record = {
+      userId: filter.userId,
+      idempotencyKey: filter.idempotencyKey,
+      ...(update.$set || update),
+      save: async function () {
+        inMemoryMergeRecords.set(key, this);
+        return this;
+      },
+    };
+  } else {
+    Object.assign(record, update.$set || update);
+  }
+  inMemoryMergeRecords.set(key, record);
+  return record;
+};
 
 // Mock prototype save methods to avoid Mongoose buffer timeouts when disconnected
 CartItem.prototype.save = async function () { return this; };
@@ -107,8 +158,6 @@ Cart.prototype.save = async function () { return this; };
 CartItem.findByIdAndDelete = async () => ({ message: "Deleted" });
 SavedItem.find = () => createChainableQuery([]);
 PlatformSettings.findOne = () => createChainableQuery(null);
-CartMergeRecord.findOne = async () => null;
-CartMergeRecord.findOneAndUpdate = async () => ({ status: "COMPLETED" });
 
 function restoreAllMocks() {
   Product.findOne = originalProductFindOne;
@@ -136,6 +185,7 @@ function restoreAllMocks() {
   Seller.findById = originalSellerFindById;
   Order.findOne = originalOrderFindOne;
   PlatformSettings.findOne = originalPlatformSettingsFindOne;
+  CartMergeRecord.create = originalCartMergeRecordCreate;
   CartMergeRecord.findOne = originalCartMergeRecordFindOne;
   CartMergeRecord.findOneAndUpdate = originalCartMergeRecordFindOneAndUpdate;
 }
@@ -392,6 +442,161 @@ async function main() {
       assert.strictEqual(result.totalOtherOffers, 0, "Competing offers with mismatched or missing attributes must be rejected");
     });
 
+    runTest("CartMergeRecord model schema configures 7-day TTL index (604800s)", () => {
+      const createdAtPath = CartMergeRecord.schema.paths.createdAt;
+      assert.strictEqual(
+        createdAtPath.options.expires,
+        604800,
+        "CartMergeRecord TTL index must be explicitly reconciled to 604800 seconds (7 days)"
+      );
+    });
+
+    await runAsyncTest("ProductService.getOtherSellerOffers() rejects competing offer when target model or generation is missing or mismatched", async () => {
+      const currentProductId = new mongoose.Types.ObjectId();
+      const currentSellerId = new mongoose.Types.ObjectId();
+
+      const currentProd = {
+        _id: currentProductId,
+        title: "Samsung Galaxy S24 Ultra Gen 3",
+        canonicalId: "CANON-SAMSUNG-S24U",
+        brand: "Samsung",
+        sellingPrice: 129999,
+        model: "Galaxy S24 Ultra",
+        generation: "Gen 3",
+        seller: { _id: currentSellerId, accountStatus: "ACTIVE" },
+      };
+
+      const missingModelProd = {
+        _id: new mongoose.Types.ObjectId(),
+        title: "Samsung Galaxy Phone",
+        canonicalId: "CANON-SAMSUNG-S24U",
+        brand: "Samsung",
+        sellingPrice: 119999,
+        countInStock: 5,
+        model: "", // MISSING MODEL!
+        generation: "Gen 3",
+        seller: { _id: new mongoose.Types.ObjectId(), accountStatus: "ACTIVE" },
+      };
+
+      const mismatchedGenProd = {
+        _id: new mongoose.Types.ObjectId(),
+        title: "Samsung Galaxy S24 Ultra Gen 2",
+        canonicalId: "CANON-SAMSUNG-S24U",
+        brand: "Samsung",
+        sellingPrice: 115999,
+        countInStock: 5,
+        model: "Galaxy S24 Ultra",
+        generation: "Gen 2", // MISMATCHED GENERATION!
+        seller: { _id: new mongoose.Types.ObjectId(), accountStatus: "ACTIVE" },
+      };
+
+      Product.findOne = () => createChainableQuery(currentProd);
+      Product.find = () => createChainableQuery([missingModelProd, mismatchedGenProd]);
+      Review.aggregate = async () => [];
+
+      const result = await ProductService.getOtherSellerOffers(currentProductId.toString());
+      assert.strictEqual(result.totalOtherOffers, 0, "Competing offers with missing or mismatched model/generation must be rejected");
+    });
+
+    await runAsyncTest("ProductService.getOtherSellerOffers() rejects competing offer when category dimensions (storage, packQuantity) are missing or mismatched", async () => {
+      const currentProductId = new mongoose.Types.ObjectId();
+      const currentSellerId = new mongoose.Types.ObjectId();
+
+      const currentProd = {
+        _id: currentProductId,
+        title: "Apple iPhone 15 Pro 512GB (Pack of 2)",
+        canonicalId: "CANON-IPHONE-15PRO-512",
+        brand: "Apple",
+        sellingPrice: 249999,
+        capacity: "512GB",
+        packQuantity: "2",
+        seller: { _id: currentSellerId, accountStatus: "ACTIVE" },
+      };
+
+      const mismatchedStorageProd = {
+        _id: new mongoose.Types.ObjectId(),
+        title: "Apple iPhone 15 Pro 256GB",
+        canonicalId: "CANON-IPHONE-15PRO-512",
+        brand: "Apple",
+        sellingPrice: 229999,
+        countInStock: 3,
+        capacity: "256GB", // Mismatched storage!
+        packQuantity: "2",
+        seller: { _id: new mongoose.Types.ObjectId(), accountStatus: "ACTIVE" },
+      };
+
+      const mismatchedPackProd = {
+        _id: new mongoose.Types.ObjectId(),
+        title: "Apple iPhone 15 Pro 512GB Single",
+        canonicalId: "CANON-IPHONE-15PRO-512",
+        brand: "Apple",
+        sellingPrice: 129999,
+        countInStock: 3,
+        capacity: "512GB",
+        packQuantity: "1", // Mismatched pack quantity!
+        seller: { _id: new mongoose.Types.ObjectId(), accountStatus: "ACTIVE" },
+      };
+
+      Product.findOne = () => createChainableQuery(currentProd);
+      Product.find = () => createChainableQuery([mismatchedStorageProd, mismatchedPackProd]);
+      Review.aggregate = async () => [];
+
+      const result = await ProductService.getOtherSellerOffers(currentProductId.toString());
+      assert.strictEqual(result.totalOtherOffers, 0, "Competing offers with mismatched storage or pack quantity must be rejected");
+    });
+
+    await runAsyncTest("ProductService.getOtherSellerOffers() returns null for unconfigured returnPolicy without invented 7-day or REPLACEMENT_ONLY defaults", async () => {
+      const currentProductId = new mongoose.Types.ObjectId();
+      const currentSellerId = new mongoose.Types.ObjectId();
+      const altProductId = new mongoose.Types.ObjectId();
+
+      const currentProd = {
+        _id: currentProductId,
+        title: "Sony WH-1000XM5 Wireless Headphones",
+        canonicalId: "CANON-SONY-WH1000XM5",
+        brand: "Sony",
+        sellingPrice: 26990,
+        seller: { _id: currentSellerId, accountStatus: "ACTIVE" },
+      };
+
+      const unconfiguredPolicyProd = {
+        _id: altProductId,
+        title: "Sony WH-1000XM5",
+        canonicalId: "CANON-SONY-WH1000XM5",
+        brand: "Sony",
+        sellingPrice: 24990,
+        countInStock: 5,
+        inStock: true,
+        status: "PUBLISHED",
+        sku: "SONY-01",
+        seller: {
+          _id: new mongoose.Types.ObjectId(),
+          sellerName: "AudioHub",
+          accountStatus: "ACTIVE",
+          isEmailVerified: true,
+          businessDetails: {},
+          pickupAddress: { city: "Delhi", state: "Delhi" },
+        },
+        returnPolicy: {
+          returnable: true,
+          // windowDays and policyType NOT configured!
+        },
+        warranty: null,
+      };
+
+      Product.findOne = () => createChainableQuery(currentProd);
+      Product.find = () => createChainableQuery([unconfiguredPolicyProd]);
+      Review.aggregate = async () => [];
+
+      const result = await ProductService.getOtherSellerOffers(currentProductId.toString());
+      assert.strictEqual(result.totalOtherOffers, 1);
+      const offer = result.offers[0];
+      assert.strictEqual(offer.returnPolicy.returnable, true);
+      assert.strictEqual(offer.returnPolicy.windowDays, null, "Must NOT default to 7 days when catalog has no authoritative value");
+      assert.strictEqual(offer.returnPolicy.policyType, null, "Must NOT default to REPLACEMENT_ONLY when unconfigured");
+      assert.strictEqual(offer.warranty, null, "Warranty must be null when unconfigured");
+    });
+
     // ============================================================================
     // [DOMAIN 2] Multi-Product Side-by-Side Comparison Engine
     // ============================================================================
@@ -538,8 +743,9 @@ async function main() {
 
       assert.strictEqual(result.hasSufficientHistory, false);
       assert.strictEqual(result.history.length, 1);
-      assert.strictEqual(result.lowestPrice, 19999);
-      assert.strictEqual(result.highestPrice, 19999);
+      assert.strictEqual(result.lowestPrice, null, "When < 2 snapshots exist, lowestPrice must be null");
+      assert.strictEqual(result.highestPrice, null, "When < 2 snapshots exist, highestPrice must be null");
+      assert.strictEqual(result.averagePrice, null, "When < 2 snapshots exist, averagePrice must be null");
     });
 
     await runAsyncTest("ProductService.getProductPriceHistory() queries variantId and returns variant-specific history", async () => {
@@ -549,14 +755,17 @@ async function main() {
         _id: prodId,
         sellingPrice: 19999,
         mrpPrice: 24999,
+        variants: [
+          { _id: variantId, sku: "VAR-SKU-1", sellingPrice: 20999, mrpPrice: 25999 },
+        ],
       });
 
       let capturedFilter = null;
       PriceHistory.find = (filter) => {
         capturedFilter = filter;
         return createChainableQuery([
-          { sellingPrice: 21999, mrpPrice: 25999, timestamp: new Date("2026-02-01") },
-          { sellingPrice: 20999, mrpPrice: 25999, timestamp: new Date("2026-03-01") },
+          { sellingPrice: 21999, mrpPrice: 25999, timestamp: new Date("2026-02-01"), variantId },
+          { sellingPrice: 20999, mrpPrice: 25999, timestamp: new Date("2026-03-01"), variantId },
         ]);
       };
 
@@ -564,7 +773,7 @@ async function main() {
         variantId: variantId.toString(),
       });
 
-      assert.strictEqual(capturedFilter.variantId, variantId.toString());
+      assert.strictEqual(capturedFilter.variantId.toString(), variantId.toString());
       assert.strictEqual(result.hasSufficientHistory, true);
       assert.strictEqual(result.lowestPrice, 20999);
       assert.strictEqual(result.highestPrice, 21999);
@@ -665,6 +874,173 @@ async function main() {
       assert.ok(createdHistory !== null, "PriceHistory.create should have been called");
       assert.strictEqual(createdHistory.sellingPrice, 1399);
       assert.strictEqual(createdHistory.source, "SELLER_UPDATE");
+    });
+
+    await runAsyncTest("ProductService.updateProduct() simulated history-write failure restores complete product and variant state (stock, price, variants, inStock)", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const sellerId = new mongoose.Types.ObjectId();
+      const variantId = new mongoose.Types.ObjectId();
+
+      const existingProd = {
+        _id: prodId,
+        seller: sellerId,
+        sellingPrice: 1500,
+        mrpPrice: 2000,
+        discountPercent: 25,
+        countInStock: 25,
+        inStock: true,
+        status: "PUBLISHED",
+        hasVariants: true,
+        variants: [
+          {
+            _id: variantId,
+            sku: "VAR-ORIG-01",
+            sellingPrice: 1500,
+            mrpPrice: 2000,
+            discountPercent: 25,
+            countInStock: 25,
+            status: "ACTIVE",
+          },
+        ],
+        save: async function () { return this; },
+      };
+      Product.findById = async () => existingProd;
+
+      // Simulate history snapshot creation failure
+      PriceHistory.create = async () => {
+        throw new Error("Simulated PriceHistory database failure");
+      };
+
+      try {
+        await ProductService.updateProduct(
+          prodId,
+          {
+            sellingPrice: 999,
+            mrpPrice: 1999,
+            countInStock: 0,
+            variants: [
+              {
+                _id: variantId,
+                sku: "VAR-ORIG-01",
+                sellingPrice: 999,
+                mrpPrice: 1999,
+                countInStock: 0,
+                status: "ACTIVE",
+              },
+            ],
+          },
+          sellerId
+        );
+        assert.fail("Should have thrown error when PriceHistory.create fails");
+      } catch (err) {
+        assert.ok(err.message.includes("Price history audit record failed"));
+      }
+
+      // Verify that full product and variant state was restored
+      assert.strictEqual(existingProd.sellingPrice, 1500, "Base sellingPrice must be restored");
+      assert.strictEqual(existingProd.mrpPrice, 2000, "Base mrpPrice must be restored");
+      assert.strictEqual(existingProd.countInStock, 25, "Base countInStock must be restored");
+      assert.strictEqual(existingProd.inStock, true, "Base inStock must be restored");
+      assert.strictEqual(existingProd.variants[0].sellingPrice, 1500, "Variant sellingPrice must be restored");
+      assert.strictEqual(existingProd.variants[0].countInStock, 25, "Variant countInStock must be restored");
+    });
+
+    await runAsyncTest("ProductService.createProduct() simulated history-write failure cleans up product and partial snapshots", async () => {
+      const sellerId = new mongoose.Types.ObjectId();
+      const catId = new mongoose.Types.ObjectId();
+
+      let productDeletedId = null;
+      Product.findByIdAndDelete = async (id) => {
+        productDeletedId = id;
+        return { _id: id };
+      };
+
+      PriceHistory.create = async () => {
+        throw new Error("Simulated PriceHistory failure during product creation");
+      };
+
+      try {
+        await ProductService.createProduct(
+          {
+            title: "Test Handloom Saree",
+            description: "Authentic handloom silk saree",
+            brand: "Zosh Heritage",
+            category: catId,
+            sellingPrice: 4999,
+            mrpPrice: 7999,
+            countInStock: 10,
+          },
+          { _id: sellerId, accountStatus: "ACTIVE" }
+        );
+        assert.fail("createProduct should have thrown on price history failure");
+      } catch (err) {
+        assert.ok(err.message.includes("Failed to create product with initial price snapshot"));
+      }
+    });
+
+    await runAsyncTest("ProductService.getProductPriceHistory() SKU-based variant request resolves actual variant _id for query", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const variantId = new mongoose.Types.ObjectId();
+      const skuString = "VAR-SKU-RESOLVE-99";
+
+      const product = {
+        _id: prodId,
+        sellingPrice: 2000,
+        mrpPrice: 2500,
+        variants: [
+          {
+            _id: variantId,
+            sku: skuString,
+            sellingPrice: 2200,
+            mrpPrice: 2800,
+            status: "ACTIVE",
+          },
+        ],
+      };
+      Product.findOne = () => createChainableQuery(product);
+
+      let capturedFilter = null;
+      PriceHistory.find = (filter) => {
+        capturedFilter = filter;
+        return createChainableQuery([
+          { sellingPrice: 2400, mrpPrice: 2800, timestamp: new Date("2026-01-01"), variantId },
+          { sellingPrice: 2200, mrpPrice: 2800, timestamp: new Date("2026-02-01"), variantId },
+        ]);
+      };
+
+      // Pass SKU string in variantId parameter
+      const result = await ProductService.getProductPriceHistory(prodId.toString(), {
+        variantId: skuString,
+      });
+
+      assert.strictEqual(
+        capturedFilter.variantId.toString(),
+        variantId.toString(),
+        "Must query history using resolved variant's actual ObjectId, NEVER raw SKU string"
+      );
+      assert.strictEqual(result.currentPrice, 2200);
+      assert.strictEqual(result.lowestPrice, 2200);
+      assert.strictEqual(result.highestPrice, 2400);
+    });
+
+    await runAsyncTest("ProductService.getProductPriceHistory() rejects nonexistent requested variant without mixing base history", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const product = {
+        _id: prodId,
+        sellingPrice: 2000,
+        mrpPrice: 2500,
+        variants: [],
+      };
+      Product.findOne = () => createChainableQuery(product);
+
+      try {
+        await ProductService.getProductPriceHistory(prodId.toString(), {
+          variantId: "NONEXISTENT-VAR-ID",
+        });
+        assert.fail("Should reject when requested variant does not exist on product");
+      } catch (err) {
+        assert.ok(err.message.includes("Specified variant not found for this product"));
+      }
     });
 
     await runAsyncTest("ProductService.subscribePriceAlert() rejects target price >= current selling price", async () => {
@@ -1166,12 +1542,23 @@ async function main() {
       const user = { _id: new mongoose.Types.ObjectId() };
       const failedProdId = new mongoose.Types.ObjectId();
       const cartId = new mongoose.Types.ObjectId();
+      const cachedSig = "cached_sig_123";
+
+      // Pre-populate CartMergeRecord with the COMPLETED record containing failed items
+      await CartMergeRecord.create({
+        userId: user._id,
+        idempotencyKey: cachedSig,
+        status: "COMPLETED",
+        mergedItems: [],
+        failedItems: [{ clientItemId: "client-fail-1", productId: failedProdId.toString(), reason: "Product out of stock" }],
+        totalProcessed: 1,
+      });
 
       const mockCart = {
         _id: cartId,
         recentMergeSignatures: [
           {
-            signature: "cached_sig_123",
+            signature: cachedSig,
             mergedItems: [],
             failedItems: [{ clientItemId: "client-fail-1", productId: failedProdId.toString(), reason: "Product out of stock" }],
             totalProcessed: 1,
@@ -1186,12 +1573,213 @@ async function main() {
 
       const guestItems = [{ clientItemId: "client-fail-1", productId: failedProdId.toString(), quantity: 1 }];
 
-      const result = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey: "cached_sig_123" });
+      const result = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey: cachedSig });
 
       assert.strictEqual(result.isIdempotentReplay, true);
       assert.strictEqual(result.mergedItems.length, 0, "No items should be falsely reported as merged on replay");
       assert.strictEqual(result.failedItems.length, 1, "Failed items must be accurately preserved on replay");
       assert.strictEqual(result.failedItems[0].clientItemId, "client-fail-1");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() concurrent identical requests: active IN_PROGRESS throws 409 Conflict", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "concurrent_key_test_1";
+
+      // Pre-seed an active IN_PROGRESS record created 5 seconds ago
+      await CartMergeRecord.create({
+        userId: user._id,
+        idempotencyKey,
+        status: "IN_PROGRESS",
+        lockedAt: new Date(Date.now() - 5000),
+      });
+
+      const guestItems = [{ productId: prodId.toString(), quantity: 1 }];
+
+      try {
+        await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+        assert.fail("Concurrent request must throw 409 Conflict");
+      } catch (err) {
+        assert.strictEqual(err.statusCode, 409);
+        assert.strictEqual(err.code, "MERGE_IN_PROGRESS");
+        assert.ok(err.message.includes("currently in progress"));
+      }
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() stale in-progress reservation (> 60s) recovers and takes over lock", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "stale_lock_recovery_test";
+
+      // Pre-seed a stale IN_PROGRESS record created 80 seconds ago
+      await CartMergeRecord.create({
+        userId: user._id,
+        idempotencyKey,
+        status: "IN_PROGRESS",
+        lockedAt: new Date(Date.now() - 80000),
+      });
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Pashmina Stole",
+        status: "PUBLISHED",
+        countInStock: 10,
+        sellingPrice: 2000,
+        mrpPrice: 3000,
+      });
+
+      const guestItems = [{ productId: prodId.toString(), quantity: 1 }];
+      const result = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+
+      assert.strictEqual(result.mergedItems.length, 1);
+      const savedRecord = await CartMergeRecord.findOne({ userId: user._id, idempotencyKey });
+      assert.strictEqual(savedRecord.status, "COMPLETED");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() retry of a previously FAILED request is permitted and recovers", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "failed_retry_recovery_test";
+
+      // Pre-seed a FAILED record
+      await CartMergeRecord.create({
+        userId: user._id,
+        idempotencyKey,
+        status: "FAILED",
+        failedItems: [{ reason: "Transient database glitch" }],
+        lockedAt: new Date(Date.now() - 10000),
+      });
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Pashmina Stole",
+        status: "PUBLISHED",
+        countInStock: 10,
+        sellingPrice: 2000,
+        mrpPrice: 3000,
+      });
+
+      const guestItems = [{ productId: prodId.toString(), quantity: 2 }];
+      const result = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+
+      assert.strictEqual(result.mergedItems.length, 1);
+      const savedRecord = await CartMergeRecord.findOne({ userId: user._id, idempotencyKey });
+      assert.strictEqual(savedRecord.status, "COMPLETED");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() crash/failure before completion marks record status FAILED", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "crash_failure_marking_test";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Test Kurta",
+        status: "PUBLISHED",
+        countInStock: 5,
+        sellingPrice: 1000,
+        mrpPrice: 1500,
+      });
+
+      // Simulate unexpected unhandled crash during CartItem persistence
+      CartItem.findOne = async () => {
+        throw new Error("Simulated unhandled DB connection crash");
+      };
+
+      const guestItems = [{ productId: prodId.toString(), quantity: 1 }];
+      try {
+        await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+        assert.fail("Should have rethrown unexpected error");
+      } catch (err) {
+        assert.ok(err.message.includes("Simulated unhandled DB connection crash"));
+      }
+
+      // Verify that idempotency record was marked FAILED so it does not block future retries
+      const record = await CartMergeRecord.findOne({ userId: user._id, idempotencyKey });
+      assert.ok(record !== null);
+      assert.strictEqual(record.status, "FAILED");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() stock caps preserve unmerged remainder accurately without duplicate application", async () => {
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const clientItemId = "client-cap-item-123";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      const product = {
+        _id: prodId,
+        title: "Limited Edition Handloom Saree",
+        status: "PUBLISHED",
+        countInStock: 2, // Only 2 in stock
+        sellingPrice: 4000,
+        mrpPrice: 6000,
+      };
+      Product.findById = async () => product;
+
+      let savedCartItem = null;
+      CartItem.findOne = async () => null;
+      CartItem.prototype.save = async function () {
+        savedCartItem = this;
+        return this;
+      };
+
+      // Guest cart requests 5 units (exceeds available stock of 2)
+      const guestItems = [
+        { clientItemId, productId: prodId.toString(), quantity: 5 },
+      ];
+
+      const result = await CartService.mergeGuestCart(user, guestItems);
+
+      assert.strictEqual(result.mergedItems.length, 1);
+      const merged = result.mergedItems[0];
+      assert.strictEqual(merged.clientItemId, clientItemId);
+      assert.strictEqual(merged.quantityMerged, 2, "Merged quantity must equal available stock (2)");
+      assert.strictEqual(merged.remainingQuantity, 3, "Unmerged remainder must accurately be 5 - 2 = 3");
+      assert.strictEqual(merged.partialStockApplied, true);
+
+      // On replay: verify already merged units are NOT added again
+      let replaySaved = false;
+      CartItem.prototype.save = async function () {
+        replaySaved = true;
+        return this;
+      };
+
+      const replayResult = await CartService.mergeGuestCart(user, guestItems);
+      assert.strictEqual(replayResult.isIdempotentReplay, true);
+      assert.strictEqual(replaySaved, false, "Replay must NOT execute additional DB writes or re-increment items");
     });
 
   } finally {

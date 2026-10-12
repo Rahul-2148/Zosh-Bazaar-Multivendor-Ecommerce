@@ -150,22 +150,9 @@ class ProductService {
         specifications: Array.isArray(data.specifications)
           ? data.specifications
           : [],
-        warranty: data.warranty || {
-          summary: "1 Year Manufacturer Warranty",
-          durationMonths: 12,
-          type: "MANUFACTURER",
-        },
-        returnPolicy: data.returnPolicy || {
-          returnable: true,
-          windowDays: 7,
-          policyType: "REPLACEMENT_ONLY",
-        },
-        shippingDetails: data.shippingDetails || {
-          weightKg: 0.5,
-          dimensionsCm: { length: 15, width: 10, height: 5 },
-          freeShipping: true,
-          estimatedDeliveryDays: 3,
-        },
+        warranty: data.warranty || null,
+        returnPolicy: data.returnPolicy || null,
+        shippingDetails: data.shippingDetails || null,
         measurement: data.measurement,
         mrpPrice,
         sellingPrice,
@@ -245,10 +232,33 @@ class ProductService {
         throw new Error("Unauthorized to update this product");
       }
 
+      // Snapshot complete product state before applying changes
       const oldProductData = {
+        title: product.title,
+        slug: product.slug,
+        sku: product.sku,
+        description: product.description,
+        highlights: Array.isArray(product.highlights) ? [...product.highlights] : [],
+        brand: product.brand,
+        category: product.category,
+        status: product.status,
+        images: Array.isArray(product.images) ? [...product.images] : [],
+        tags: Array.isArray(product.tags) ? [...product.tags] : [],
+        specifications: Array.isArray(product.specifications) ? JSON.parse(JSON.stringify(product.specifications)) : [],
+        warranty: product.warranty ? JSON.parse(JSON.stringify(product.warranty)) : null,
+        returnPolicy: product.returnPolicy ? JSON.parse(JSON.stringify(product.returnPolicy)) : null,
+        shippingDetails: product.shippingDetails ? JSON.parse(JSON.stringify(product.shippingDetails)) : null,
+        measurement: product.measurement ? JSON.parse(JSON.stringify(product.measurement)) : null,
+        attributeDefinitions: Array.isArray(product.attributeDefinitions) ? JSON.parse(JSON.stringify(product.attributeDefinitions)) : [],
+        mediaGroups: Array.isArray(product.mediaGroups) ? JSON.parse(JSON.stringify(product.mediaGroups)) : [],
+        hasVariants: product.hasVariants,
+        variants: Array.isArray(product.variants) ? JSON.parse(JSON.stringify(product.variants)) : [],
         sellingPrice: product.sellingPrice,
         mrpPrice: product.mrpPrice,
+        discountPercent: product.discountPercent,
         countInStock: product.countInStock,
+        inStock: product.inStock,
+        lowStockThreshold: product.lowStockThreshold,
       };
       const oldVariants = (product.variants || []).map((v) => ({
         _id: v._id ? v._id.toString() : null,
@@ -271,11 +281,11 @@ class ProductService {
       if (data.images) product.images = data.images;
       if (data.tags) product.tags = data.tags;
       if (data.specifications) product.specifications = data.specifications;
-      if (data.warranty) product.warranty = data.warranty;
-      if (data.returnPolicy) product.returnPolicy = data.returnPolicy;
-      if (data.shippingDetails) product.shippingDetails = data.shippingDetails;
-      if (data.measurement) product.measurement = data.measurement;
-      if (data.attributeDefinitions) product.attributeDefinitions = data.attributeDefinitions;
+      if (data.warranty !== undefined) product.warranty = data.warranty;
+      if (data.returnPolicy !== undefined) product.returnPolicy = data.returnPolicy;
+      if (data.shippingDetails !== undefined) product.shippingDetails = data.shippingDetails;
+      if (data.measurement !== undefined) product.measurement = data.measurement;
+      if (data.attributeDefinitions !== undefined) product.attributeDefinitions = data.attributeDefinitions;
 
       if (Array.isArray(data.mediaGroups)) {
         product.mediaGroups = data.mediaGroups.map((mg) => ({
@@ -348,13 +358,6 @@ class ProductService {
       product.inStock = product.countInStock > 0;
       const saved = await product.save();
 
-      emitProductUpdated(saved);
-      emitStockUpdated({
-        productId: saved._id,
-        countInStock: saved.countInStock,
-        inStock: saved.inStock,
-      });
-
       // Record authentic PriceHistory change event if selling price or MRP changed
       const createdHistoryIds = [];
       try {
@@ -396,16 +399,52 @@ class ProductService {
           }
         }
       } catch (histErr) {
-        // Rollback product mutation to restore consistency
+        // Rollback product mutation to restore consistency completely
+        product.title = oldProductData.title;
+        product.slug = oldProductData.slug;
+        product.sku = oldProductData.sku;
+        product.description = oldProductData.description;
+        product.highlights = oldProductData.highlights;
+        product.brand = oldProductData.brand;
+        product.category = oldProductData.category;
+        product.status = oldProductData.status;
+        product.images = oldProductData.images;
+        product.tags = oldProductData.tags;
+        product.specifications = oldProductData.specifications;
+        product.warranty = oldProductData.warranty;
+        product.returnPolicy = oldProductData.returnPolicy;
+        product.shippingDetails = oldProductData.shippingDetails;
+        product.measurement = oldProductData.measurement;
+        product.attributeDefinitions = oldProductData.attributeDefinitions;
+        product.mediaGroups = oldProductData.mediaGroups;
+        product.hasVariants = oldProductData.hasVariants;
+        product.variants = oldProductData.variants;
         product.sellingPrice = oldProductData.sellingPrice;
         product.mrpPrice = oldProductData.mrpPrice;
+        product.discountPercent = oldProductData.discountPercent;
         product.countInStock = oldProductData.countInStock;
-        await product.save().catch(() => {});
+        product.inStock = oldProductData.inStock;
+        product.lowStockThreshold = oldProductData.lowStockThreshold;
+
+        try {
+          await product.save();
+        } catch (rollbackSaveErr) {
+          throw new Error(`Price history audit record failed (${histErr.message}) and product rollback failed: ${rollbackSaveErr.message}`);
+        }
+
         if (createdHistoryIds.length > 0) {
           await PriceHistory.deleteMany({ _id: { $in: createdHistoryIds } }).catch(() => {});
         }
         throw new Error(`Price history audit record failed: ${histErr.message}`);
       }
+
+      // DO NOT emit realtime events before price mutation and required audit snapshots have committed!
+      emitProductUpdated(saved);
+      emitStockUpdated({
+        productId: saved._id,
+        countInStock: saved.countInStock,
+        inStock: saved.inStock,
+      });
 
       // Asynchronously trigger price-drop and back-in-stock alerts for saved shoppers
       wishlistWatcherService
@@ -415,6 +454,7 @@ class ProductService {
         });
 
       return saved;
+
     } catch (error) {
       throw new Error(error.message);
     }
@@ -1354,18 +1394,33 @@ class ProductService {
       }
 
       const getAttr = (prod, varDoc, keyName) => {
+        const normKey = keyName.toLowerCase().replace(/[-_ ]/g, "");
         if (varDoc && Array.isArray(varDoc.attributes)) {
           const found = varDoc.attributes.find(
-            (a) => (a.key || a.name || "").toLowerCase() === keyName.toLowerCase()
+            (a) => (a.key || a.name || "").toLowerCase().replace(/[-_ ]/g, "") === normKey
           );
-          if (found && found.value) return String(found.value).trim();
+          if (found && found.value != null && String(found.value).trim() !== "") {
+            return String(found.value).trim();
+          }
         }
-        if (prod && prod[keyName]) return String(prod[keyName]).trim();
+        if (prod && prod[keyName] != null && String(prod[keyName]).trim() !== "") {
+          return String(prod[keyName]).trim();
+        }
         if (prod && Array.isArray(prod.attributes)) {
           const found = prod.attributes.find(
-            (a) => (a.key || a.name || "").toLowerCase() === keyName.toLowerCase()
+            (a) => (a.key || a.name || "").toLowerCase().replace(/[-_ ]/g, "") === normKey
           );
-          if (found && found.value) return String(found.value).trim();
+          if (found && found.value != null && String(found.value).trim() !== "") {
+            return String(found.value).trim();
+          }
+        }
+        if (prod && Array.isArray(prod.specifications)) {
+          const found = prod.specifications.find(
+            (s) => (s.key || s.name || "").toLowerCase().replace(/[-_ ]/g, "") === normKey
+          );
+          if (found && found.value != null && String(found.value).trim() !== "") {
+            return String(found.value).trim();
+          }
         }
         return null;
       };
@@ -1376,6 +1431,7 @@ class ProductService {
       const targetCapacity = options?.capacity || getAttr(currentProduct, selectedVariant, "capacity") || getAttr(currentProduct, selectedVariant, "storage");
       const targetModel = options?.model || getAttr(currentProduct, selectedVariant, "model");
       const targetGeneration = options?.generation || getAttr(currentProduct, selectedVariant, "generation");
+      const targetPackQuantity = options?.packQuantity || getAttr(currentProduct, selectedVariant, "packQuantity") || getAttr(currentProduct, selectedVariant, "pack_quantity");
 
       const offers = [];
       for (const prod of competingProducts) {
@@ -1384,7 +1440,7 @@ class ProductService {
         if (!sellerDoc || sellerDoc.accountStatus !== "ACTIVE") continue;
 
         // Ensure variant/model attribute compatibility
-        // If the selected product variant has a known color, size, RAM or capacity,
+        // If the selected product variant has a known color, size, RAM, capacity/storage, model, generation or pack quantity,
         // do not accept an offer with missing or unverifiable corresponding variant data as a confirmed match.
         let offerSellingPrice = prod.sellingPrice;
         let offerMrpPrice = prod.mrpPrice;
@@ -1400,10 +1456,17 @@ class ProductService {
             const vSize = getAttr(prod, v, "size");
             const vRam = getAttr(prod, v, "ram");
             const vCap = getAttr(prod, v, "capacity") || getAttr(prod, v, "storage");
+            const vModel = getAttr(prod, v, "model");
+            const vGen = getAttr(prod, v, "generation");
+            const vPack = getAttr(prod, v, "packQuantity") || getAttr(prod, v, "pack_quantity");
+
             if (targetColor && (!vColor || vColor.toLowerCase() !== targetColor.toLowerCase())) return false;
             if (targetSize && (!vSize || vSize.toLowerCase() !== targetSize.toLowerCase())) return false;
             if (targetRam && (!vRam || vRam.toLowerCase() !== targetRam.toLowerCase())) return false;
             if (targetCapacity && (!vCap || vCap.toLowerCase() !== targetCapacity.toLowerCase())) return false;
+            if (targetModel && (!vModel || vModel.toLowerCase() !== targetModel.toLowerCase())) return false;
+            if (targetGeneration && (!vGen || vGen.toLowerCase() !== targetGeneration.toLowerCase())) return false;
+            if (targetPackQuantity && (!vPack || vPack.toLowerCase() !== targetPackQuantity.toLowerCase())) return false;
             return true;
           });
 
@@ -1424,6 +1487,7 @@ class ProductService {
           const prodCap = getAttr(prod, null, "capacity") || getAttr(prod, null, "storage");
           const prodModel = getAttr(prod, null, "model");
           const prodGen = getAttr(prod, null, "generation");
+          const prodPack = getAttr(prod, null, "packQuantity") || getAttr(prod, null, "pack_quantity");
 
           if (targetColor && (!prodColor || prodColor.toLowerCase() !== targetColor.toLowerCase())) {
             continue;
@@ -1437,10 +1501,13 @@ class ProductService {
           if (targetCapacity && (!prodCap || prodCap.toLowerCase() !== targetCapacity.toLowerCase())) {
             continue;
           }
-          if (targetModel && prodModel && prodModel.toLowerCase() !== targetModel.toLowerCase()) {
+          if (targetModel && (!prodModel || prodModel.toLowerCase() !== targetModel.toLowerCase())) {
             continue;
           }
-          if (targetGeneration && prodGen && prodGen.toLowerCase() !== targetGeneration.toLowerCase()) {
+          if (targetGeneration && (!prodGen || prodGen.toLowerCase() !== targetGeneration.toLowerCase())) {
+            continue;
+          }
+          if (targetPackQuantity && (!prodPack || prodPack.toLowerCase() !== targetPackQuantity.toLowerCase())) {
             continue;
           }
         }
@@ -1490,9 +1557,15 @@ class ProductService {
           },
           returnPolicy: prod.returnPolicy
             ? {
-                returnable: prod.returnPolicy.returnable !== false,
-                windowDays: prod.returnPolicy.windowDays || 7,
-                policyType: prod.returnPolicy.policyType || "REPLACEMENT_ONLY",
+                returnable:
+                  typeof prod.returnPolicy.returnable === "boolean"
+                    ? prod.returnPolicy.returnable
+                    : null,
+                windowDays:
+                  typeof prod.returnPolicy.windowDays === "number"
+                    ? prod.returnPolicy.windowDays
+                    : null,
+                policyType: prod.returnPolicy.policyType || null,
               }
             : null,
           warranty: prod.warranty || null,
@@ -1536,16 +1609,19 @@ class ProductService {
         resolvedVariant = product.variants.find((v) => v.sku === requestedVariantSku);
       }
 
+      // If variant was explicitly requested but cannot be found, reject clearly
+      if ((requestedVariantId || requestedVariantSku) && !resolvedVariant) {
+        throw new Error("Specified variant not found for this product");
+      }
+
       let currentSellingPrice = resolvedVariant ? resolvedVariant.sellingPrice : product.sellingPrice;
       let currentMrpPrice = resolvedVariant ? resolvedVariant.mrpPrice : product.mrpPrice;
 
       // Base-product history queries must exclude variant-specific snapshots.
-      // Variant queries must use the exact selected variant identity.
+      // Variant queries must use the exact selected variant's actual ObjectId! Never query using raw SKU string.
       const historyQuery = { product: product._id };
-      if (requestedVariantId) {
-        historyQuery.variantId = requestedVariantId;
-      } else if (requestedVariantSku) {
-        historyQuery.variantSku = requestedVariantSku;
+      if (resolvedVariant) {
+        historyQuery.variantId = resolvedVariant._id;
       } else {
         // Exclude variant-specific snapshots when querying base product
         historyQuery.variantId = null;
@@ -1558,11 +1634,20 @@ class ProductService {
       // Return chronologically for the chart
       historyPoints.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-      if (historyPoints.length === 0) {
+      const hasSufficientHistory = historyPoints.length >= 2;
+
+      const historyFormatted = historyPoints.map((h) => ({
+        date: new Date(h.timestamp).toISOString().split("T")[0],
+        price: h.sellingPrice,
+        mrp: h.mrpPrice,
+        discountPercent: h.discountPercent || calculateDiscountPercentage(h.mrpPrice, h.sellingPrice),
+      }));
+
+      if (!hasSufficientHistory) {
         return {
           productId: product._id,
-          variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : requestedVariantId,
-          variantSku: resolvedVariant?.sku || requestedVariantSku,
+          variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : null,
+          variantSku: resolvedVariant?.sku || null,
           currentPrice: currentSellingPrice,
           mrpPrice: currentMrpPrice,
           currentMrp: currentMrpPrice,
@@ -1573,7 +1658,7 @@ class ProductService {
           savingsVsHighest: 0,
           priceDropPercentage: 0,
           hasSufficientHistory: false,
-          history: [],
+          history: historyFormatted,
         };
       }
 
@@ -1582,32 +1667,23 @@ class ProductService {
       const highestPrice = Math.max(...allPrices);
       const averagePrice = Math.round(allPrices.reduce((a, b) => a + b, 0) / allPrices.length);
 
-      const historyFormatted = historyPoints.map((h) => ({
-        date: new Date(h.timestamp).toISOString().split("T")[0],
-        price: h.sellingPrice,
-        mrp: h.mrpPrice,
-        discountPercent: h.discountPercent || calculateDiscountPercentage(h.mrpPrice, h.sellingPrice),
-      }));
-
-      const hasSufficientHistory = historyPoints.length >= 2;
-
       return {
         productId: product._id,
-        variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : requestedVariantId,
-        variantSku: resolvedVariant?.sku || requestedVariantSku,
+        variantId: resolvedVariant?._id ? resolvedVariant._id.toString() : null,
+        variantSku: resolvedVariant?.sku || null,
         currentPrice: currentSellingPrice,
         mrpPrice: currentMrpPrice,
         currentMrp: currentMrpPrice,
         lowestPrice,
         highestPrice,
         averagePrice,
-        isAtLowestPrice: hasSufficientHistory ? currentSellingPrice <= lowestPrice : false,
-        savingsVsHighest: hasSufficientHistory ? Math.max(0, highestPrice - currentSellingPrice) : 0,
+        isAtLowestPrice: currentSellingPrice <= lowestPrice,
+        savingsVsHighest: Math.max(0, highestPrice - currentSellingPrice),
         priceDropPercentage:
-          hasSufficientHistory && highestPrice > 0
+          highestPrice > 0
             ? Math.round(((highestPrice - currentSellingPrice) / highestPrice) * 100)
             : 0,
-        hasSufficientHistory,
+        hasSufficientHistory: true,
         history: historyFormatted,
       };
     } catch (error) {

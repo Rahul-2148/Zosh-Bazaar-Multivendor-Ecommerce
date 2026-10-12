@@ -46,14 +46,14 @@ export interface SellerOfferItem {
     freeShipping?: boolean;
   } | null;
   returnPolicy?: {
-    returnable?: boolean;
-    windowDays?: number;
-    policyType?: string;
+    returnable?: boolean | null;
+    windowDays?: number | null;
+    policyType?: string | null;
   } | null;
   warranty?: {
-    summary?: string;
-    durationMonths?: number;
-    type?: string;
+    summary?: string | null;
+    durationMonths?: number | null;
+    type?: string | null;
   } | null;
 }
 
@@ -200,7 +200,15 @@ export const SellerOffersSection: React.FC<SellerOffersSectionProps> = ({
                     {offer.returnPolicy && (
                       <span className="flex items-center gap-1">
                         <AssignmentReturnOutlined sx={{ fontSize: 14 }} className="text-muted-foreground" />
-                        {offer.returnPolicy.returnable ? `${offer.returnPolicy.windowDays} Days Return` : "Non-returnable"}
+                        {offer.returnPolicy.returnable === false
+                          ? "Non-returnable"
+                          : offer.returnPolicy.returnable === true
+                          ? offer.returnPolicy.windowDays
+                            ? `${offer.returnPolicy.windowDays} Days Return`
+                            : offer.returnPolicy.policyType
+                            ? offer.returnPolicy.policyType.replace(/_/g, " ")
+                            : "Returnable"
+                          : "Return policy unlisted"}
                       </span>
                     )}
                     {offer.warranty?.summary && (

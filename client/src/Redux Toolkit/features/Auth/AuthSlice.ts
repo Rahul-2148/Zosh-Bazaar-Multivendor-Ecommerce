@@ -80,19 +80,51 @@ export const syncAndMergeGuestCart = async (jwt: string) => {
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
 
-    const mergedList: any[] = response.data?.mergedItems || [];
-    const failedList: any[] = response.data?.failedItems || [];
+    // If response is invalid, error status, or malformed, preserve guest cart untouched!
+    if (!response || !response.data || response.data.error || !Array.isArray(response.data.mergedItems)) {
+      return;
+    }
 
-    // Only remove items that the server confirmed as completely merged without stock-capping
-    // Match strictly using stable clientItemId, never by productId/variantId alone
-    const fullyMergedClientItemIds = new Set(
-      mergedList
-        .filter((mi: any) => !mi.partialStockApplied && mi.clientItemId)
-        .map((mi: any) => String(mi.clientItemId))
-    );
+    const mergedList: any[] = response.data.mergedItems || [];
+    const failedList: any[] = response.data.failedItems || [];
 
-    const remainingGuestItems = normalizedGuestItems.filter((gi: any) => {
-      return !fullyMergedClientItemIds.has(String(gi.clientItemId));
+    // Map merged items by clientItemId
+    const mergedMap = new Map<string, any>();
+    mergedList.forEach((mi: any) => {
+      if (mi.clientItemId) {
+        mergedMap.set(String(mi.clientItemId), mi);
+      }
+    });
+
+    const remainingGuestItems: any[] = [];
+
+    normalizedGuestItems.forEach((gi: any) => {
+      const cId = String(gi.clientItemId);
+      const merged = mergedMap.get(cId);
+
+      if (merged) {
+        // Item was processed by merge engine
+        const unmergedRemainder =
+          typeof merged.remainingQuantity === "number"
+            ? merged.remainingQuantity
+            : (merged.partialStockApplied
+              ? Math.max(0, (Number(gi.quantity) || 1) - (Number(merged.quantityMerged) || 0))
+              : 0);
+
+        if (unmergedRemainder > 0) {
+          // Stock-capped! Update the item to only request the unmerged remainder on future retries
+          remainingGuestItems.push({
+            ...gi,
+            quantity: unmergedRemainder,
+            partialStockApplied: true,
+            warning: `Stock capped: ${merged.quantityMerged} added to account cart, ${unmergedRemainder} remaining unmerged.`,
+          });
+        }
+        // If unmergedRemainder === 0, the item was completely merged: drop it from guest cart!
+      } else {
+        // Not confirmed as merged: preserve in guest cart!
+        remainingGuestItems.push(gi);
+      }
     });
 
     if (remainingGuestItems.length === 0) {

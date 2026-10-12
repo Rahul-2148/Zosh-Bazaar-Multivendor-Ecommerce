@@ -192,14 +192,14 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
     warranty: {
-      summary: { type: String, default: "1 Year Manufacturer Warranty" },
-      durationMonths: { type: Number, default: 12 },
-      type: { type: String, default: "MANUFACTURER" },
+      summary: { type: String, default: null },
+      durationMonths: { type: Number, default: null },
+      type: { type: String, default: null },
     },
     returnPolicy: {
-      returnable: { type: Boolean, default: true },
-      windowDays: { type: Number, default: 7 },
-      policyType: { type: String, default: "REPLACEMENT_ONLY" },
+      returnable: { type: Boolean, default: null },
+      windowDays: { type: Number, default: null },
+      policyType: { type: String, default: null },
     },
     shippingDetails: {
       weightKg: { type: Number, default: 0.5 },

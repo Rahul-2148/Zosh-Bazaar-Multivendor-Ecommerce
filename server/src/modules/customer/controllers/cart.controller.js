@@ -108,6 +108,14 @@ class CartController {
         success: true,
       });
     } catch (error) {
+      if (error.statusCode === 409 || error.code === "MERGE_IN_PROGRESS") {
+        return res.status(409).json({
+          message: error.message,
+          error: true,
+          success: false,
+          code: "MERGE_IN_PROGRESS",
+        });
+      }
       next(error);
     }
   }

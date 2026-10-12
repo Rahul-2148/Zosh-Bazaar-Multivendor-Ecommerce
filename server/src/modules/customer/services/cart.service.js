@@ -497,263 +497,349 @@ class CartService {
       (s) => new Date(s.createdAt) > tenMinutesAgo
     );
 
-    let recordedMerge = null;
-    try {
-      if (canQueryModel(CartMergeRecord, "findOne")) {
-        recordedMerge = await CartMergeRecord.findOne({
+    let mergeRecord = null;
+
+    if (canQueryModel(CartMergeRecord, "create") || canQueryModel(CartMergeRecord, "findOne")) {
+      try {
+        mergeRecord = await CartMergeRecord.create({
           userId,
           idempotencyKey: signature,
+          status: "IN_PROGRESS",
+          lockedAt: new Date(),
+          totalProcessed: guestItems.length,
         });
+      } catch (createErr) {
+        const isDuplicateKey =
+          createErr.code === 11000 ||
+          createErr.name === "MongoServerError" ||
+          /duplicate key/i.test(createErr.message);
+
+        if (isDuplicateKey) {
+          const existing = await CartMergeRecord.findOne({
+            userId,
+            idempotencyKey: signature,
+          });
+
+          if (existing) {
+            if (existing.status === "COMPLETED") {
+              const currentCart = await this.findUserCart(user);
+              return {
+                cart: currentCart,
+                mergedItems: (existing.mergedItems || []).map((m) => ({ ...m, isReplay: true })),
+                failedItems: existing.failedItems || [],
+                totalProcessed:
+                  existing.totalProcessed !== undefined
+                    ? existing.totalProcessed
+                    : guestItems.length,
+                isIdempotentReplay: true,
+                message: "Guest cart merge already processed (idempotent replay)",
+              };
+            } else if (existing.status === "IN_PROGRESS") {
+              const lockTime = new Date(
+                existing.lockedAt || existing.updatedAt || existing.createdAt
+              ).getTime();
+              const recordAgeMs = Date.now() - lockTime;
+
+              if (recordAgeMs < 60000) {
+                const conflictError = new Error(
+                  "Guest cart merge is currently in progress. Please retry shortly."
+                );
+                conflictError.statusCode = 409;
+                conflictError.code = "MERGE_IN_PROGRESS";
+                throw conflictError;
+              }
+
+              // Stale in-progress reservation (> 60s); recover and take over
+              existing.status = "IN_PROGRESS";
+              existing.lockedAt = new Date();
+              await existing.save();
+              mergeRecord = existing;
+            } else if (existing.status === "FAILED") {
+              // Retry allowed for previously failed attempt
+              existing.status = "IN_PROGRESS";
+              existing.lockedAt = new Date();
+              await existing.save();
+              mergeRecord = existing;
+            }
+          }
+        } else {
+          // Do not swallow unexpected database errors!
+          throw createErr;
+        }
       }
-    } catch {
-      // Continue safely if standalone or mocked
     }
 
-    if (!recordedMerge) {
+    if (!mergeRecord) {
       const matchInCart = recentSignatures.find((s) => s.signature === signature);
-      if (matchInCart) {
-        recordedMerge = matchInCart;
+      if (matchInCart && (matchInCart.status === "COMPLETED" || !matchInCart.status)) {
+        const currentCart = await this.findUserCart(user);
+        return {
+          cart: currentCart,
+          mergedItems: (matchInCart.mergedItems || []).map((m) => ({ ...m, isReplay: true })),
+          failedItems: matchInCart.failedItems || [],
+          totalProcessed:
+            matchInCart.totalProcessed !== undefined
+              ? matchInCart.totalProcessed
+              : guestItems.length,
+          isIdempotentReplay: true,
+          message: "Guest cart merge already processed (idempotent replay)",
+        };
       }
-    }
-
-    if (
-      recordedMerge &&
-      (recordedMerge.status === "COMPLETED" ||
-        recordedMerge.signature === signature ||
-        recordedMerge.idempotencyKey === signature)
-    ) {
-      const currentCart = await this.findUserCart(user);
-      const recordedMerged = recordedMerge.mergedItems || [];
-      const recordedFailed = recordedMerge.failedItems || [];
-      return {
-        cart: currentCart,
-        mergedItems: recordedMerged.map((m) => ({ ...m, isReplay: true })),
-        failedItems: recordedFailed,
-        totalProcessed:
-          recordedMerge.totalProcessed !== undefined
-            ? recordedMerge.totalProcessed
-            : guestItems.length,
-        isIdempotentReplay: true,
-        message: "Guest cart merge already processed (idempotent replay)",
-      };
     }
 
     const mergedItems = [];
     const failedItems = [];
 
-    for (const item of guestItems) {
-      const prodId = item.productId || item.product?._id || item.product;
-      const requestedVariantId =
-        item.variantId || item.selectedVariant?._id || null;
-      const requestedQty = Math.max(1, Number(item.quantity) || 1);
-      const clientItemId = item._id || item.clientItemId || null;
+    try {
+      for (const item of guestItems) {
+        const prodId = item.productId || item.product?._id || item.product;
+        const requestedVariantId =
+          item.variantId || item.selectedVariant?._id || null;
+        const requestedQty = Math.max(1, Number(item.quantity) || 1);
+        const clientItemId = item._id || item.clientItemId || null;
 
-      if (!prodId) {
-        failedItems.push({
-          item,
-          reason: "Missing product identifier in guest cart item",
-          clientItemId,
-        });
-        continue;
-      }
-
-      let product;
-      try {
-        product = await Product.findById(prodId);
-      } catch (err) {
-        failedItems.push({
-          item,
-          productId: prodId,
-          reason: `Invalid product reference: ${err.message}`,
-          clientItemId,
-        });
-        continue;
-      }
-
-      if (!product) {
-        failedItems.push({
-          item,
-          productId: prodId,
-          reason: "Product no longer exists in catalog",
-          clientItemId,
-        });
-        continue;
-      }
-
-      if (product.status && product.status !== "PUBLISHED") {
-        failedItems.push({
-          item,
-          productId: prodId,
-          title: product.title,
-          reason: "Product is currently unpublished or inactive",
-          clientItemId,
-        });
-        continue;
-      }
-
-      let unitMrp = product.mrpPrice;
-      let unitSelling = product.sellingPrice;
-      let availableStock = product.countInStock || 0;
-      let resolvedVariant = null;
-      let selectedVariantSnapshot = {
-        sku: product.sku || "",
-        title: product.title || "",
-        attributes: [],
-        image: product.images?.[0] || "",
-      };
-
-      if (product.hasVariants && product.variants?.length > 0) {
-        if (requestedVariantId) {
-          resolvedVariant = product.variants.id(requestedVariantId);
-        }
-
-        if (!resolvedVariant && item.sku) {
-          resolvedVariant = product.variants.find((v) => v.sku === item.sku);
-        }
-
-        if (!resolvedVariant && (item.size || item.ram || item.capacity)) {
-          resolvedVariant = product.variants.find((v) =>
-            v.attributes?.some(
-              (a) =>
-                (item.size && a.value === item.size) ||
-                (item.ram && a.value === item.ram) ||
-                (item.capacity && a.value === item.capacity)
-            )
-          );
-        }
-
-        if (!resolvedVariant) {
-          resolvedVariant =
-            product.variants.find((v) => v.status === "ACTIVE") ||
-            product.variants[0];
-        }
-
-        if (!resolvedVariant) {
+        if (!prodId) {
           failedItems.push({
             item,
-            productId: prodId,
-            title: product.title,
-            reason: "Selected product variant is unavailable",
+            reason: "Missing product identifier in guest cart item",
             clientItemId,
+            requestedQuantity: requestedQty,
+            remainingQuantity: requestedQty,
           });
           continue;
         }
 
-        if (resolvedVariant.status && resolvedVariant.status !== "ACTIVE") {
+        let product;
+        try {
+          product = await Product.findById(prodId);
+        } catch (err) {
           failedItems.push({
             item,
             productId: prodId,
-            title: product.title,
-            reason: "Selected variant is currently inactive",
+            reason: `Invalid product reference: ${err.message}`,
             clientItemId,
+            requestedQuantity: requestedQty,
+            remainingQuantity: requestedQty,
           });
           continue;
         }
 
-        unitMrp = resolvedVariant.mrpPrice;
-        unitSelling = resolvedVariant.sellingPrice;
-        availableStock =
-          resolvedVariant.countInStock !== undefined
-            ? resolvedVariant.countInStock
-            : 0;
+        if (!product) {
+          failedItems.push({
+            item,
+            productId: prodId,
+            reason: "Product no longer exists in catalog",
+            clientItemId,
+            requestedQuantity: requestedQty,
+            remainingQuantity: requestedQty,
+          });
+          continue;
+        }
 
-        const resolvedMedia = resolveMediaHierarchy(product, resolvedVariant, {});
-        selectedVariantSnapshot = {
-          sku: resolvedVariant.sku || "",
-          title: resolvedVariant.title || "",
-          attributes: resolvedVariant.attributes || [],
-          image:
-            resolvedMedia[0] ||
-            resolvedVariant.images?.[0] ||
-            product.images?.[0] ||
-            "",
+        if (product.status && product.status !== "PUBLISHED") {
+          failedItems.push({
+            item,
+            productId: prodId,
+            title: product.title,
+            reason: "Product is currently unpublished or inactive",
+            clientItemId,
+            requestedQuantity: requestedQty,
+            remainingQuantity: requestedQty,
+          });
+          continue;
+        }
+
+        let unitMrp = product.mrpPrice;
+        let unitSelling = product.sellingPrice;
+        let availableStock = product.countInStock || 0;
+        let resolvedVariant = null;
+        let selectedVariantSnapshot = {
+          sku: product.sku || "",
+          title: product.title || "",
+          attributes: [],
+          image: product.images?.[0] || "",
         };
-      }
 
-      if (availableStock <= 0) {
-        failedItems.push({
-          item,
-          productId: prodId,
-          title: product.title,
-          reason: "Item is currently out of stock",
-          clientItemId,
-        });
-        continue;
-      }
+        if (product.hasVariants && product.variants?.length > 0) {
+          if (requestedVariantId) {
+            resolvedVariant = product.variants.id(requestedVariantId);
+          }
 
-      const query = {
-        cart: cart._id,
-        product: product._id,
-        variantId: resolvedVariant ? resolvedVariant._id : null,
-      };
+          if (!resolvedVariant && item.sku) {
+            resolvedVariant = product.variants.find((v) => v.sku === item.sku);
+          }
 
-      let existingItem = await CartItem.findOne(query);
+          if (!resolvedVariant && (item.size || item.ram || item.capacity)) {
+            resolvedVariant = product.variants.find((v) =>
+              v.attributes?.some(
+                (a) =>
+                  (item.size && a.value === item.size) ||
+                  (item.ram && a.value === item.ram) ||
+                  (item.capacity && a.value === item.capacity)
+              )
+            );
+          }
 
-      if (existingItem) {
-        const currentQty = existingItem.quantity || 0;
-        const combinedQty = currentQty + requestedQty;
-        const safeQty = Math.min(combinedQty, availableStock);
+          if (!resolvedVariant) {
+            resolvedVariant =
+              product.variants.find((v) => v.status === "ACTIVE") ||
+              product.variants[0];
+          }
 
-        if (safeQty <= currentQty) {
+          if (!resolvedVariant) {
+            failedItems.push({
+              item,
+              productId: prodId,
+              title: product.title,
+              reason: "Selected product variant is unavailable",
+              clientItemId,
+              requestedQuantity: requestedQty,
+              remainingQuantity: requestedQty,
+            });
+            continue;
+          }
+
+          if (resolvedVariant.status && resolvedVariant.status !== "ACTIVE") {
+            failedItems.push({
+              item,
+              productId: prodId,
+              title: product.title,
+              reason: "Selected variant is currently inactive",
+              clientItemId,
+              requestedQuantity: requestedQty,
+              remainingQuantity: requestedQty,
+            });
+            continue;
+          }
+
+          unitMrp = resolvedVariant.mrpPrice;
+          unitSelling = resolvedVariant.sellingPrice;
+          availableStock =
+            resolvedVariant.countInStock !== undefined
+              ? resolvedVariant.countInStock
+              : 0;
+
+          const resolvedMedia = resolveMediaHierarchy(product, resolvedVariant, {});
+          selectedVariantSnapshot = {
+            sku: resolvedVariant.sku || "",
+            title: resolvedVariant.title || "",
+            attributes: resolvedVariant.attributes || [],
+            image:
+              resolvedMedia[0] ||
+              resolvedVariant.images?.[0] ||
+              product.images?.[0] ||
+              "",
+          };
+        }
+
+        if (availableStock <= 0) {
           failedItems.push({
             item,
             productId: prodId,
             title: product.title,
-            reason: `Maximum available inventory (${availableStock}) is already in your cart`,
+            reason: "Item is currently out of stock",
             clientItemId,
+            requestedQuantity: requestedQty,
+            remainingQuantity: requestedQty,
           });
           continue;
         }
 
-        const quantityMerged = safeQty - currentQty;
-        existingItem.quantity = safeQty;
-        existingItem.mrpPrice = safeQty * unitMrp;
-        existingItem.sellingPrice = safeQty * unitSelling;
-        await existingItem.save();
-
-        mergedItems.push({
-          productId: prodId,
-          variantId: resolvedVariant ? resolvedVariant._id : null,
-          quantityMerged,
-          finalQuantity: safeQty,
-          clientItemId,
-          partialStockApplied: safeQty < combinedQty,
-        });
-      } else {
-        const safeQty = Math.min(requestedQty, availableStock);
-        const newCartItem = new CartItem({
+        const query = {
           cart: cart._id,
           product: product._id,
           variantId: resolvedVariant ? resolvedVariant._id : null,
-          selectedVariant: selectedVariantSnapshot,
-          quantity: safeQty,
-          mrpPrice: safeQty * unitMrp,
-          sellingPrice: safeQty * unitSelling,
-          userId: userId.toString(),
-          size: item.size || "",
-          ram: item.ram || "",
-          weight: item.weight || "",
-          capacity: item.capacity || "",
-        });
+        };
 
-        await newCartItem.save();
+        let existingItem = await CartItem.findOne(query);
 
-        mergedItems.push({
-          productId: prodId,
-          variantId: resolvedVariant ? resolvedVariant._id : null,
-          quantityMerged: safeQty,
-          finalQuantity: safeQty,
-          clientItemId,
-          partialStockApplied: safeQty < requestedQty,
-        });
+        if (existingItem) {
+          const currentQty = existingItem.quantity || 0;
+          const combinedQty = currentQty + requestedQty;
+          const safeQty = Math.min(combinedQty, availableStock);
+
+          if (safeQty <= currentQty) {
+            failedItems.push({
+              item,
+              productId: prodId,
+              title: product.title,
+              reason: `Maximum available inventory (${availableStock}) is already in your cart`,
+              clientItemId,
+              requestedQuantity: requestedQty,
+              remainingQuantity: requestedQty,
+            });
+            continue;
+          }
+
+          const quantityMerged = safeQty - currentQty;
+          const unmergedRemainder = Math.max(0, requestedQty - quantityMerged);
+          existingItem.quantity = safeQty;
+          existingItem.mrpPrice = safeQty * unitMrp;
+          existingItem.sellingPrice = safeQty * unitSelling;
+          await existingItem.save();
+
+          mergedItems.push({
+            productId: prodId,
+            variantId: resolvedVariant ? resolvedVariant._id : null,
+            quantityMerged,
+            remainingQuantity: unmergedRemainder,
+            finalQuantity: safeQty,
+            clientItemId,
+            partialStockApplied: quantityMerged < requestedQty,
+          });
+        } else {
+          const safeQty = Math.min(requestedQty, availableStock);
+          const unmergedRemainder = Math.max(0, requestedQty - safeQty);
+          const newCartItem = new CartItem({
+            cart: cart._id,
+            product: product._id,
+            variantId: resolvedVariant ? resolvedVariant._id : null,
+            selectedVariant: selectedVariantSnapshot,
+            quantity: safeQty,
+            mrpPrice: safeQty * unitMrp,
+            sellingPrice: safeQty * unitSelling,
+            userId: userId.toString(),
+            size: item.size || "",
+            ram: item.ram || "",
+            weight: item.weight || "",
+            capacity: item.capacity || "",
+          });
+
+          await newCartItem.save();
+
+          mergedItems.push({
+            productId: prodId,
+            variantId: resolvedVariant ? resolvedVariant._id : null,
+            quantityMerged: safeQty,
+            remainingQuantity: unmergedRemainder,
+            finalQuantity: safeQty,
+            clientItemId,
+            partialStockApplied: safeQty < requestedQty,
+          });
+        }
       }
+    } catch (processError) {
+      if (mergeRecord) {
+        try {
+          mergeRecord.status = "FAILED";
+          mergeRecord.failedItems = [{ reason: processError.message }];
+          await mergeRecord.save();
+        } catch {}
+      }
+      throw processError;
     }
 
     const totalProcessed = guestItems.length;
 
     // Persist idempotency signature and accurate outcomes
     try {
-      if (canQueryModel(CartMergeRecord, "findOneAndUpdate")) {
+      if (mergeRecord) {
+        mergeRecord.status = "COMPLETED";
+        mergeRecord.mergedItems = mergedItems;
+        mergeRecord.failedItems = failedItems;
+        mergeRecord.totalProcessed = totalProcessed;
+        await mergeRecord.save();
+      } else if (canQueryModel(CartMergeRecord, "findOneAndUpdate")) {
         await CartMergeRecord.findOneAndUpdate(
           { userId, idempotencyKey: signature },
           {
@@ -765,10 +851,11 @@ class CartService {
             },
           },
           { upsert: true, new: true }
-        ).catch(() => {});
+        );
       }
-    } catch {
-      // Continue safely
+    } catch (saveErr) {
+      console.error("[CartService] Failed to persist merge completion:", saveErr.message);
+      throw saveErr;
     }
 
     if (signature) {

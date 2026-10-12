@@ -51,6 +51,10 @@ class PriceIntelligenceService {
       resolvedVariant = product.variants.find((v) => v.sku === requestedVariantSku);
     }
 
+    if ((requestedVariantId || requestedVariantSku) && !resolvedVariant) {
+      throw new Error("Specified variant not found for this product");
+    }
+
     const currentPrice = resolvedVariant ? resolvedVariant.sellingPrice : product.sellingPrice;
     const mrpPrice = resolvedVariant ? resolvedVariant.mrpPrice : product.mrpPrice;
 
@@ -60,10 +64,8 @@ class PriceIntelligenceService {
       timestamp: { $gte: cutoff },
     };
 
-    if (requestedVariantId) {
-      filter.variantId = requestedVariantId;
-    } else if (requestedVariantSku) {
-      filter.variantSku = requestedVariantSku;
+    if (resolvedVariant) {
+      filter.variantId = resolvedVariant._id;
     } else {
       filter.variantId = null;
     }

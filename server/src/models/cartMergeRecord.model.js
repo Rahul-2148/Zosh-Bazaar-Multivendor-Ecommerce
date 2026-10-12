@@ -30,10 +30,14 @@ const cartMergeRecordSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    lockedAt: {
+      type: Date,
+      default: Date.now,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
-      expires: 86400, // TTL index: expires after 24 hours
+      expires: 604800, // TTL index: expires after 7 days (604,800 seconds)
     },
   },
   {
