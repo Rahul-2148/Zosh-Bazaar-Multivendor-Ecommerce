@@ -34,6 +34,19 @@ const cartMergeRecordSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    lockWorkerId: {
+      type: String,
+      default: null,
+    },
+    attempt: {
+      type: Number,
+      default: 1,
+    },
+    retryMode: {
+      type: String,
+      enum: ["NONE", "FAILED_ITEMS", "ALL"],
+      default: "NONE",
+    },
     createdAt: {
       type: Date,
       default: Date.now,

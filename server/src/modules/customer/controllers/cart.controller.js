@@ -94,8 +94,22 @@ class CartController {
       const items = req.body?.items || req.body?.guestItems || [];
       const idempotencyKey =
         req.body?.idempotencyKey || req.headers["x-idempotency-key"] || null;
+      const isRetry = Boolean(
+        req.body?.isRetry ||
+        req.body?.retryFailed ||
+        req.query?.isRetry === "true" ||
+        req.body?.retryMode === "FAILED_ITEMS"
+      );
+      const retryMode =
+        req.body?.retryMode || (isRetry ? "FAILED_ITEMS" : "NONE");
+      const attempt = Number(req.body?.attempt) || 1;
+
       const result = await CartService.mergeGuestCart(user, items, {
         idempotencyKey,
+        isRetry,
+        retryFailed: isRetry,
+        retryMode,
+        attempt,
       });
       return res.status(200).json({
         message: result.message,

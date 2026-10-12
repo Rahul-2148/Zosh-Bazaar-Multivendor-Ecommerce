@@ -54,8 +54,18 @@ export const sendLoginSignupOtp = createAsyncThunk<
   }
 });
 
+export interface MergeGuestCartOptions {
+  isRetry?: boolean;
+  retryMode?: "FAILED_ITEMS" | "NONE";
+  idempotencyKey?: string;
+  attempt?: number;
+}
+
 // Helper to safely merge guest cart without item loss
-export const syncAndMergeGuestCart = async (jwt: string) => {
+export const syncAndMergeGuestCart = async (
+  jwt: string,
+  options: MergeGuestCartOptions = {}
+) => {
   try {
     const guestCartRaw = localStorage.getItem("zosh_guest_cart");
     if (!guestCartRaw) return;
@@ -76,7 +86,15 @@ export const syncAndMergeGuestCart = async (jwt: string) => {
 
     const response = await Api.post(
       "/cart/merge",
-      { items: normalizedGuestItems, guestItems: normalizedGuestItems },
+      {
+        items: normalizedGuestItems,
+        guestItems: normalizedGuestItems,
+        isRetry: Boolean(options.isRetry),
+        retryFailed: Boolean(options.isRetry),
+        retryMode: options.retryMode || (options.isRetry ? "FAILED_ITEMS" : "NONE"),
+        attempt: options.attempt || 1,
+        idempotencyKey: options.idempotencyKey || null,
+      },
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
 
@@ -149,6 +167,11 @@ export const syncAndMergeGuestCart = async (jwt: string) => {
       mergeErr
     );
   }
+};
+
+// Helper for explicit user or system retry of failed or partial items
+export const retryFailedGuestCartMerge = async (jwt: string) => {
+  return syncAndMergeGuestCart(jwt, { isRetry: true, retryMode: "FAILED_ITEMS" });
 };
 
 // Signup

@@ -47,6 +47,11 @@ const cartItemSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Guest cart merge idempotency tracking
+    appliedGuestItemIds: {
+      type: [String],
+      default: [],
+    },
     // Legacy support fields
     size: { type: String, default: "" },
     ram: { type: String, default: "" },
@@ -61,5 +66,6 @@ const cartItemSchema = new mongoose.Schema(
 // Fast cart item lookups
 cartItemSchema.index({ cart: 1, product: 1, variantId: 1 });
 cartItemSchema.index({ userId: 1 });
+cartItemSchema.index({ cart: 1, appliedGuestItemIds: 1 });
 
 export const CartItem = mongoose.model("CartItem", cartItemSchema);

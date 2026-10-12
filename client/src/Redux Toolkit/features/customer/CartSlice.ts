@@ -142,19 +142,41 @@ export const deleteCartItem = createAsyncThunk<
 // 🔹 Merge Guest Cart
 export const mergeGuestCart = createAsyncThunk<
   FetchCartResponse,
-  { jwt: string; items: any[] }
->("/cart/mergeGuestCart", async ({ jwt, items }, { rejectWithValue }) => {
-  try {
-    const response = await Api.post(
-      `${API_URL}/merge`,
-      { items, guestItems: items },
-      { headers: { Authorization: `Bearer ${jwt}` } }
-    );
-    return response.data;
-  } catch (error: any) {
-    return rejectWithValue(error.response?.data || { message: error.message });
+  {
+    jwt: string;
+    items: any[];
+    isRetry?: boolean;
+    retryFailed?: boolean;
+    retryMode?: string;
+    idempotencyKey?: string;
+    attempt?: number;
   }
-});
+>(
+  "/cart/mergeGuestCart",
+  async (
+    { jwt, items, isRetry, retryFailed, retryMode, idempotencyKey, attempt },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await Api.post(
+        `${API_URL}/merge`,
+        {
+          items,
+          guestItems: items,
+          isRetry: Boolean(isRetry || retryFailed),
+          retryFailed: Boolean(isRetry || retryFailed),
+          retryMode: retryMode || (isRetry || retryFailed ? "FAILED_ITEMS" : "NONE"),
+          idempotencyKey,
+          attempt: attempt || 1,
+        },
+        { headers: { Authorization: `Bearer ${jwt}` } }
+      );
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
 
 // 🔹 Slice
 const cartSlice = createSlice({

@@ -16,6 +16,13 @@ import {
 } from "../../../realtime/socket.js";
 import wishlistWatcherService from "./wishlistWatcher.service.js";
 
+const canQueryModel = (model, method) => {
+  if (!model || typeof model[method] !== "function") return false;
+  if (mongoose.connection && mongoose.connection.readyState === 1) return true;
+  return model[method] !== mongoose.Model[method];
+};
+
+
 class ProductService {
   async createProduct(data, seller) {
     try {
@@ -422,36 +429,63 @@ class ProductService {
         }
       } catch (histErr) {
         // Rollback product mutation to restore consistency completely
-        product.title = oldProductData.title;
-        product.slug = oldProductData.slug;
-        product.sku = oldProductData.sku;
-        product.description = oldProductData.description;
-        product.highlights = oldProductData.highlights;
-        product.brand = oldProductData.brand;
-        product.category = oldProductData.category;
-        product.status = oldProductData.status;
-        product.images = oldProductData.images;
-        product.tags = oldProductData.tags;
-        product.specifications = oldProductData.specifications;
-        product.warranty = oldProductData.warranty;
-        product.returnPolicy = oldProductData.returnPolicy;
-        product.shippingDetails = oldProductData.shippingDetails;
-        product.measurement = oldProductData.measurement;
-        product.attributeDefinitions = oldProductData.attributeDefinitions;
-        product.mediaGroups = oldProductData.mediaGroups;
-        product.hasVariants = oldProductData.hasVariants;
-        product.variants = oldProductData.variants;
-        product.sellingPrice = oldProductData.sellingPrice;
-        product.mrpPrice = oldProductData.mrpPrice;
-        product.discountPercent = oldProductData.discountPercent;
-        product.countInStock = oldProductData.countInStock;
-        product.inStock = oldProductData.inStock;
-        product.lowStockThreshold = oldProductData.lowStockThreshold;
-
+        // Prevent stale rollback from overwriting concurrent legitimate product updates!
+        let concurrentOverwritePrevented = false;
         try {
-          await product.save();
-        } catch (rollbackSaveErr) {
-          throw new Error(`Price history audit record failed (${histErr.message}) and product rollback failed: ${rollbackSaveErr.message}`);
+          if (canQueryModel(Product, "findById") && product._id) {
+            const currentDbProduct = await Product.findById(product._id);
+            if (
+              currentDbProduct &&
+              currentDbProduct.__v !== undefined &&
+              product.__v !== undefined &&
+              currentDbProduct.__v > product.__v
+            ) {
+              // Current DB version is strictly newer than our mutated version!
+              // Another worker updated this product concurrently; do NOT overwrite with stale rollback state.
+              concurrentOverwritePrevented = true;
+              console.warn(
+                `[ProductService] Stale rollback prevented for product ${product._id}: current DB version (${currentDbProduct.__v}) is newer than rollback baseline (${product.__v}).`
+              );
+            }
+          }
+        } catch {
+          // If query fails, proceed with document rollback save
+        }
+
+        if (!concurrentOverwritePrevented) {
+          product.title = oldProductData.title;
+          product.slug = oldProductData.slug;
+          product.sku = oldProductData.sku;
+          product.description = oldProductData.description;
+          product.highlights = oldProductData.highlights;
+          product.brand = oldProductData.brand;
+          product.category = oldProductData.category;
+          product.status = oldProductData.status;
+          product.images = oldProductData.images;
+          product.tags = oldProductData.tags;
+          product.specifications = oldProductData.specifications;
+          product.warranty = oldProductData.warranty;
+          product.returnPolicy = oldProductData.returnPolicy;
+          product.shippingDetails = oldProductData.shippingDetails;
+          product.measurement = oldProductData.measurement;
+          product.attributeDefinitions = oldProductData.attributeDefinitions;
+          product.mediaGroups = oldProductData.mediaGroups;
+          product.hasVariants = oldProductData.hasVariants;
+          product.variants = oldProductData.variants;
+          product.sellingPrice = oldProductData.sellingPrice;
+          product.mrpPrice = oldProductData.mrpPrice;
+          product.discountPercent = oldProductData.discountPercent;
+          product.countInStock = oldProductData.countInStock;
+          product.inStock = oldProductData.inStock;
+          product.lowStockThreshold = oldProductData.lowStockThreshold;
+
+          try {
+            await product.save();
+          } catch (rollbackSaveErr) {
+            throw new Error(
+              `Price history audit record failed (${histErr.message}) and product rollback failed: ${rollbackSaveErr.message}`
+            );
+          }
         }
 
         let historyCleanupErr = null;

@@ -182,6 +182,18 @@ function resetInMemoryCartItems() {
     const key = getCartItemKey(query.cart, query.product, query.variantId);
     return inMemoryCartItems.get(key) || null;
   };
+  CartItem.find = function (query = {}) {
+    const items = Array.from(inMemoryCartItems.values());
+    let filtered = items;
+    if (query.cart) {
+      const qCart = query.cart._id ? query.cart._id.toString() : query.cart.toString();
+      filtered = items.filter((i) => {
+        const iCart = i.cart?._id ? i.cart._id.toString() : i.cart?.toString();
+        return iCart === qCart;
+      });
+    }
+    return createChainableQuery(filtered);
+  };
   CartItem.prototype.save = async function () {
     const key = getCartItemKey(this.cart, this.product, this.variantId);
     inMemoryCartItems.set(key, this);
@@ -2194,6 +2206,347 @@ async function main() {
 
       const itemAfterCall2 = await CartItem.findOne({ cart: cartId, product: prodId });
       assert.strictEqual(itemAfterCall2.quantity, 2, "Quantity must still be 2 after replay!");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() recovers from real process termination after CartItem persistence without double-adding", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "process_term_recovery_key";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Crash Recovery Product",
+        status: "PUBLISHED",
+        countInStock: 10,
+        sellingPrice: 800,
+        mrpPrice: 1200,
+      });
+
+      // Simulate prior worker having persisted CartItem with appliedGuestItemIds before unexpected process termination
+      const preCrashCartItem = new CartItem({
+        cart: cartId,
+        product: prodId,
+        variantId: null,
+        quantity: 2,
+        mrpPrice: 2400,
+        sellingPrice: 1600,
+        userId: user._id.toString(),
+        appliedGuestItemIds: [`${idempotencyKey}:proc-kill-item-1`],
+      });
+      await preCrashCartItem.save();
+
+      // Prior interrupted record left in IN_PROGRESS state from 70 seconds ago
+      const staleLockedAt = new Date(Date.now() - 70000);
+      inMemoryMergeRecords.set(`${user._id}:${idempotencyKey}`, {
+        userId: user._id,
+        idempotencyKey,
+        status: "IN_PROGRESS",
+        lockedAt: staleLockedAt,
+        lockWorkerId: "dead_worker_pid_1234",
+        totalProcessed: 1,
+        mergedItems: [], // Died before mergedItems could be updated
+        failedItems: [],
+        save: async function () {
+          inMemoryMergeRecords.set(`${this.userId}:${this.idempotencyKey}`, this);
+          return this;
+        },
+      });
+
+      const guestItems = [{ clientItemId: "proc-kill-item-1", productId: prodId.toString(), quantity: 2 }];
+
+      // Recovery worker runs
+      const recoveryResult = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+
+      assert.strictEqual(recoveryResult.mergedItems.length, 1);
+      assert.strictEqual(recoveryResult.mergedItems[0].quantityMerged, 2);
+      assert.strictEqual(recoveryResult.failedItems.length, 0);
+
+      // Verify the final persisted cart quantity in memory store is STILL 2, not double-added to 4!
+      const persistedItem = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.ok(persistedItem !== null);
+      assert.strictEqual(persistedItem.quantity, 2, "Cart item quantity must remain 2 after process crash recovery, never double-added!");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() explicit retry of failed items merges only remaining unmerged units after stock recovery", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodA = new mongoose.Types.ObjectId();
+      const prodB = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "explicit_retry_stock_recovery_key";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      let stockB = 0; // Prod B starts out of stock
+      Product.findById = async (id) => {
+        if (id.toString() === prodA.toString()) {
+          return {
+            _id: prodA,
+            title: "Product A Available",
+            status: "PUBLISHED",
+            countInStock: 10,
+            sellingPrice: 500,
+            mrpPrice: 800,
+          };
+        }
+        return {
+          _id: prodB,
+          title: "Product B Out Of Stock",
+          status: "PUBLISHED",
+          get countInStock() { return stockB; },
+          sellingPrice: 1000,
+          mrpPrice: 1500,
+        };
+      };
+
+      const guestItems = [
+        { clientItemId: "retry-prod-a", productId: prodA.toString(), quantity: 2 },
+        { clientItemId: "retry-prod-b", productId: prodB.toString(), quantity: 1 },
+      ];
+
+      // Initial run: Prod A succeeds, Prod B fails
+      const initialRun = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+      assert.strictEqual(initialRun.mergedItems.length, 1);
+      assert.strictEqual(initialRun.mergedItems[0].clientItemId, "retry-prod-a");
+      assert.strictEqual(initialRun.failedItems.length, 1);
+      assert.strictEqual(initialRun.failedItems[0].clientItemId, "retry-prod-b");
+
+      // Verify cart has 2 of Prod A, 0 of Prod B
+      const cartItemA1 = await CartItem.findOne({ cart: cartId, product: prodA });
+      const cartItemB1 = await CartItem.findOne({ cart: cartId, product: prodB });
+      assert.strictEqual(cartItemA1.quantity, 2);
+      assert.strictEqual(cartItemB1, null);
+
+      // Prod B stock recovers!
+      stockB = 5;
+
+      // 1. Identical request replay without retry flag: replays cached result without mutations
+      const replayRun = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+      assert.strictEqual(replayRun.isIdempotentReplay, true);
+      assert.strictEqual(replayRun.failedItems.length, 1, "Cached replay still shows previous failed list");
+      const cartItemA2 = await CartItem.findOne({ cart: cartId, product: prodA });
+      assert.strictEqual(cartItemA2.quantity, 2, "Prod A remains 2");
+
+      // 2. Explicit retry with isRetry: true
+      const retryRun = await CartService.mergeGuestCart(user, guestItems, {
+        idempotencyKey,
+        isRetry: true,
+        retryMode: "FAILED_ITEMS",
+      });
+
+      assert.strictEqual(retryRun.mergedItems.length, 2, "Both items should now be in mergedItems list");
+      assert.strictEqual(retryRun.failedItems.length, 0, "No remaining failed items");
+
+      const finalCartItemA = await CartItem.findOne({ cart: cartId, product: prodA });
+      const finalCartItemB = await CartItem.findOne({ cart: cartId, product: prodB });
+      assert.strictEqual(finalCartItemA.quantity, 2, "Prod A must NOT be double-added on retry, remains 2");
+      assert.strictEqual(finalCartItemB.quantity, 1, "Prod B must now be merged with quantity 1");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() concurrent retry race on completed record allows only one worker to claim", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "concurrent_retry_race_key";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Racing Item",
+        status: "PUBLISHED",
+        countInStock: 5,
+        sellingPrice: 300,
+        mrpPrice: 500,
+      });
+
+      const guestItems = [{ clientItemId: "race-item-1", productId: prodId.toString(), quantity: 1 }];
+
+      // Initial completed merge
+      await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+
+      // Simulate a completed record with a failed item to enable retry
+      const completedRecord = inMemoryMergeRecords.get(`${user._id}:${idempotencyKey}`);
+      completedRecord.failedItems = [{ clientItemId: "race-item-2", reason: "Stock error" }];
+      guestItems.push({ clientItemId: "race-item-2", productId: prodId.toString(), quantity: 1 });
+
+      // Run two concurrent retry attempts with isRetry: true
+      const [res1, res2] = await Promise.allSettled([
+        CartService.mergeGuestCart(user, guestItems, { idempotencyKey, isRetry: true }),
+        CartService.mergeGuestCart(user, guestItems, { idempotencyKey, isRetry: true }),
+      ]);
+
+      const successCount = [res1, res2].filter((r) => r.status === "fulfilled").length;
+      const conflictCount = [res1, res2].filter(
+        (r) => r.status === "rejected" && (r.reason.statusCode === 409 || r.reason.code === "MERGE_IN_PROGRESS")
+      ).length;
+
+      assert.strictEqual(successCount, 1, "Exactly one concurrent retry attempt must succeed in claiming");
+      assert.strictEqual(conflictCount, 1, "The competing retry attempt must receive 409 Conflict");
+    });
+
+    await runAsyncTest("ProductService.updateProduct() concurrent update prevents stale rollback from overwriting newer version", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const sellerId = new mongoose.Types.ObjectId();
+
+      const currentDbDoc = {
+        _id: prodId,
+        seller: sellerId,
+        sellingPrice: 1500,
+        mrpPrice: 2000,
+        countInStock: 10,
+        inStock: true,
+        __v: 2, // Concurrently updated by another worker!
+        variants: [],
+      };
+
+      const workerAProduct = {
+        _id: prodId,
+        seller: sellerId,
+        sellingPrice: 1000,
+        mrpPrice: 1200,
+        countInStock: 10,
+        inStock: true,
+        __v: 1, // Worker A's baseline version
+        variants: [],
+        save: async function () {
+          this.__v = 2;
+          return this;
+        },
+      };
+
+      let findByIdCallCount = 0;
+      Product.findById = async (id) => {
+        findByIdCallCount++;
+        if (findByIdCallCount === 1) return workerAProduct;
+        return currentDbDoc;
+      };
+
+      const origHistCreate = PriceHistory.create;
+      PriceHistory.create = async () => {
+        throw new Error("Simulated audit write failure for Worker A");
+      };
+
+      try {
+        await ProductService.updateProduct(prodId, { sellingPrice: 1100 }, sellerId);
+        assert.fail("Should throw price history error");
+      } catch (err) {
+        assert.ok(err.message.includes("Price history audit record failed"));
+      } finally {
+        PriceHistory.create = origHistCreate;
+      }
+    });
+
+    await runAsyncTest("ProductService.getProductPriceHistory() queries newest 30 snapshots and returns them in chronological ascending order", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const variantObjId = new mongoose.Types.ObjectId();
+
+      const mockProd = {
+        _id: prodId,
+        title: "Smart Watch Elite",
+        sellingPrice: 4999,
+        mrpPrice: 6999,
+        hasVariants: true,
+        variants: [
+          {
+            _id: variantObjId,
+            sku: "SW-ELITE-SLV",
+            sellingPrice: 4999,
+            mrpPrice: 6999,
+            status: "ACTIVE",
+          },
+        ],
+      };
+
+      Product.findOne = () => createChainableQuery(mockProd);
+
+      // Create 35 snapshots spaced over 35 days
+      const all35Snapshots = [];
+      const baseTime = Date.now() - 35 * 24 * 60 * 60 * 1000;
+      for (let i = 0; i < 35; i++) {
+        all35Snapshots.push({
+          _id: new mongoose.Types.ObjectId(),
+          product: prodId,
+          variantId: variantObjId,
+          sellingPrice: 4000 + i * 20,
+          mrpPrice: 6999,
+          timestamp: new Date(baseTime + i * 24 * 60 * 60 * 1000),
+        });
+      }
+
+      let capturedFilter = null;
+      let capturedSort = null;
+      let capturedLimit = null;
+
+      PriceHistory.find = (filter) => {
+        capturedFilter = filter;
+        return {
+          sort: (sortObj) => {
+            capturedSort = sortObj;
+            return {
+              limit: (limitNum) => {
+                capturedLimit = limitNum;
+                // Return newest 30 sorted descending by timestamp
+                const newest30 = [...all35Snapshots]
+                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                  .slice(0, limitNum);
+                return createChainableQuery(newest30);
+              },
+            };
+          },
+        };
+      };
+
+      const result = await ProductService.getProductPriceHistory(prodId.toString(), {
+        variantSku: "SW-ELITE-SLV",
+      });
+
+      // 1. Assert filter used actual variant ObjectId, NOT the string SKU!
+      assert.strictEqual(
+        capturedFilter.variantId.toString(),
+        variantObjId.toString(),
+        "History query must resolve SKU to exact variant ObjectId"
+      );
+
+      // 2. Assert query requested newest 30 records
+      assert.deepStrictEqual(capturedSort, { timestamp: -1 });
+      assert.strictEqual(capturedLimit, 30);
+
+      // 3. Assert returned history has exactly 30 items
+      assert.strictEqual(result.history.length, 30);
+
+      // 4. Assert returned history is sorted in ascending chronological order for charts!
+      for (let i = 1; i < result.history.length; i++) {
+        const prevDate = new Date(result.history[i - 1].date).getTime();
+        const currDate = new Date(result.history[i].date).getTime();
+        assert.ok(
+          currDate >= prevDate,
+          `History items must be in ascending chronological order: ${result.history[i - 1].date} <= ${result.history[i].date}`
+        );
+      }
     });
 
     await runAsyncTest("ProductService.updateProduct() rollback-save failure throws descriptive error containing both failure messages", async () => {

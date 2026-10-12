@@ -52,8 +52,8 @@ class CartService {
         continue;
       }
 
-      let currentUnitMrp = prod.mrpPrice;
-      let currentUnitSelling = prod.sellingPrice;
+      let currentUnitMrp = typeof prod.mrpPrice === "number" ? prod.mrpPrice : Math.round((item.mrpPrice || 0) / Math.max(1, item.quantity));
+      let currentUnitSelling = typeof prod.sellingPrice === "number" ? prod.sellingPrice : Math.round((item.sellingPrice || 0) / Math.max(1, item.quantity));
       let currentStock = prod.countInStock || 0;
       let isVariantActive = true;
       let matchedVariant = null;
@@ -61,8 +61,8 @@ class CartService {
       if (item.variantId && prod.hasVariants && Array.isArray(prod.variants)) {
         matchedVariant = prod.variants.id(item.variantId);
         if (matchedVariant) {
-          currentUnitMrp = matchedVariant.mrpPrice;
-          currentUnitSelling = matchedVariant.sellingPrice;
+          currentUnitMrp = typeof matchedVariant.mrpPrice === "number" ? matchedVariant.mrpPrice : currentUnitMrp;
+          currentUnitSelling = typeof matchedVariant.sellingPrice === "number" ? matchedVariant.sellingPrice : currentUnitSelling;
           currentStock = matchedVariant.countInStock || 0;
           if (matchedVariant.status && matchedVariant.status !== "ACTIVE") {
             isVariantActive = false;
@@ -74,16 +74,16 @@ class CartService {
 
       // Check if price changed since item was added
       const prevUnitSelling = Math.round(item.sellingPrice / Math.max(1, item.quantity));
-      if (currentUnitSelling !== prevUnitSelling) {
+      if (typeof currentUnitSelling === "number" && currentUnitSelling !== prevUnitSelling) {
         const priceDiff = currentUnitSelling - prevUnitSelling;
         validationWarnings.push({
           type: "PRICE_CHANGED",
           productId: prod._id,
-          title: prod.title,
+          title: prod.title || "Product",
           oldPrice: prevUnitSelling,
           newPrice: currentUnitSelling,
           diff: priceDiff,
-          message: `Price for "${prod.title}" changed from ₹${prevUnitSelling.toLocaleString("en-IN")} to ₹${currentUnitSelling.toLocaleString("en-IN")}.`,
+          message: `Price for "${prod.title || "Item"}" changed from ₹${(prevUnitSelling || 0).toLocaleString("en-IN")} to ₹${(currentUnitSelling || 0).toLocaleString("en-IN")}.`,
         });
 
         item.sellingPrice = item.quantity * currentUnitSelling;
@@ -499,6 +499,15 @@ class CartService {
 
     let mergeRecord = null;
     const modelCanQuery = canQueryModel(CartMergeRecord, "create") || canQueryModel(CartMergeRecord, "findOne");
+    const lockWorkerId =
+      options.lockWorkerId ||
+      `w_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 7)}`;
+    const isExplicitRetry = Boolean(
+      options.isRetry ||
+      options.retryFailed ||
+      options.retryMode === "FAILED_ITEMS" ||
+      (options.attempt && options.attempt > 1)
+    );
 
     if (modelCanQuery) {
       try {
@@ -507,9 +516,12 @@ class CartService {
           idempotencyKey: signature,
           status: "IN_PROGRESS",
           lockedAt: new Date(),
+          lockWorkerId,
           totalProcessed: guestItems.length,
           mergedItems: [],
           failedItems: [],
+          attempt: options.attempt || 1,
+          retryMode: options.retryMode || (isExplicitRetry ? "FAILED_ITEMS" : "NONE"),
         });
       } catch (createErr) {
         const isDuplicateKey =
@@ -529,16 +541,23 @@ class CartService {
 
         if (existing) {
           if (existing.status === "COMPLETED") {
-            const isExplicitRetry = Boolean(options.retryFailed || (options.attempt && options.attempt > 1));
             const hasFailedOrPartial =
               (existing.failedItems && existing.failedItems.length > 0) ||
-              (existing.mergedItems && existing.mergedItems.some((m) => m.partialStockApplied || (m.remainingQuantity && m.remainingQuantity > 0)));
+              (existing.mergedItems &&
+                existing.mergedItems.some(
+                  (m) =>
+                    m.partialStockApplied ||
+                    (m.remainingQuantity && m.remainingQuantity > 0)
+                ));
 
             if (!isExplicitRetry || !hasFailedOrPartial) {
               const currentCart = await this.findUserCart(user);
               return {
                 cart: currentCart,
-                mergedItems: (existing.mergedItems || []).map((m) => ({ ...m, isReplay: true })),
+                mergedItems: (existing.mergedItems || []).map((m) => ({
+                  ...m,
+                  isReplay: true,
+                })),
                 failedItems: existing.failedItems || [],
                 totalProcessed:
                   existing.totalProcessed !== undefined
@@ -560,21 +579,21 @@ class CartService {
                 $set: {
                   status: "IN_PROGRESS",
                   lockedAt: new Date(),
+                  lockWorkerId,
+                  retryMode: options.retryMode || "FAILED_ITEMS",
                 },
+                $inc: { attempt: 1 },
               },
               { new: true }
             );
 
             if (!claimed) {
-              const currentCart = await this.findUserCart(user);
-              return {
-                cart: currentCart,
-                mergedItems: (existing.mergedItems || []).map((m) => ({ ...m, isReplay: true })),
-                failedItems: existing.failedItems || [],
-                totalProcessed: existing.totalProcessed || guestItems.length,
-                isIdempotentReplay: true,
-                message: "Guest cart merge already processed (idempotent replay)",
-              };
+              const conflictError = new Error(
+                "Guest cart merge retry is currently being processed by another worker."
+              );
+              conflictError.statusCode = 409;
+              conflictError.code = "MERGE_IN_PROGRESS";
+              throw conflictError;
             }
             mergeRecord = claimed;
           } else if (existing.status === "IN_PROGRESS") {
@@ -604,7 +623,9 @@ class CartService {
                 $set: {
                   status: "IN_PROGRESS",
                   lockedAt: new Date(),
+                  lockWorkerId,
                 },
+                $inc: { attempt: 1 },
               },
               { new: true }
             );
@@ -630,7 +651,9 @@ class CartService {
                 $set: {
                   status: "IN_PROGRESS",
                   lockedAt: new Date(),
+                  lockWorkerId,
                 },
+                $inc: { attempt: 1 },
               },
               { new: true }
             );
@@ -678,29 +701,79 @@ class CartService {
     if (mergeRecord && Array.isArray(mergeRecord.mergedItems)) {
       mergeRecord.mergedItems.forEach((mi) => {
         if (mi.clientItemId) {
-          previouslyMergedMap.set(String(mi.clientItemId), mi);
+          previouslyMergedMap.set(String(mi.clientItemId), { ...mi });
         }
       });
+    }
+
+    // Pre-crash recovery: discover if any guest item was already persisted to CartItem before a worker crash for THIS merge signature
+    try {
+      if (canQueryModel(CartItem, "find")) {
+        const existingCartItems = await CartItem.find({ cart: cart._id });
+        if (Array.isArray(existingCartItems)) {
+          for (const ci of existingCartItems) {
+            if (Array.isArray(ci.appliedGuestItemIds)) {
+              for (const entry of ci.appliedGuestItemIds) {
+                const entryStr = String(entry);
+                let cItemId = null;
+                if (entryStr.startsWith(`${signature}:`)) {
+                  cItemId = entryStr.substring(signature.length + 1);
+                }
+
+                if (cItemId && !previouslyMergedMap.has(String(cItemId))) {
+                  const matchedGuestItem = guestItems.find(
+                    (gi, idx) =>
+                      (gi.clientItemId || gi._id || gi.id || `idx_${idx}`) ===
+                      cItemId
+                  );
+                  if (matchedGuestItem) {
+                    const appliedQty = Number(matchedGuestItem.quantity) || 1;
+                    previouslyMergedMap.set(String(cItemId), {
+                      productId: ci.product,
+                      variantId: ci.variantId,
+                      quantityMerged: appliedQty,
+                      remainingQuantity: 0,
+                      finalQuantity: ci.quantity,
+                      clientItemId: String(cItemId),
+                      partialStockApplied: false,
+                      recoveredFromInterruptedRun: true,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Non-blocking in mock environments
     }
 
     const mergedItems = [];
     const failedItems = [];
 
     try {
-      for (const item of guestItems) {
+      for (let idx = 0; idx < guestItems.length; idx++) {
+        const item = guestItems[idx];
         const prodId = item.productId || item.product?._id || item.product;
         const requestedVariantId =
           item.variantId || item.selectedVariant?._id || null;
         const requestedQty = Math.max(1, Number(item.quantity) || 1);
-        const clientItemId = item._id || item.clientItemId || null;
+        const clientItemId =
+          item.clientItemId || item._id || item.id || `idx_${idx}`;
 
-        if (clientItemId && previouslyMergedMap.has(String(clientItemId))) {
-          const prior = previouslyMergedMap.get(String(clientItemId));
-          if (prior.quantityMerged >= requestedQty) {
-            mergedItems.push(prior);
-            continue;
-          }
+        const prior =
+          clientItemId && previouslyMergedMap.has(String(clientItemId))
+            ? previouslyMergedMap.get(String(clientItemId))
+            : null;
+        const priorMergedQty = prior ? Number(prior.quantityMerged) || 0 : 0;
+
+        if (priorMergedQty >= requestedQty) {
+          mergedItems.push(prior);
+          continue;
         }
+
+        const neededQty = requestedQty - priorMergedQty;
 
         if (!prodId) {
           failedItems.push({
@@ -708,7 +781,7 @@ class CartService {
             reason: "Missing product identifier in guest cart item",
             clientItemId,
             requestedQuantity: requestedQty,
-            remainingQuantity: requestedQty,
+            remainingQuantity: neededQty,
           });
           continue;
         }
@@ -723,7 +796,7 @@ class CartService {
             reason: `Invalid product reference: ${err.message}`,
             clientItemId,
             requestedQuantity: requestedQty,
-            remainingQuantity: requestedQty,
+            remainingQuantity: neededQty,
           });
           continue;
         }
@@ -735,7 +808,7 @@ class CartService {
             reason: "Product no longer exists in catalog",
             clientItemId,
             requestedQuantity: requestedQty,
-            remainingQuantity: requestedQty,
+            remainingQuantity: neededQty,
           });
           continue;
         }
@@ -748,7 +821,7 @@ class CartService {
             reason: "Product is currently unpublished or inactive",
             clientItemId,
             requestedQuantity: requestedQty,
-            remainingQuantity: requestedQty,
+            remainingQuantity: neededQty,
           });
           continue;
         }
@@ -798,7 +871,7 @@ class CartService {
               reason: "Selected product variant is unavailable",
               clientItemId,
               requestedQuantity: requestedQty,
-              remainingQuantity: requestedQty,
+              remainingQuantity: neededQty,
             });
             continue;
           }
@@ -811,7 +884,7 @@ class CartService {
               reason: "Selected variant is currently inactive",
               clientItemId,
               requestedQuantity: requestedQty,
-              remainingQuantity: requestedQty,
+              remainingQuantity: neededQty,
             });
             continue;
           }
@@ -844,7 +917,7 @@ class CartService {
             reason: "Item is currently out of stock",
             clientItemId,
             requestedQuantity: requestedQty,
-            remainingQuantity: requestedQty,
+            remainingQuantity: neededQty,
           });
           continue;
         }
@@ -859,7 +932,7 @@ class CartService {
 
         if (existingItem) {
           const currentQty = existingItem.quantity || 0;
-          const combinedQty = currentQty + requestedQty;
+          const combinedQty = currentQty + neededQty;
           const safeQty = Math.min(combinedQty, availableStock);
 
           if (safeQty <= currentQty) {
@@ -870,30 +943,42 @@ class CartService {
               reason: `Maximum available inventory (${availableStock}) is already in your cart`,
               clientItemId,
               requestedQuantity: requestedQty,
-              remainingQuantity: requestedQty,
+              remainingQuantity: neededQty,
             });
             continue;
           }
 
-          const quantityMerged = safeQty - currentQty;
-          const unmergedRemainder = Math.max(0, requestedQty - quantityMerged);
+          const quantityNewlyMerged = safeQty - currentQty;
+          const totalMergedForThisItem = priorMergedQty + quantityNewlyMerged;
+          const unmergedRemainder = Math.max(0, requestedQty - totalMergedForThisItem);
+
           existingItem.quantity = safeQty;
           existingItem.mrpPrice = safeQty * unitMrp;
           existingItem.sellingPrice = safeQty * unitSelling;
+          existingItem.appliedGuestItemIds = existingItem.appliedGuestItemIds || [];
+          const scopedKey = `${signature}:${clientItemId}`;
+          if (
+            clientItemId &&
+            !existingItem.appliedGuestItemIds.includes(scopedKey)
+          ) {
+            existingItem.appliedGuestItemIds.push(scopedKey);
+          }
           await existingItem.save();
 
           mergedItems.push({
             productId: prodId,
             variantId: resolvedVariant ? resolvedVariant._id : null,
-            quantityMerged,
+            quantityMerged: totalMergedForThisItem,
             remainingQuantity: unmergedRemainder,
             finalQuantity: safeQty,
             clientItemId,
-            partialStockApplied: quantityMerged < requestedQty,
+            partialStockApplied: totalMergedForThisItem < requestedQty,
           });
         } else {
-          const safeQty = Math.min(requestedQty, availableStock);
-          const unmergedRemainder = Math.max(0, requestedQty - safeQty);
+          const safeQty = Math.min(neededQty, availableStock);
+          const totalMergedForThisItem = priorMergedQty + safeQty;
+          const unmergedRemainder = Math.max(0, requestedQty - totalMergedForThisItem);
+
           const newCartItem = new CartItem({
             cart: cart._id,
             product: product._id,
@@ -903,6 +988,7 @@ class CartService {
             mrpPrice: safeQty * unitMrp,
             sellingPrice: safeQty * unitSelling,
             userId: userId.toString(),
+            appliedGuestItemIds: clientItemId ? [`${signature}:${clientItemId}`] : [],
             size: item.size || "",
             ram: item.ram || "",
             weight: item.weight || "",
@@ -914,11 +1000,11 @@ class CartService {
           mergedItems.push({
             productId: prodId,
             variantId: resolvedVariant ? resolvedVariant._id : null,
-            quantityMerged: safeQty,
+            quantityMerged: totalMergedForThisItem,
             remainingQuantity: unmergedRemainder,
             finalQuantity: safeQty,
             clientItemId,
-            partialStockApplied: safeQty < requestedQty,
+            partialStockApplied: totalMergedForThisItem < requestedQty,
           });
         }
       }
@@ -927,7 +1013,8 @@ class CartService {
         try {
           mergeRecord.status = "FAILED";
           mergeRecord.mergedItems = mergedItems;
-          mergeRecord.failedItems = [{ reason: processError.message }];
+          mergeRecord.failedItems =
+            failedItems.length > 0 ? failedItems : [{ reason: processError.message }];
           await mergeRecord.save();
         } catch {}
       }
@@ -943,6 +1030,7 @@ class CartService {
         mergeRecord.mergedItems = mergedItems;
         mergeRecord.failedItems = failedItems;
         mergeRecord.totalProcessed = totalProcessed;
+        mergeRecord.lockWorkerId = null;
         await mergeRecord.save();
       } else if (canQueryModel(CartMergeRecord, "findOneAndUpdate")) {
         await CartMergeRecord.findOneAndUpdate(
@@ -953,6 +1041,7 @@ class CartService {
               mergedItems,
               failedItems,
               totalProcessed,
+              lockWorkerId: null,
             },
           },
           { upsert: true, new: true }
