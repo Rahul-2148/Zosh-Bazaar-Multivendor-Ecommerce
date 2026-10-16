@@ -429,62 +429,84 @@ class ProductService {
         }
       } catch (histErr) {
         // Rollback product mutation to restore consistency completely
-        // Prevent stale rollback from overwriting concurrent legitimate product updates!
-        let concurrentOverwritePrevented = false;
-        try {
-          if (canQueryModel(Product, "findById") && product._id) {
-            const currentDbProduct = await Product.findById(product._id);
-            if (
-              currentDbProduct &&
-              currentDbProduct.__v !== undefined &&
-              product.__v !== undefined &&
-              currentDbProduct.__v > product.__v
-            ) {
-              // Current DB version is strictly newer than our mutated version!
-              // Another worker updated this product concurrently; do NOT overwrite with stale rollback state.
-              concurrentOverwritePrevented = true;
+        // Prevent stale rollback from overwriting concurrent legitimate product updates via atomic conditional write
+        const rollbackPayload = {
+          title: oldProductData.title,
+          slug: oldProductData.slug,
+          sku: oldProductData.sku,
+          description: oldProductData.description,
+          highlights: oldProductData.highlights,
+          brand: oldProductData.brand,
+          category: oldProductData.category,
+          status: oldProductData.status,
+          images: oldProductData.images,
+          tags: oldProductData.tags,
+          specifications: oldProductData.specifications,
+          warranty: oldProductData.warranty,
+          returnPolicy: oldProductData.returnPolicy,
+          shippingDetails: oldProductData.shippingDetails,
+          measurement: oldProductData.measurement,
+          attributeDefinitions: oldProductData.attributeDefinitions,
+          mediaGroups: oldProductData.mediaGroups,
+          hasVariants: oldProductData.hasVariants,
+          variants: oldProductData.variants,
+          sellingPrice: oldProductData.sellingPrice,
+          mrpPrice: oldProductData.mrpPrice,
+          discountPercent: oldProductData.discountPercent,
+          countInStock: oldProductData.countInStock,
+          inStock: oldProductData.inStock,
+          lowStockThreshold: oldProductData.lowStockThreshold,
+        };
+
+        const expectedVersion = saved.__v;
+        if (canQueryModel(Product, "findOneAndUpdate") && product._id) {
+          try {
+            const rollbackDoc = await Product.findOneAndUpdate(
+              { _id: product._id, __v: expectedVersion },
+              { $set: rollbackPayload, $inc: { __v: 1 } },
+              { new: true }
+            );
+
+            if (!rollbackDoc) {
+              // Version mismatch: Another concurrent update committed to this product!
               console.warn(
-                `[ProductService] Stale rollback prevented for product ${product._id}: current DB version (${currentDbProduct.__v}) is newer than rollback baseline (${product.__v}).`
+                `[ProductService] Stale rollback prevented for product ${product._id}: current DB version moved beyond expected version (${expectedVersion}).`
               );
             }
-          }
-        } catch {
-          // If query fails, proceed with document rollback save
-        }
-
-        if (!concurrentOverwritePrevented) {
-          product.title = oldProductData.title;
-          product.slug = oldProductData.slug;
-          product.sku = oldProductData.sku;
-          product.description = oldProductData.description;
-          product.highlights = oldProductData.highlights;
-          product.brand = oldProductData.brand;
-          product.category = oldProductData.category;
-          product.status = oldProductData.status;
-          product.images = oldProductData.images;
-          product.tags = oldProductData.tags;
-          product.specifications = oldProductData.specifications;
-          product.warranty = oldProductData.warranty;
-          product.returnPolicy = oldProductData.returnPolicy;
-          product.shippingDetails = oldProductData.shippingDetails;
-          product.measurement = oldProductData.measurement;
-          product.attributeDefinitions = oldProductData.attributeDefinitions;
-          product.mediaGroups = oldProductData.mediaGroups;
-          product.hasVariants = oldProductData.hasVariants;
-          product.variants = oldProductData.variants;
-          product.sellingPrice = oldProductData.sellingPrice;
-          product.mrpPrice = oldProductData.mrpPrice;
-          product.discountPercent = oldProductData.discountPercent;
-          product.countInStock = oldProductData.countInStock;
-          product.inStock = oldProductData.inStock;
-          product.lowStockThreshold = oldProductData.lowStockThreshold;
-
-          try {
-            await product.save();
           } catch (rollbackSaveErr) {
             throw new Error(
               `Price history audit record failed (${histErr.message}) and product rollback failed: ${rollbackSaveErr.message}`
             );
+          }
+        } else {
+          // Fallback when findOneAndUpdate is not queryable (e.g. basic mocks)
+          let concurrentOverwritePrevented = false;
+          try {
+            if (canQueryModel(Product, "findById") && product._id) {
+              const currentDbProduct = await Product.findById(product._id);
+              if (
+                currentDbProduct &&
+                currentDbProduct.__v !== undefined &&
+                product.__v !== undefined &&
+                currentDbProduct.__v > product.__v
+              ) {
+                concurrentOverwritePrevented = true;
+                console.warn(
+                  `[ProductService] Stale rollback prevented for product ${product._id}: current DB version (${currentDbProduct.__v}) is newer than rollback baseline (${product.__v}).`
+                );
+              }
+            }
+          } catch {}
+
+          if (!concurrentOverwritePrevented) {
+            Object.assign(product, rollbackPayload);
+            try {
+              await product.save();
+            } catch (rollbackSaveErr) {
+              throw new Error(
+                `Price history audit record failed (${histErr.message}) and product rollback failed: ${rollbackSaveErr.message}`
+              );
+            }
           }
         }
 

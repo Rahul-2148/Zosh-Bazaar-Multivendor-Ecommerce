@@ -2277,6 +2277,185 @@ async function main() {
       assert.strictEqual(persistedItem.quantity, 2, "Cart item quantity must remain 2 after process crash recovery, never double-added!");
     });
 
+    await runAsyncTest("CartService.mergeGuestCart() crash recovery of partial stock-capped application preserves remaining quantity and completes on retry", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "partial_crash_recovery_key";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      let currentStock = 2; // Stock is only 2
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Limited Saree",
+        status: "PUBLISHED",
+        get countInStock() { return currentStock; },
+        sellingPrice: 1500,
+        mrpPrice: 2000,
+      });
+
+      // 1. Initial run: Request quantity 5 when available stock is only 2
+      const guestItems = [{ clientItemId: "capped-item-1", productId: prodId.toString(), quantity: 5 }];
+      const initialRun = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+      assert.strictEqual(initialRun.mergedItems[0].quantityMerged, 2);
+      assert.strictEqual(initialRun.mergedItems[0].remainingQuantity, 3);
+      assert.strictEqual(initialRun.mergedItems[0].partialStockApplied, true);
+
+      // Verify cart item quantity is 2
+      const cartItemStep1 = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(cartItemStep1.quantity, 2);
+
+      // 2. Simulate worker termination before CartMergeRecord completed:
+      // Record left in IN_PROGRESS stale state with empty mergedItems
+      const staleLockedAt = new Date(Date.now() - 70000);
+      inMemoryMergeRecords.set(`${user._id}:${idempotencyKey}`, {
+        userId: user._id,
+        idempotencyKey,
+        status: "IN_PROGRESS",
+        lockedAt: staleLockedAt,
+        lockWorkerId: "dead_worker_pid_9999",
+        totalProcessed: 1,
+        mergedItems: [], // Worker died before completing record
+        failedItems: [],
+        save: async function () {
+          inMemoryMergeRecords.set(`${this.userId}:${this.idempotencyKey}`, this);
+          return this;
+        },
+      });
+
+      // 3. Recovery worker runs: Reconstructs results from the quantity actually applied (2), NOT original requested (5)
+      const recoveryRun = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+      assert.strictEqual(recoveryRun.mergedItems.length, 1);
+      assert.strictEqual(
+        recoveryRun.mergedItems[0].quantityMerged,
+        2,
+        "Recovery must report actual applied quantity (2), not original requested (5)"
+      );
+      assert.strictEqual(
+        recoveryRun.mergedItems[0].remainingQuantity,
+        3,
+        "Recovery must preserve remaining quantity needed for retry (3), not discard as 0"
+      );
+      assert.strictEqual(
+        recoveryRun.mergedItems[0].partialStockApplied,
+        true,
+        "partialStockApplied must remain true on recovery"
+      );
+
+      // Verify cart quantity is still 2 (no double-adding on recovery)
+      const cartItemRecovery = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(cartItemRecovery.quantity, 2);
+
+      // 4. Stock recovers to 10!
+      currentStock = 10;
+
+      // 5. Retry the 3 remaining units under retry mode
+      const retryItems = [{ clientItemId: "capped-item-1", productId: prodId.toString(), quantity: 3 }];
+      const retryRun = await CartService.mergeGuestCart(user, retryItems, {
+        idempotencyKey: "partial_crash_retry_key",
+        isRetry: true,
+        retryMode: "FAILED_ITEMS",
+      });
+
+      assert.strictEqual(retryRun.mergedItems[0].quantityMerged, 3);
+      assert.strictEqual(retryRun.mergedItems[0].remainingQuantity, 0);
+
+      // Final cart quantity must be exactly 2 + 3 = 5, never 7, never 2 with remainder lost!
+      const finalCartItem = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(finalCartItem.quantity, 5, "Final cart quantity must be exactly 2 + 3 = 5!");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() failed recovery lookup causes zero further cart mutation (fail closed)", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "fail_closed_recovery_key";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      // Pre-seed an existing cart item with quantity 2
+      const preExistingItem = new CartItem({
+        cart: cartId,
+        product: prodId,
+        variantId: null,
+        quantity: 2,
+        mrpPrice: 2000,
+        sellingPrice: 1500,
+        userId: user._id.toString(),
+        appliedGuestItemIds: [`${idempotencyKey}:fail-item-1`],
+      });
+      await preExistingItem.save();
+
+      // Pre-seed stale in-progress record
+      inMemoryMergeRecords.set(`${user._id}:${idempotencyKey}`, {
+        userId: user._id,
+        idempotencyKey,
+        status: "IN_PROGRESS",
+        lockedAt: new Date(Date.now() - 70000),
+        lockWorkerId: "dead_worker",
+        mergedItems: [],
+        failedItems: [],
+        save: async function () {
+          inMemoryMergeRecords.set(`${this.userId}:${this.idempotencyKey}`, this);
+          return this;
+        },
+      });
+
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Test Prod",
+        status: "PUBLISHED",
+        countInStock: 10,
+        sellingPrice: 1500,
+        mrpPrice: 2000,
+      });
+
+      // Simulate database read error specifically during recovery lookup
+      let findCallCount = 0;
+      const origFind = CartItem.find;
+      CartItem.find = () => {
+        findCallCount++;
+        if (findCallCount === 1) {
+          throw new Error("Simulated transient MongoDB read error during recovery lookup");
+        }
+        return createChainableQuery([preExistingItem]);
+      };
+
+      const guestItems = [{ clientItemId: "fail-item-1", productId: prodId.toString(), quantity: 2 }];
+
+      try {
+        await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+        assert.fail("Recovery must fail closed and re-throw database lookup error");
+      } catch (err) {
+        assert.ok(
+          err.message.includes("Simulated transient MongoDB read error") ||
+          err.code === "RECOVERY_LOOKUP_FAILED",
+          `Expected fail-closed error, got: ${err.message}`
+        );
+      } finally {
+        CartItem.find = origFind;
+      }
+
+      // Assert that cart item quantity remained 2 and was NOT mutated
+      const persisted = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(persisted.quantity, 2, "Cart item must not be mutated when recovery lookup fails");
+    });
+
     await runAsyncTest("CartService.mergeGuestCart() explicit retry of failed items merges only remaining unmerged units after stock recovery", async () => {
       resetInMemoryCartItems();
       const user = { _id: new mongoose.Types.ObjectId() };
@@ -2458,6 +2637,78 @@ async function main() {
       } finally {
         PriceHistory.create = origHistCreate;
       }
+    });
+
+    await runAsyncTest("ProductService.updateProduct() newer update racing with rollback is prevented via atomic conditional versioned write", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const sellerId = new mongoose.Types.ObjectId();
+
+      // Database state starts at version 1 with price 1000
+      let dbDoc = {
+        _id: prodId,
+        seller: sellerId,
+        title: "Racing Product",
+        sellingPrice: 1000,
+        mrpPrice: 1500,
+        countInStock: 10,
+        inStock: true,
+        __v: 1,
+        variants: [],
+        toObject() { return { ...this }; },
+      };
+
+      // Worker A reads version 1
+      Product.findById = async () => ({
+        ...dbDoc,
+        save: async function () {
+          // Worker A mutations applied
+          this.__v = 2;
+          dbDoc = { ...this, sellingPrice: 1200, __v: 2 };
+          return this;
+        },
+      });
+
+      // Price history write fails for Worker A
+      const origHistCreate = PriceHistory.create;
+      PriceHistory.create = async () => {
+        // While Worker A's PriceHistory write fails, Worker B concurrently executes and commits an update to price 1600!
+        dbDoc = {
+          ...dbDoc,
+          sellingPrice: 1600,
+          __v: 3, // Version moved to 3!
+        };
+        throw new Error("Worker A audit write error");
+      };
+
+      // Atomic conditional update on Product
+      let conditionalWriteAttemptedWithExpectedVersion = null;
+      const origFindOneAndUpdate = Product.findOneAndUpdate;
+      Product.findOneAndUpdate = async (filter, update) => {
+        conditionalWriteAttemptedWithExpectedVersion = filter.__v;
+        if (dbDoc.__v === filter.__v) {
+          dbDoc = { ...dbDoc, ...update.$set, __v: (dbDoc.__v || 0) + 1 };
+          return dbDoc;
+        }
+        // Version mismatch: Worker B already updated it! Return null
+        return null;
+      };
+
+      try {
+        await ProductService.updateProduct(prodId, { sellingPrice: 1200 }, sellerId);
+        assert.fail("Should throw price history failure");
+      } catch (err) {
+        assert.ok(err.message.includes("Price history audit record failed"));
+      } finally {
+        PriceHistory.create = origHistCreate;
+        Product.findOneAndUpdate = origFindOneAndUpdate;
+      }
+
+      // Assert that rollback attempted a version-conditioned write matching Worker A's version (2)
+      assert.strictEqual(conditionalWriteAttemptedWithExpectedVersion, 2, "Rollback must condition on expected version 2");
+
+      // Assert that Worker B's newer price (1600) was NOT overwritten by Worker A's rollback (1000)
+      assert.strictEqual(dbDoc.sellingPrice, 1600, "Newer update (₹1600) must be preserved; stale rollback must not overwrite it");
+      assert.strictEqual(dbDoc.__v, 3, "Version must remain at Worker B's version 3");
     });
 
     await runAsyncTest("ProductService.getProductPriceHistory() queries newest 30 snapshots and returns them in chronological ascending order", async () => {

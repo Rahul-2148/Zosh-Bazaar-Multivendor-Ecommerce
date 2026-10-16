@@ -52,6 +52,15 @@ const cartItemSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    appliedGuestItems: [
+      {
+        signature: { type: String, required: true },
+        clientItemId: { type: String, required: true },
+        quantityApplied: { type: Number, required: true },
+        remainingQuantity: { type: Number, default: 0 },
+        appliedAt: { type: Date, default: Date.now },
+      },
+    ],
     // Legacy support fields
     size: { type: String, default: "" },
     ram: { type: String, default: "" },
@@ -67,5 +76,6 @@ const cartItemSchema = new mongoose.Schema(
 cartItemSchema.index({ cart: 1, product: 1, variantId: 1 });
 cartItemSchema.index({ userId: 1 });
 cartItemSchema.index({ cart: 1, appliedGuestItemIds: 1 });
+cartItemSchema.index({ cart: 1, "appliedGuestItems.signature": 1, "appliedGuestItems.clientItemId": 1 });
 
 export const CartItem = mongoose.model("CartItem", cartItemSchema);

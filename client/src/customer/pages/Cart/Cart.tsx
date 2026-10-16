@@ -12,6 +12,7 @@ import {
   deleteCartItem,
   fetchUserCart,
   updateCartItem,
+  retryFailedGuestCart,
 } from "../../../Redux Toolkit/features/customer/CartSlice";
 import { saveForLater, getWishlist } from "../../../Redux Toolkit/features/customer/WishlistSlice";
 import { openAssistant } from "../../../Redux Toolkit/features/customer/AiAssistantSlice";
@@ -33,26 +34,86 @@ const Cart: React.FC = () => {
   // Dual Tab State: "bazaar" vs "saved"
   const [activeTab, setActiveTab] = useState<"bazaar" | "saved">("bazaar");
   const [mergeWarnings, setMergeWarnings] = useState<any[]>([]);
+  const [isRetryingMerge, setIsRetryingMerge] = useState(false);
 
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem("zosh_cart_merge_warnings");
+      const guestRaw = localStorage.getItem("zosh_guest_cart");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setMergeWarnings(
             parsed.map((item: any) => ({
-              type: "STOCK_CHANGED",
+              type: "GUEST_MERGE_FAILED",
+              isMergeWarning: true,
+              canRetry: true,
               message: `Guest item "${item.title || item.item?.title || "Product"}" could not be merged: ${item.reason}`,
             }))
           );
-          sessionStorage.removeItem("zosh_cart_merge_warnings");
+        }
+      } else if (guestRaw && jwt) {
+        const guestItems = JSON.parse(guestRaw);
+        if (Array.isArray(guestItems) && guestItems.length > 0) {
+          setMergeWarnings([
+            {
+              type: "GUEST_MERGE_FAILED",
+              isMergeWarning: true,
+              canRetry: true,
+              message: `${guestItems.length} unmerged item${guestItems.length > 1 ? "s" : ""} from your guest session waiting to be added.`,
+            },
+          ]);
         }
       }
     } catch {
       // ignore
     }
-  }, []);
+  }, [jwt]);
+
+  const handleRetryMerge = async () => {
+    if (!jwt || isRetryingMerge) return;
+    setIsRetryingMerge(true);
+    try {
+      await dispatch(retryFailedGuestCart(jwt)).unwrap();
+      const stored = sessionStorage.getItem("zosh_cart_merge_warnings");
+      const guestRaw = localStorage.getItem("zosh_guest_cart");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMergeWarnings(
+            parsed.map((item: any) => ({
+              type: "GUEST_MERGE_FAILED",
+              isMergeWarning: true,
+              canRetry: true,
+              message: `Guest item "${item.title || item.item?.title || "Product"}" could not be merged: ${item.reason}`,
+            }))
+          );
+        } else {
+          setMergeWarnings([]);
+        }
+      } else if (guestRaw) {
+        const guestItems = JSON.parse(guestRaw);
+        if (Array.isArray(guestItems) && guestItems.length > 0) {
+          setMergeWarnings([
+            {
+              type: "GUEST_MERGE_FAILED",
+              isMergeWarning: true,
+              canRetry: true,
+              message: `${guestItems.length} unmerged item${guestItems.length > 1 ? "s" : ""} from your guest session remaining.`,
+            },
+          ]);
+        } else {
+          setMergeWarnings([]);
+        }
+      } else {
+        setMergeWarnings([]);
+      }
+    } catch (err: any) {
+      console.warn("Retry failed:", err);
+    } finally {
+      setIsRetryingMerge(false);
+    }
+  };
 
   useEffect(() => {
     if (jwt) {
@@ -296,7 +357,11 @@ const Cart: React.FC = () => {
         </div>
 
         {/* Real-time Server Authoritative Validation Warnings */}
-        <CartValidationBanner warnings={validationWarnings} />
+        <CartValidationBanner
+          warnings={validationWarnings}
+          onRetryMerge={handleRetryMerge}
+          isRetryingMerge={isRetryingMerge}
+        />
 
         {/* Free Delivery Progress Bar */}
         <div className="mb-4">

@@ -712,30 +712,60 @@ class CartService {
         const existingCartItems = await CartItem.find({ cart: cart._id });
         if (Array.isArray(existingCartItems)) {
           for (const ci of existingCartItems) {
+            // 1. Structured appliedGuestItems
+            if (Array.isArray(ci.appliedGuestItems)) {
+              for (const itemEntry of ci.appliedGuestItems) {
+                if (itemEntry && itemEntry.signature === signature && itemEntry.clientItemId) {
+                  const cId = String(itemEntry.clientItemId);
+                  if (!previouslyMergedMap.has(cId)) {
+                    const qApplied = Number(itemEntry.quantityApplied) || 0;
+                    const remQty = Number(itemEntry.remainingQuantity) || 0;
+                    previouslyMergedMap.set(cId, {
+                      productId: ci.product,
+                      variantId: ci.variantId,
+                      quantityMerged: qApplied,
+                      remainingQuantity: remQty,
+                      finalQuantity: ci.quantity,
+                      clientItemId: cId,
+                      partialStockApplied: remQty > 0,
+                      recoveredFromInterruptedRun: true,
+                    });
+                  }
+                }
+              }
+            }
+
+            // 2. String encoded appliedGuestItemIds fallback
             if (Array.isArray(ci.appliedGuestItemIds)) {
               for (const entry of ci.appliedGuestItemIds) {
                 const entryStr = String(entry);
-                let cItemId = null;
                 if (entryStr.startsWith(`${signature}:`)) {
-                  cItemId = entryStr.substring(signature.length + 1);
-                }
+                  const rest = entryStr.substring(signature.length + 1);
+                  const parts = rest.split(":");
+                  const cId = parts[0];
+                  if (cId && !previouslyMergedMap.has(String(cId))) {
+                    let qApplied = parts.length >= 2 ? Number(parts[1]) : null;
+                    let remQty = parts.length >= 3 ? Number(parts[2]) : null;
 
-                if (cItemId && !previouslyMergedMap.has(String(cItemId))) {
-                  const matchedGuestItem = guestItems.find(
-                    (gi, idx) =>
-                      (gi.clientItemId || gi._id || gi.id || `idx_${idx}`) ===
-                      cItemId
-                  );
-                  if (matchedGuestItem) {
-                    const appliedQty = Number(matchedGuestItem.quantity) || 1;
-                    previouslyMergedMap.set(String(cItemId), {
+                    if (qApplied === null || isNaN(qApplied)) {
+                      // Legacy or unencoded format without quantities:
+                      // Recover from actual persisted cart item quantity capped by requested
+                      const matchedGuest = guestItems.find(
+                        (gi, idx) => (gi.clientItemId || gi._id || gi.id || `idx_${idx}`) === cId
+                      );
+                      const reqQ = matchedGuest ? Number(matchedGuest.quantity) || 1 : 1;
+                      qApplied = Math.min(ci.quantity || 1, reqQ);
+                      remQty = Math.max(0, reqQ - qApplied);
+                    }
+
+                    previouslyMergedMap.set(String(cId), {
                       productId: ci.product,
                       variantId: ci.variantId,
-                      quantityMerged: appliedQty,
-                      remainingQuantity: 0,
+                      quantityMerged: qApplied,
+                      remainingQuantity: remQty || 0,
                       finalQuantity: ci.quantity,
-                      clientItemId: String(cItemId),
-                      partialStockApplied: false,
+                      clientItemId: String(cId),
+                      partialStockApplied: (remQty || 0) > 0,
                       recoveredFromInterruptedRun: true,
                     });
                   }
@@ -745,8 +775,22 @@ class CartService {
           }
         }
       }
-    } catch {
-      // Non-blocking in mock environments
+    } catch (lookupErr) {
+      if (mergeRecord) {
+        try {
+          mergeRecord.status = "FAILED";
+          mergeRecord.failedItems = [
+            { reason: `Database recovery lookup failed: ${lookupErr.message}` },
+          ];
+          await mergeRecord.save();
+        } catch {}
+      }
+      const recoveryError = new Error(
+        `Failed to verify prior cart state during recovery: ${lookupErr.message}`
+      );
+      recoveryError.statusCode = 500;
+      recoveryError.code = "RECOVERY_LOOKUP_FAILED";
+      throw recoveryError;
     }
 
     const mergedItems = [];
@@ -936,15 +980,19 @@ class CartService {
           const safeQty = Math.min(combinedQty, availableStock);
 
           if (safeQty <= currentQty) {
-            failedItems.push({
-              item,
-              productId: prodId,
-              title: product.title,
-              reason: `Maximum available inventory (${availableStock}) is already in your cart`,
-              clientItemId,
-              requestedQuantity: requestedQty,
-              remainingQuantity: neededQty,
-            });
+            if (prior && prior.recoveredFromInterruptedRun) {
+              mergedItems.push(prior);
+            } else {
+              failedItems.push({
+                item,
+                productId: prodId,
+                title: product.title,
+                reason: `Maximum available inventory (${availableStock}) is already in your cart`,
+                clientItemId,
+                requestedQuantity: requestedQty,
+                remainingQuantity: neededQty,
+              });
+            }
             continue;
           }
 
@@ -955,13 +1003,40 @@ class CartService {
           existingItem.quantity = safeQty;
           existingItem.mrpPrice = safeQty * unitMrp;
           existingItem.sellingPrice = safeQty * unitSelling;
+
+          existingItem.appliedGuestItems = existingItem.appliedGuestItems || [];
+          if (clientItemId) {
+            const entryIdx = existingItem.appliedGuestItems.findIndex(
+              (e) => e.signature === signature && e.clientItemId === String(clientItemId)
+            );
+            if (entryIdx >= 0) {
+              existingItem.appliedGuestItems[entryIdx].quantityApplied = totalMergedForThisItem;
+              existingItem.appliedGuestItems[entryIdx].remainingQuantity = unmergedRemainder;
+            } else {
+              existingItem.appliedGuestItems.push({
+                signature,
+                clientItemId: String(clientItemId),
+                quantityApplied: totalMergedForThisItem,
+                remainingQuantity: unmergedRemainder,
+                appliedAt: new Date(),
+              });
+            }
+          }
+
           existingItem.appliedGuestItemIds = existingItem.appliedGuestItemIds || [];
           const scopedKey = `${signature}:${clientItemId}`;
+          const detailedKey = `${signature}:${clientItemId}:${totalMergedForThisItem}:${unmergedRemainder}`;
           if (
             clientItemId &&
             !existingItem.appliedGuestItemIds.includes(scopedKey)
           ) {
             existingItem.appliedGuestItemIds.push(scopedKey);
+          }
+          if (
+            clientItemId &&
+            !existingItem.appliedGuestItemIds.includes(detailedKey)
+          ) {
+            existingItem.appliedGuestItemIds.push(detailedKey);
           }
           await existingItem.save();
 
@@ -988,7 +1063,23 @@ class CartService {
             mrpPrice: safeQty * unitMrp,
             sellingPrice: safeQty * unitSelling,
             userId: userId.toString(),
-            appliedGuestItemIds: clientItemId ? [`${signature}:${clientItemId}`] : [],
+            appliedGuestItems: clientItemId
+              ? [
+                  {
+                    signature,
+                    clientItemId: String(clientItemId),
+                    quantityApplied: totalMergedForThisItem,
+                    remainingQuantity: unmergedRemainder,
+                    appliedAt: new Date(),
+                  },
+                ]
+              : [],
+            appliedGuestItemIds: clientItemId
+              ? [
+                  `${signature}:${clientItemId}`,
+                  `${signature}:${clientItemId}:${totalMergedForThisItem}:${unmergedRemainder}`,
+                ]
+              : [],
             size: item.size || "",
             ram: item.ram || "",
             weight: item.weight || "",

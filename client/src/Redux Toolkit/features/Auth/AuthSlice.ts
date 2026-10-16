@@ -84,6 +84,12 @@ export const syncAndMergeGuestCart = async (
     // Persist normalized clientItemIds back to localStorage before request
     localStorage.setItem("zosh_guest_cart", JSON.stringify(normalizedGuestItems));
 
+    const idempotencyKey =
+      options.idempotencyKey ||
+      sessionStorage.getItem("zosh_cart_merge_idempotency_key") ||
+      `merge_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    sessionStorage.setItem("zosh_cart_merge_idempotency_key", idempotencyKey);
+
     const response = await Api.post(
       "/cart/merge",
       {
@@ -93,7 +99,7 @@ export const syncAndMergeGuestCart = async (
         retryFailed: Boolean(options.isRetry),
         retryMode: options.retryMode || (options.isRetry ? "FAILED_ITEMS" : "NONE"),
         attempt: options.attempt || 1,
-        idempotencyKey: options.idempotencyKey || null,
+        idempotencyKey,
       },
       { headers: { Authorization: `Bearer ${jwt}` } }
     );
@@ -147,18 +153,18 @@ export const syncAndMergeGuestCart = async (
 
     if (remainingGuestItems.length === 0) {
       localStorage.removeItem("zosh_guest_cart");
+      sessionStorage.removeItem("zosh_cart_merge_warnings");
     } else {
       localStorage.setItem(
         "zosh_guest_cart",
         JSON.stringify(remainingGuestItems)
       );
-    }
-
-    if (failedList.length > 0) {
-      sessionStorage.setItem(
-        "zosh_cart_merge_warnings",
-        JSON.stringify(failedList)
-      );
+      if (failedList.length > 0) {
+        sessionStorage.setItem(
+          "zosh_cart_merge_warnings",
+          JSON.stringify(failedList)
+        );
+      }
     }
   } catch (mergeErr) {
     // Network or server error: NEVER wipe user's local guest cart!
@@ -171,7 +177,15 @@ export const syncAndMergeGuestCart = async (
 
 // Helper for explicit user or system retry of failed or partial items
 export const retryFailedGuestCartMerge = async (jwt: string) => {
-  return syncAndMergeGuestCart(jwt, { isRetry: true, retryMode: "FAILED_ITEMS" });
+  const storedKey = sessionStorage.getItem("zosh_cart_merge_idempotency_key") || undefined;
+  const attempt = Number(sessionStorage.getItem("zosh_cart_merge_attempt") || "1") + 1;
+  sessionStorage.setItem("zosh_cart_merge_attempt", String(attempt));
+  return syncAndMergeGuestCart(jwt, {
+    isRetry: true,
+    retryMode: "FAILED_ITEMS",
+    idempotencyKey: storedKey,
+    attempt,
+  });
 };
 
 // Signup

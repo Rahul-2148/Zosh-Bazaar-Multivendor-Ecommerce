@@ -83,7 +83,7 @@ export const addItemToCart = createAsyncThunk<
           message: "Item saved to guest cart",
           cartItem: { ...data, _id: "guest_" + Date.now() },
         } as any;
-      } catch (err: any) {
+      } catch {
         return rejectWithValue({ message: "Failed to save to guest cart" });
       }
     }
@@ -172,6 +172,91 @@ export const mergeGuestCart = createAsyncThunk<
         { headers: { Authorization: `Bearer ${jwt}` } }
       );
       return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
+
+// 🔹 Retry Failed or Stock-Capped Guest Cart Items
+export const retryFailedGuestCart = createAsyncThunk<
+  FetchCartResponse | null,
+  string
+>(
+  "/cart/retryFailedGuestCart",
+  async (jwt, { dispatch, rejectWithValue }) => {
+    try {
+      const rawGuest = localStorage.getItem("zosh_guest_cart");
+      if (!rawGuest) return null;
+      let guestItems: any[] = [];
+      try {
+        guestItems = JSON.parse(rawGuest);
+      } catch {
+        return null;
+      }
+      if (!Array.isArray(guestItems) || guestItems.length === 0) return null;
+
+      const storedKey = sessionStorage.getItem("zosh_cart_merge_idempotency_key") || undefined;
+      const attempt = Number(sessionStorage.getItem("zosh_cart_merge_attempt") || "1") + 1;
+      sessionStorage.setItem("zosh_cart_merge_attempt", String(attempt));
+
+      const response = await dispatch(
+        mergeGuestCart({
+          jwt,
+          items: guestItems,
+          isRetry: true,
+          retryFailed: true,
+          retryMode: "FAILED_ITEMS",
+          idempotencyKey: storedKey,
+          attempt,
+        })
+      ).unwrap();
+
+      const mergedList: any[] = (response as any)?.mergedItems || [];
+      const failedList: any[] = (response as any)?.failedItems || [];
+
+      const mergedMap = new Map<string, any>();
+      mergedList.forEach((mi: any) => {
+        if (mi.clientItemId) mergedMap.set(String(mi.clientItemId), mi);
+      });
+
+      const remainingGuestItems: any[] = [];
+      guestItems.forEach((gi: any) => {
+        const cId = String(gi.clientItemId);
+        const merged = mergedMap.get(cId);
+        if (merged) {
+          const unmergedRemainder =
+            typeof merged.remainingQuantity === "number"
+              ? merged.remainingQuantity
+              : (merged.partialStockApplied
+                ? Math.max(0, (Number(gi.quantity) || 1) - (Number(merged.quantityMerged) || 0))
+                : 0);
+
+          if (unmergedRemainder > 0) {
+            remainingGuestItems.push({
+              ...gi,
+              quantity: unmergedRemainder,
+              partialStockApplied: true,
+              warning: `Stock capped: ${merged.quantityMerged} added, ${unmergedRemainder} remaining unmerged.`,
+            });
+          }
+        } else {
+          remainingGuestItems.push(gi);
+        }
+      });
+
+      if (remainingGuestItems.length === 0) {
+        localStorage.removeItem("zosh_guest_cart");
+        sessionStorage.removeItem("zosh_cart_merge_warnings");
+      } else {
+        localStorage.setItem("zosh_guest_cart", JSON.stringify(remainingGuestItems));
+        if (failedList.length > 0) {
+          sessionStorage.setItem("zosh_cart_merge_warnings", JSON.stringify(failedList));
+        }
+      }
+
+      await dispatch(fetchUserCart(jwt));
+      return response;
     } catch (error: any) {
       return rejectWithValue(error.response?.data || { message: error.message });
     }

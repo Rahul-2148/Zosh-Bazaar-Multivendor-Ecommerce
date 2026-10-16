@@ -53,7 +53,7 @@ export interface ISellerPackage {
 
 // 🔹 Real-time Validation Warnings
 export interface IValidationWarning {
-  type: "PRICE_CHANGED" | "ITEM_UNAVAILABLE" | "COUPON_INVALIDATED" | "COUPON_EXPIRED" | "STOCK_CHANGED";
+  type: "PRICE_CHANGED" | "ITEM_UNAVAILABLE" | "COUPON_INVALIDATED" | "COUPON_EXPIRED" | "STOCK_CHANGED" | "GUEST_MERGE_FAILED" | string;
   productId?: string;
   code?: string;
   title?: string;
@@ -61,6 +61,9 @@ export interface IValidationWarning {
   newPrice?: number;
   diff?: number;
   message: string;
+  isMergeWarning?: boolean;
+  canRetry?: boolean;
+  clientItemId?: string;
 }
 
 // 🔹 Authoritative Pricing Summary
