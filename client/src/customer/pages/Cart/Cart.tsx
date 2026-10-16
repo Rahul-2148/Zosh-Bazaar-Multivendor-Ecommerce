@@ -308,6 +308,17 @@ const Cart: React.FC = () => {
   const totalSavings =
     pricingSummary?.totalSavings ?? Math.max(0, totalMrp - (totalSelling - couponDiscount));
 
+  // Derive authoritative free-delivery state:
+  // 1. If pricingSummary.isFreeDelivery is explicitly present (boolean), honour that value.
+  // 2. Otherwise, infer eligibility from the delivery fee only when the fee is known.
+  // 3. If neither is known, eligibility is undefined (checkout-confirmation state).
+  const isFreeDeliveryConfirmed: boolean | undefined =
+    typeof pricingSummary?.isFreeDelivery === "boolean"
+      ? pricingSummary.isFreeDelivery
+      : isDeliveryFeeKnown && typeof deliveryFee === "number"
+      ? deliveryFee === 0
+      : undefined;
+
   const savedCount = (wishlist.items || []).filter(
     (i: any) =>
       i.collection?.name === "Buy Later" ||
@@ -369,13 +380,7 @@ const Cart: React.FC = () => {
           <FreeDeliveryProgressBar
             currentAmount={totalSelling}
             threshold={pricingSummary?.freeDeliveryThreshold ?? 999}
-            isFreeDelivery={
-              pricingSummary?.isFreeDelivery !== undefined
-                ? pricingSummary.isFreeDelivery
-                : isDeliveryFeeKnown
-                ? deliveryFee === 0
-                : undefined
-            }
+            isFreeDelivery={isFreeDeliveryConfirmed}
             deliveryFee={deliveryFee}
           />
         </div>
@@ -543,9 +548,9 @@ const Cart: React.FC = () => {
           <span>
             {couponDiscount > 0
               ? `🎉 Coupon applied: You saved ₹${couponDiscount} extra!`
-              : !isDeliveryFeeKnown
+              : isFreeDeliveryConfirmed === undefined
               ? "Delivery charges will be calculated at checkout"
-              : isDeliveryFeeKnown && (pricingSummary?.isFreeDelivery === true || deliveryFee === 0)
+              : isFreeDeliveryConfirmed === true
               ? "🎉 Free Delivery Unlocked!"
               : totalSelling < (pricingSummary?.freeDeliveryThreshold ?? 999)
               ? `Add ₹${(pricingSummary?.freeDeliveryThreshold ?? 999) - totalSelling} more for FREE delivery`
