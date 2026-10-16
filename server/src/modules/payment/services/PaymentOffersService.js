@@ -9,6 +9,7 @@ class PaymentOffersService {
     const count = await PaymentOffer.countDocuments();
     if (count > 0) return;
 
+    // Default development/demo offers for local test suites only
     const defaultOffers = [
       {
         code: "HDFC_INSTANT_10",
@@ -22,6 +23,8 @@ class PaymentOffersService {
         applicableBanks: ["HDFC"],
         applicableCardNetworks: ["VISA", "MASTERCARD"],
         isActive: true,
+        isDevelopmentOnly: true,
+        isDemo: true,
       },
       {
         code: "ICICI_NETBANK_100",
@@ -34,6 +37,8 @@ class PaymentOffersService {
         applicableRail: "NETBANKING",
         applicableBanks: ["ICICI"],
         isActive: true,
+        isDevelopmentOnly: true,
+        isDemo: true,
       },
       {
         code: "UPI_CASHBACK_50",
@@ -45,6 +50,8 @@ class PaymentOffersService {
         minOrderValue: 499,
         applicableRail: "UPI",
         isActive: true,
+        isDevelopmentOnly: true,
+        isDemo: true,
       },
       {
         code: "RUPAY_FESTIVE_15",
@@ -57,6 +64,8 @@ class PaymentOffersService {
         applicableRail: "CARD",
         applicableCardNetworks: ["RUPAY"],
         isActive: true,
+        isDevelopmentOnly: true,
+        isDemo: true,
       },
     ];
 
@@ -65,16 +74,29 @@ class PaymentOffersService {
 
   /**
    * Get all active offers applicable to a checkout cart total and rail.
+   * Public GET / read operations do not seed or mutate promotional data.
    */
-  async getActiveOffers({ cartTotal = 0, rail = null, bankCode = null, cardNetwork = null }) {
-    await this.seedDefaultOffersIfEmpty();
-
+  async getActiveOffers({
+    cartTotal = 0,
+    rail = null,
+    bankCode = null,
+    cardNetwork = null,
+    includeDemo = false,
+  } = {}) {
     const query = {
       isActive: true,
-      minOrderValue: { $lte: cartTotal },
       startDate: { $lte: new Date() },
       endDate: { $gte: new Date() },
     };
+
+    if (!includeDemo) {
+      query.isDevelopmentOnly = { $ne: true };
+      query.isDemo = { $ne: true };
+    }
+
+    if (cartTotal > 0) {
+      query.minOrderValue = { $lte: cartTotal };
+    }
 
     if (rail && rail !== "ALL") {
       query.$or = [{ applicableRail: "ALL" }, { applicableRail: rail }];
@@ -96,14 +118,27 @@ class PaymentOffersService {
   /**
    * Authoritatively validate and compute offer discount.
    */
-  async evaluateOffer({ offerCode, cartTotal, rail, bankCode, cardNetwork }) {
+  async evaluateOffer({
+    offerCode,
+    cartTotal,
+    rail,
+    bankCode,
+    cardNetwork,
+    allowDemo = false,
+  }) {
     if (!offerCode) return { valid: false, discount: 0, offer: null };
 
-    await this.seedDefaultOffersIfEmpty();
-    const offer = await PaymentOffer.findOne({
+    const offerQuery = {
       code: offerCode.toUpperCase(),
       isActive: true,
-    });
+    };
+
+    if (!allowDemo) {
+      offerQuery.isDevelopmentOnly = { $ne: true };
+      offerQuery.isDemo = { $ne: true };
+    }
+
+    const offer = await PaymentOffer.findOne(offerQuery);
 
     if (!offer) {
       return { valid: false, discount: 0, reason: "Invalid or expired payment offer code" };

@@ -62,8 +62,8 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
     priceIncrease: 0,
     isPriceIncreased: false,
     discountPercent: 0,
-    stockStatus: "IN_STOCK",
-    countInStock: 10,
+    stockStatus: prod.countInStock === 0 || prod.inStock === false ? "OUT_OF_STOCK" : "IN_STOCK",
+    countInStock: typeof prod.countInStock === "number" ? prod.countInStock : undefined,
     isAvailable: true,
     isArchived: false,
   };

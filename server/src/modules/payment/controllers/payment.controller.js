@@ -297,12 +297,73 @@ class PaymentPlatformController {
 
       const offers = await paymentOffersService.getActiveOffers({
         cartTotal: payableAmount,
+        includeDemo: false,
       });
+
+      const safeOffers = (offers || []).map((offer) => ({
+        code: offer.code,
+        title: offer.title,
+        description: offer.description,
+        discountType: offer.discountType,
+        discountValue: offer.discountValue,
+        maxDiscount: offer.maxDiscount ?? null,
+        minOrderValue: offer.minOrderValue ?? 0,
+        applicableRail: offer.applicableRail || "ALL",
+        applicableBanks: offer.applicableBanks || [],
+        applicableCardNetworks: offer.applicableCardNetworks || [],
+      }));
 
       return res.status(200).json({
         success: true,
         eligibility,
-        offers,
+        offers: safeOffers,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/payment/offers
+   * Fetch active authoritative bank & payment offers.
+   * Read-only public endpoint: validates amount and projects safe display fields.
+   */
+  async getActiveOffers(req, res, next) {
+    try {
+      const rawAmount = req.query.amount ?? req.query.total;
+      let amount = 0;
+      if (rawAmount !== undefined && rawAmount !== null && rawAmount !== "") {
+        const parsed = Number(rawAmount);
+        if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10000000) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid amount parameter. Must be a finite, non-negative number.",
+          });
+        }
+        amount = parsed;
+      }
+
+      const offers = await paymentOffersService.getActiveOffers({
+        cartTotal: amount,
+        includeDemo: false,
+      });
+
+      const safeOffers = (offers || []).map((offer) => ({
+        code: offer.code,
+        title: offer.title,
+        description: offer.description,
+        discountType: offer.discountType,
+        discountValue: offer.discountValue,
+        maxDiscount: offer.maxDiscount ?? null,
+        minOrderValue: offer.minOrderValue ?? 0,
+        applicableRail: offer.applicableRail || "ALL",
+        applicableBanks: offer.applicableBanks || [],
+        applicableCardNetworks: offer.applicableCardNetworks || [],
+      }));
+
+      return res.status(200).json({
+        success: true,
+        offers: safeOffers,
       });
     } catch (error) {
       next(error);

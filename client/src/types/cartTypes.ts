@@ -24,6 +24,7 @@ export interface ICartItem {
   stockStatus?: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
   availableStock?: number;
   stockWarning?: string | null;
+  estimatedDeliveryDate?: string | null;
   userId: string;
   ram?: string;
   weight?: string;

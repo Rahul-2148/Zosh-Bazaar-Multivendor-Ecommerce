@@ -129,26 +129,37 @@ class LogisticsHubService {
     if (!zone) {
       const pinStr = pincode ? pincode.toString().trim() : "";
       if (/^[1-9][0-9]{5}$/.test(pinStr)) {
-        const estimatedDelivery = new Date(Date.now() + 72 * 60 * 60 * 1000);
         const postalDetails = await resolveIndianPostalDetails(pinStr);
 
         return {
-          serviceable: true,
-          zone: "National Logistics Network",
-          city: postalDetails.city,
-          locality: postalDetails.locality,
-          state: postalDetails.state,
+          serviceable: false,
+          isConfirmedZone: false,
+          isFallbackEstimate: true,
+          zone: null,
+          city: postalDetails?.city || null,
+          locality: postalDetails?.locality || null,
+          state: postalDetails?.state || null,
           hub: null,
-          deliveryFee: 0,
-          estimatedDelivery,
-          slaHours: 72,
+          deliveryFee: null,
+          estimatedDelivery: null,
+          slaHours: null,
           sameDayAvailable: false,
-          isStandardCourier: true,
-          message: "Delivery available via Standard Express (2-4 business days)",
+          message: "Delivery estimate unavailable / subject to confirmation at checkout.",
         };
       }
       return {
         serviceable: false,
+        isConfirmedZone: false,
+        isFallbackEstimate: false,
+        zone: null,
+        city: null,
+        locality: null,
+        state: null,
+        hub: null,
+        deliveryFee: null,
+        estimatedDelivery: null,
+        slaHours: null,
+        sameDayAvailable: false,
         message: `Pincode ${pincode} is currently outside our direct fulfillment coverage.`,
       };
     }
@@ -161,6 +172,8 @@ class LogisticsHubService {
 
     return {
       serviceable: true,
+      isConfirmedZone: true,
+      isFallbackEstimate: false,
       zone: zone.name,
       city: zone.city,
       hub: zone.hub,

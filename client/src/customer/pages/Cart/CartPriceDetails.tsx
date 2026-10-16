@@ -34,7 +34,7 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
   const couponDisc = pricingSummary?.couponDiscount ?? couponSavings;
   const shipping = pricingSummary?.deliveryFee ?? deliveryFee;
   const payable = pricingSummary?.totalPayable ?? Math.max(0, selling - couponDisc + shipping);
-  const savings = pricingSummary?.totalSavings ?? Math.max(0, mrp - (selling - couponDisc) + (shipping === 0 ? 40 : 0));
+  const savings = pricingSummary?.totalSavings ?? Math.max(0, mrp - (selling - couponDisc));
   const productDiscount = Math.max(0, mrp - selling);
 
   const handleCheckout = () => {
@@ -66,13 +66,12 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
           </span>
         </div>
 
-        {/* Protect Promise Fee */}
+        {/* Buyer Protection */}
         <div className="flex justify-between items-center text-foreground">
           <span className="text-muted-foreground font-medium">
-            Protect Promise Fee
+            Buyer Protection
           </span>
           <div className="flex items-center gap-1.5">
-            <span className="line-through text-xs text-muted-foreground">₹299</span>
             <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs">
               FREE
             </span>
@@ -102,7 +101,6 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
           </span>
           {shipping === 0 ? (
             <div className="flex items-center gap-1.5">
-              <span className="line-through text-xs text-muted-foreground">₹40</span>
               <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs">
                 FREE
               </span>

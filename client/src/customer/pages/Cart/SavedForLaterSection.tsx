@@ -79,7 +79,10 @@ export const SavedForLaterSection: React.FC = () => {
         {savedItems.map((item: any) => {
           const prod = item.product || {};
           const isBusy = loadingId === item._id;
-          const ratingVal = prod.ratings?.average || 4.3;
+          const ratingVal =
+            typeof prod.ratings?.average === "number" && prod.ratings.average > 0
+              ? prod.ratings.average
+              : null;
 
           return (
             <div
@@ -132,10 +135,16 @@ export const SavedForLaterSection: React.FC = () => {
                   </h4>
 
                   {/* Rating */}
-                  <div className="mt-1 inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded shadow-2xs">
-                    <span>{ratingVal.toFixed(1)}</span>
-                    <Star sx={{ fontSize: 10 }} />
-                  </div>
+                  {ratingVal !== null ? (
+                    <div className="mt-1 inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded shadow-2xs">
+                      <span>{ratingVal.toFixed(1)}</span>
+                      <Star sx={{ fontSize: 10 }} />
+                    </div>
+                  ) : (
+                    <span className="mt-1 text-[10px] text-muted-foreground font-medium block">
+                      No reviews yet
+                    </span>
+                  )}
 
                   {/* Price */}
                   <div className="flex items-baseline gap-1.5 mt-1.5">

@@ -336,7 +336,7 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
         image: item.images?.[0] || "",
         sellingPrice: item.sellingPrice,
         mrpPrice: item.mrpPrice || item.sellingPrice,
-        rating: item.ratingAverage || 4.3,
+        rating: typeof item.ratingAverage === "number" && item.ratingAverage > 0 ? item.ratingAverage : null,
         reason: item.explanationReason || item.explanationText || "Frequently bought together",
       }));
     }
@@ -352,7 +352,7 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
           image: p.images?.[0] || "",
           sellingPrice: p.sellingPrice,
           mrpPrice: p.mrpPrice || p.sellingPrice,
-          rating: p.ratings?.average || 4.2,
+          rating: typeof p.ratings?.average === "number" && p.ratings.average > 0 ? p.ratings.average : null,
           reason: "Popular complement to your cart",
         }));
     }
@@ -421,10 +421,14 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
 
                   {/* Rating & Recommendation Reason Pill */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-2xs">
-                      <span>{(prod.rating || 4.3).toFixed(1)}</span>
-                      <Star sx={{ fontSize: 10 }} />
-                    </div>
+                    {typeof prod.rating === "number" && prod.rating > 0 ? (
+                      <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-2xs">
+                        <span>{prod.rating.toFixed(1)}</span>
+                        <Star sx={{ fontSize: 10 }} />
+                      </div>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground font-medium">No reviews</span>
+                    )}
                     <div className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-[9px] sm:text-[10px] font-extrabold border border-teal-200/80 dark:border-teal-900/50 truncate max-w-full">
                       <span className="truncate">{getBadgeText(prod.reason)}</span>
                     </div>
@@ -487,7 +491,8 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
         >
           {recentlyViewed.slice(0, 10).map((item) => {
             const isAdded = addingId === item.productId;
-            const rating = item.rating || 4.1;
+            const hasRating = typeof item.rating === "number" && item.rating > 0;
+            const rating = hasRating ? (item.rating as number) : null;
 
             return (
               <div
@@ -536,10 +541,14 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
                     )}
                   </div>
 
-                  <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">
-                    <span>{rating.toFixed(1)}</span>
-                    <Star sx={{ fontSize: 10 }} />
-                  </div>
+                  {hasRating && rating !== null ? (
+                    <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">
+                      <span>{rating.toFixed(1)}</span>
+                      <Star sx={{ fontSize: 10 }} />
+                    </div>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground font-medium">No reviews yet</span>
+                  )}
 
                   <h4 className="text-xs font-bold text-foreground line-clamp-2 min-h-[32px] sm:min-h-[34px] leading-tight">
                     {item.title}
@@ -624,7 +633,8 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
                 const prod = wItem.product || {};
                 const id = wItem._id;
                 const isAdded = addingId === id;
-                const rating = prod.ratings?.average || 4.3;
+                const hasRating = typeof prod.ratings?.average === "number" && prod.ratings.average > 0;
+                const rating = hasRating ? (prod.ratings.average as number) : null;
 
                 return (
                   <div
@@ -648,10 +658,14 @@ export const CartCrossSellCarousels: React.FC<CartCrossSellCarouselsProps> = ({
                         />
                       </div>
 
-                      <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">
-                        <span>{rating.toFixed(1)}</span>
-                        <Star sx={{ fontSize: 10 }} />
-                      </div>
+                      {hasRating && rating !== null ? (
+                        <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[9px] sm:text-[10px] font-extrabold px-1.5 py-0.5 rounded-md">
+                          <span>{rating.toFixed(1)}</span>
+                          <Star sx={{ fontSize: 10 }} />
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground font-medium">No reviews yet</span>
+                      )}
 
                       <h4 className="text-xs font-bold text-foreground line-clamp-2 min-h-[32px] sm:min-h-[34px] leading-tight">
                         {prod.title}

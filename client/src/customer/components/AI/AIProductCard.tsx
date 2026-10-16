@@ -51,8 +51,9 @@ export const AIProductCard: React.FC<AIProductCardProps> = ({
   const sellingPrice = product.sellingPrice || 0;
   const mrpPrice = product.mrpPrice || sellingPrice;
   const discount = product.discountPercent || (mrpPrice > sellingPrice ? Math.round(((mrpPrice - sellingPrice) / mrpPrice) * 100) : 0);
-  const rating = product.ratingAverage || 4.6;
-  const ratingCount = product.ratingCount || 10;
+  const hasRating = typeof product.ratingAverage === "number" && product.ratingAverage > 0;
+  const rating = hasRating ? (product.ratingAverage as number) : null;
+  const ratingCount = typeof product.ratingCount === "number" ? product.ratingCount : 0;
   const image = Array.isArray(product.images) && product.images.length > 0
     ? product.images[0]
     : "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600";
@@ -146,11 +147,15 @@ export const AIProductCard: React.FC<AIProductCardProps> = ({
             <span className="font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
               {brand}
             </span>
-            <div className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <span>{rating.toFixed(1)}</span>
-              <span className="text-slate-400 text-[9px]">({ratingCount})</span>
-            </div>
+            {hasRating && rating !== null ? (
+              <div className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                <span>{rating.toFixed(1)}</span>
+                {ratingCount > 0 && <span className="text-slate-400 text-[9px]">({ratingCount})</span>}
+              </div>
+            ) : (
+              <span className="text-slate-400 text-[9px] font-medium">No reviews yet</span>
+            )}
           </div>
 
           <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-tight group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">

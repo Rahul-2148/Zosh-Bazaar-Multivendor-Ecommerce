@@ -749,7 +749,11 @@ export class ToolExecutor {
     const orderAmount = Number(args.orderAmount) || 2000;
     const rail = args.rail || null;
     const eligible = paymentEligibilityService.getEligibleMethods({ orderAmount });
-    const offers = await paymentOffersService.getActiveOffers({ cartTotal: orderAmount, rail });
+    const offers = await paymentOffersService.getActiveOffers({
+      cartTotal: orderAmount,
+      rail,
+      includeDemo: false,
+    });
 
     return {
       orderAmount,

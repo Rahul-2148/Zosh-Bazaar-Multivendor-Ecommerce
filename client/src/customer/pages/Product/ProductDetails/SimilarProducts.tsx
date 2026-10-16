@@ -31,11 +31,14 @@ const SimilarProducts: React.FC<SimilarProductsProps> = ({ productId: propProduc
             mrpPrice: item.mrpPrice,
             discountPercent: item.discountPercent,
             images: item.images,
-            ratings: {
-              average: item.ratingAverage || 4.5,
-              count: item.ratingCount || 10,
-            },
-            countInStock: item.inStock ? 10 : 0,
+            ratings:
+              typeof item.ratingAverage === "number" && item.ratingAverage > 0
+                ? { average: item.ratingAverage, count: item.ratingCount || 0 }
+                : null,
+            countInStock:
+              typeof (item as any).countInStock === "number"
+                ? (item as any).countInStock
+                : undefined,
             inStock: item.inStock,
             seller: {
               businessDetails: { businessName: item.sellerName || "Zosh Certified" },

@@ -55,8 +55,15 @@ const Home = () => {
           mrpPrice: item.mrpPrice,
           discountPercent: item.discountPercent,
           images: item.images,
-          ratings: { average: item.ratingAverage || 4.5, count: item.ratingCount || 15 },
-          countInStock: item.inStock ? 10 : 0,
+          ratings:
+            typeof item.ratingAverage === "number" && item.ratingAverage > 0
+              ? { average: item.ratingAverage, count: item.ratingCount || 0 }
+              : null,
+          inStock: item.inStock,
+          countInStock:
+            typeof (item as any).countInStock === "number"
+              ? (item as any).countInStock
+              : undefined,
           category: { categoryId: item.categoryId || "all" },
           recommendationContext: {
             recommendationId: `rec_${item.productId}`,

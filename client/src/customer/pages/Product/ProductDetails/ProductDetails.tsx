@@ -79,39 +79,17 @@ const getColorStyle = (colorName: string): string => {
   return palette[c] || c;
 };
 
-// Available Offers Template
-const AVAILABLE_BANK_OFFERS = [
-  {
-    type: "Bank Offer",
-    text: "5% Unlimited Cashback on Zosh Platinum Axis Bank Credit Card",
-    linkText: "T&C",
-  },
-  {
-    type: "Bank Offer",
-    text: "10% Instant Discount on HDFC Bank Credit Card EMI transactions, up to ₹1,500 on orders of ₹5,000 and above",
-    linkText: "T&C",
-  },
-  {
-    type: "Special Price",
-    text: "Get extra 15% off (price inclusive of cashback / coupon discount)",
-    linkText: "T&C",
-  },
-  {
-    type: "Partner Offer",
-    text: "Sign up for Zosh Pay Later & get ₹500 Welcome Gift Card on next purchase",
-    linkText: "T&C",
-  },
-  {
-    type: "No Cost EMI",
-    text: "Avail No Cost EMI on select credit cards starting from ₹245/month",
-    linkText: "View Plans",
-  },
-  {
-    type: "Combo Offer",
-    text: "Buy 2 items save 5%; Buy 3 or more save 10% across lifestyle store",
-    linkText: "See all",
-  },
-];
+// Verified Bank & Payment Offer Structure
+interface VerifiedOffer {
+  code: string;
+  title: string;
+  description: string;
+  discountType: "PERCENTAGE" | "FLAT";
+  discountValue: number;
+  maxDiscount?: number | null;
+  minOrderValue?: number;
+  applicableRail?: string;
+}
 
 const ProductDetails: React.FC = () => {
   const params = useParams<{ categoryId?: string; name?: string; productId?: string }>();
@@ -171,29 +149,31 @@ const ProductDetails: React.FC = () => {
   const [checkingDelivery, setCheckingDelivery] = useState(false);
   const [deliveryInfo, setDeliveryInfo] = useState<any>(null);
 
-  // Calculate estimated delivery date (2-3 days out)
-  const estimatedDeliveryDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 2);
-    return d.toLocaleDateString("en-IN", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
-  }, []);
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
 
   const handleCheckDelivery = useCallback(async (pincodeToCheck?: string) => {
     const code = (pincodeToCheck || "").trim();
     if (!code || code.length !== 6) return;
     setCheckingDelivery(true);
+    setDeliveryError(null);
     try {
       const res = await Api.get(`/logistics/serviceability?pincode=${code}`);
       setDeliveryInfo(res.data);
-    } catch {
+      if (!res.data?.serviceable && !res.data?.isFallbackEstimate) {
+        setDeliveryError(
+          res.data?.message ||
+            `Pincode ${code} is currently outside our direct fulfillment coverage.`
+        );
+      }
+    } catch (err: any) {
+      const errMsg =
+        err?.response?.data?.message ||
+        "Unable to confirm delivery serviceability. Please try again.";
       setDeliveryInfo({
         serviceable: false,
-        message: "Delivery currently not available for this area",
+        message: errMsg,
       });
+      setDeliveryError(errMsg);
     } finally {
       setCheckingDelivery(false);
     }
@@ -207,17 +187,38 @@ const ProductDetails: React.FC = () => {
     if (!pinToCheck || pinToCheck.length !== 6) return;
 
     let active = true;
+    void Promise.resolve().then(() => {
+      if (active) {
+        setCheckingDelivery(true);
+        setDeliveryError(null);
+      }
+    });
     Api.get(`/logistics/serviceability?pincode=${pinToCheck}`)
       .then((res) => {
-        if (active) setDeliveryInfo(res.data);
-      })
-      .catch(() => {
         if (active) {
+          setDeliveryInfo(res.data);
+          if (!res.data?.serviceable && !res.data?.isFallbackEstimate) {
+            setDeliveryError(
+              res.data?.message ||
+                `Pincode ${pinToCheck} is currently outside our direct fulfillment coverage.`
+            );
+          }
+        }
+      })
+      .catch((err: any) => {
+        if (active) {
+          const errMsg =
+            err?.response?.data?.message ||
+            "Unable to confirm delivery for this area";
           setDeliveryInfo({
             serviceable: false,
-            message: "Delivery currently not available for this area",
+            message: errMsg,
           });
+          setDeliveryError(errMsg);
         }
+      })
+      .finally(() => {
+        if (active) setCheckingDelivery(false);
       });
 
     return () => {
@@ -268,6 +269,58 @@ const ProductDetails: React.FC = () => {
     ? !selectedSellerOffer.inventory.inStock
     : resolution.isOutOfStock;
   const galleryImages = resolution.galleryImages;
+
+  // Verified Bank & Payment Offers state
+  const [bankOffers, setBankOffers] = useState<VerifiedOffer[]>([]);
+  const [loadingOffers, setLoadingOffers] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (displaySellingPrice > 0) {
+      void Promise.resolve().then(() => {
+        if (active) setLoadingOffers(true);
+      });
+      Api.get(`/payment/offers?amount=${displaySellingPrice}`)
+        .then((res) => {
+          if (active && Array.isArray(res.data?.offers)) {
+            setBankOffers(res.data.offers);
+          }
+        })
+        .catch(() => {
+          if (active) setBankOffers([]);
+        })
+        .finally(() => {
+          if (active) setLoadingOffers(false);
+        });
+    } else {
+      void Promise.resolve().then(() => {
+        if (active) setBankOffers([]);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [displaySellingPrice]);
+
+  const deliveryEtaFormatted = useMemo(() => {
+    if (!deliveryInfo?.serviceable || !deliveryInfo.estimatedDelivery) return null;
+    const d = new Date(deliveryInfo.estimatedDelivery);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+    }
+    return null;
+  }, [deliveryInfo]);
+
+  const isFreeDeliveryConfirmed = useMemo(() => {
+    if (!deliveryInfo?.serviceable) return false;
+    if (typeof deliveryInfo.deliveryFee === "number" && deliveryInfo.deliveryFee === 0) return true;
+    if (currentProduct?.shippingDetails?.freeShipping === true) return true;
+    return false;
+  }, [deliveryInfo, currentProduct]);
 
   const handleQuantityChange = (delta: number) => {
     const next = quantity + delta;
@@ -536,44 +589,108 @@ const ProductDetails: React.FC = () => {
               </p>
             </div>
 
-            {/* Available Offers Box */}
+            {/* Bank & Payment Offers Box */}
             <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-foreground">
-                <LocalOfferOutlined className="text-[#388e3c]" sx={{ fontSize: 18 }} />
-                <span>Available Offers</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-foreground">
+                  <LocalOfferOutlined className="text-[#388e3c]" sx={{ fontSize: 18 }} />
+                  <span>Bank & Payment Offers</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground font-medium">Terms apply</span>
               </div>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                Payment offers and instant discounts are applied at checkout depending on final cart total and selected payment rail.
+              </p>
 
-              <div className="space-y-2.5 text-xs">
-                {(showAllOffers ? AVAILABLE_BANK_OFFERS : AVAILABLE_BANK_OFFERS.slice(0, 3)).map(
-                  (offer, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <span className="text-[#388e3c] font-black mt-0.5 text-sm">🏷</span>
-                      <p className="text-foreground/90 leading-snug">
-                        <strong className="text-foreground font-bold">{offer.type}: </strong>
-                        {offer.text}{" "}
-                        <button
-                          type="button"
-                          onClick={() => alert(`Offer Terms & Conditions:\n\n${offer.text}\n• Minimum cart value may apply\n• Valid on online prepaid orders`)}
-                          className="text-primary font-bold hover:underline cursor-pointer ml-1 inline-block"
-                        >
-                          {offer.linkText}
-                        </button>
-                      </p>
-                    </div>
-                  )
-                )}
-              </div>
+              {loadingOffers ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <CircularProgress size={14} color="inherit" />
+                  <span>Checking verified bank & payment offers...</span>
+                </div>
+              ) : bankOffers.length > 0 ? (
+                <>
+                  <div className="space-y-2.5 text-xs">
+                    {(showAllOffers ? bankOffers : bankOffers.slice(0, 3)).map(
+                      (offer, idx) => {
+                        const offerType =
+                          offer.applicableRail === "CARD"
+                            ? "Bank Offer"
+                            : offer.applicableRail === "UPI"
+                            ? "UPI Offer"
+                            : offer.applicableRail === "NETBANKING"
+                            ? "NetBanking Offer"
+                            : "Payment Offer";
 
-              {/* View more offers toggle */}
-              {AVAILABLE_BANK_OFFERS.length > 3 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllOffers(!showAllOffers)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer pt-1"
-                >
-                  <span>{showAllOffers ? "View less offers" : `View ${AVAILABLE_BANK_OFFERS.length - 3} more offers`}</span>
-                  {showAllOffers ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
-                </button>
+                        return (
+                          <div
+                            key={offer.code || idx}
+                            className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-1"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-foreground">
+                                <strong className="text-foreground">{offerType}: </strong>
+                                {offer.title}
+                              </span>
+                              <span className="text-[10px] font-mono font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                                {offer.code}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-snug">
+                              {offer.description}
+                            </p>
+                            <div className="text-[11px] text-muted-foreground/90 flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-0.5 font-medium">
+                              {offer.minOrderValue ? (
+                                <span>Min Order: ₹{offer.minOrderValue}</span>
+                              ) : null}
+                              {offer.maxDiscount ? (
+                                <span>• Max Discount: ₹{offer.maxDiscount}</span>
+                              ) : null}
+                              <span>• Final eligibility confirmed at checkout</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  alert(
+                                    `Offer Terms & Conditions (${offer.code}):\n\n${offer.title}\n${offer.description}\n• Minimum order value: ₹${offer.minOrderValue || 0}\n• Maximum discount: ${offer.maxDiscount ? `₹${offer.maxDiscount}` : "As applicable"}\n• Applicable on: ${offer.applicableRail || "Online payment"}\n• Note: Final eligibility is verified at checkout based on your cart total and selected payment rail.`
+                                  )
+                                }
+                                className="text-primary font-bold hover:underline cursor-pointer ml-auto"
+                              >
+                                T&C
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+
+                  {/* View more offers toggle */}
+                  {bankOffers.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllOffers(!showAllOffers)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer pt-1"
+                    >
+                      <span>
+                        {showAllOffers
+                          ? "View less offers"
+                          : `View ${bankOffers.length - 3} more offers`}
+                      </span>
+                      {showAllOffers ? (
+                        <KeyboardArrowUp fontSize="small" />
+                      ) : (
+                        <KeyboardArrowDown fontSize="small" />
+                      )}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="py-1 text-xs text-muted-foreground font-medium">
+                  <p>
+                    No verified bank offers currently configured. Any eligible payment discounts
+                    will be calculated at checkout.
+                  </p>
+                </div>
               )}
             </div>
 
@@ -584,18 +701,35 @@ const ProductDetails: React.FC = () => {
                   <LocationOnOutlined className="text-primary" sx={{ fontSize: 17 }} />
                   Delivery Options
                 </span>
-                {deliveryInfo?.serviceable && (
+                {deliveryInfo?.serviceable && deliveryInfo?.isConfirmedZone && (
                   <span className="font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full text-[11px]">
                     ✓ Available for Delivery
                   </span>
                 )}
+                {deliveryInfo?.isFallbackEstimate && (
+                  <span className="font-bold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full text-[11px]">
+                    Estimate Subject to Confirmation
+                  </span>
+                )}
+                {deliveryInfo &&
+                  !deliveryInfo.serviceable &&
+                  !deliveryInfo.isFallbackEstimate &&
+                  !checkingDelivery && (
+                    <span className="font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full text-[11px]">
+                      ✕ Currently Unavailable
+                    </span>
+                  )}
               </div>
 
-              {location?.activeLocation?.headerSecondary && location.activeLocation.headerSecondary !== "Select Delivery Location" && (
-                <p className="text-xs text-muted-foreground">
-                  Delivering to: <strong className="text-foreground font-bold">{location.activeLocation.headerSecondary}</strong>
-                </p>
-              )}
+              {location?.activeLocation?.headerSecondary &&
+                location.activeLocation.headerSecondary !== "Select Delivery Location" && (
+                  <p className="text-xs text-muted-foreground">
+                    Delivering to:{" "}
+                    <strong className="text-foreground font-bold">
+                      {location.activeLocation.headerSecondary}
+                    </strong>
+                  </p>
+                )}
 
               {/* Pincode Input Form */}
               <div className="flex gap-2 max-w-sm">
@@ -625,19 +759,77 @@ const ProductDetails: React.FC = () => {
 
               {/* Estimated Delivery Status */}
               <div className="text-xs pt-1 space-y-1">
-                {deliveryInfo?.serviceable ? (
-                  <div className="flex items-center gap-2 text-foreground font-semibold">
+                {checkingDelivery ? (
+                  <div className="flex items-center gap-2 text-muted-foreground font-medium">
+                    <CircularProgress size={14} color="inherit" />
+                    <span>Checking delivery timeline and fees for {pincodeInput}...</span>
+                  </div>
+                ) : deliveryInfo?.serviceable && deliveryInfo?.isConfirmedZone ? (
+                  <div className="flex items-center gap-2 text-foreground font-semibold flex-wrap">
                     <LocalShipping sx={{ fontSize: 16 }} className="text-emerald-500" />
                     <span>
-                      Delivery by <strong className="text-foreground font-black">{estimatedDeliveryDate}</strong> |{" "}
-                      <span className="text-[#388e3c] font-bold">Free</span>{" "}
-                      <span className="line-through text-muted-foreground font-normal">₹40</span>
+                      {deliveryEtaFormatted ? (
+                        <>
+                          Delivery by{" "}
+                          <strong className="text-foreground font-black">
+                            {deliveryEtaFormatted}
+                          </strong>
+                        </>
+                      ) : (
+                        <span>Delivery timeline confirmed at checkout</span>
+                      )}
+                      {" "}|{" "}
+                      {isFreeDeliveryConfirmed ? (
+                        <span className="text-[#388e3c] font-bold">Free Delivery</span>
+                      ) : typeof deliveryInfo.deliveryFee === "number" &&
+                        deliveryInfo.deliveryFee > 0 ? (
+                        <span className="text-foreground font-bold">
+                          Delivery Fee: ₹{deliveryInfo.deliveryFee}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground font-medium">
+                          Delivery fee calculated at checkout
+                        </span>
+                      )}
                     </span>
+                  </div>
+                ) : deliveryInfo?.isFallbackEstimate ? (
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                    <LocalShipping sx={{ fontSize: 17 }} className="text-amber-600 mt-0.5 shrink-0" />
+                    <div className="space-y-0.5 text-foreground/90">
+                      <p className="font-bold text-amber-800 dark:text-amber-300">
+                        Delivery estimate unavailable / subject to confirmation
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {deliveryInfo.city
+                          ? `Identified area: ${deliveryInfo.city}${
+                              deliveryInfo.state ? `, ${deliveryInfo.state}` : ""
+                            }. `
+                          : ""}
+                        No direct carrier hub is configured for this pincode yet. Authoritative
+                        delivery fee and timeline will be confirmed at checkout.
+                      </p>
+                    </div>
+                  </div>
+                ) : deliveryInfo && !deliveryInfo.serviceable ? (
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-destructive/10 text-destructive text-xs font-semibold">
+                    <span>
+                      {deliveryError ||
+                        deliveryInfo.message ||
+                        "Delivery currently not available for this area"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCheckDelivery(pincodeInput)}
+                      className="text-primary font-bold hover:underline cursor-pointer text-[11px] shrink-0"
+                    >
+                      Retry
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-muted-foreground font-medium">
                     <LocalShipping sx={{ fontSize: 16 }} className="text-primary" />
-                    <span>Usually delivered in 2–3 business days</span>
+                    <span>Enter your 6-digit pincode to check delivery timeline and fees</span>
                   </div>
                 )}
 

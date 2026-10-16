@@ -177,18 +177,11 @@ const Cart: React.FC = () => {
         "Zosh Certified Fulfillment";
 
       if (!map.has(sellerId)) {
-        const eta = new Date();
-        eta.setDate(eta.getDate() + 3);
-
         map.set(sellerId, {
           sellerId,
           sellerName,
           fulfillmentType: "Zosh Assured Direct Fulfillment",
-          estimatedDeliveryDate: eta.toLocaleDateString("en-IN", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          }),
+          estimatedDeliveryDate: item.estimatedDeliveryDate || null,
           items: [],
           packageMrpPrice: 0,
           packageSellingPrice: 0,
@@ -388,7 +381,11 @@ const Cart: React.FC = () => {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
                       <LocalShippingOutlined sx={{ fontSize: 14 }} />
-                      <span>Arrives: <strong>{group.estimatedDeliveryDate}</strong></span>
+                      {group.estimatedDeliveryDate ? (
+                        <span>Arrives: <strong>{group.estimatedDeliveryDate}</strong></span>
+                      ) : (
+                        <span>Delivery confirmed at checkout</span>
+                      )}
                     </span>
                     <span className="text-[10px] font-extrabold text-muted-foreground bg-muted px-2 py-0.5 rounded-full border border-border">
                       {group.items.length} {group.items.length === 1 ? "item" : "items"}

@@ -67,6 +67,16 @@ const paymentOfferSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    isDevelopmentOnly: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isDemo: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     usageLimitPerUser: {
       type: Number,
       default: 5,

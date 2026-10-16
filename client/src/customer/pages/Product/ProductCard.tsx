@@ -131,23 +131,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     return palette[c] || c;
   };
 
-  const isOutOfStock = item.countInStock === 0 || item.inStock === false;
-  const isLowStock = !isOutOfStock && item.countInStock > 0 && item.countInStock <= 5;
+  const isOutOfStock =
+    item.countInStock === 0 ||
+    item.inStock === false ||
+    (item.status && item.status !== "ACTIVE");
+  const isLowStock =
+    !isOutOfStock &&
+    typeof item.countInStock === "number" &&
+    item.countInStock > 0 &&
+    item.countInStock <= 5;
 
-  // Normalized rating
-  const ratingAvg =
-    typeof item.ratings?.average === "number"
-      ? item.ratings.average
-      : typeof item.ratingAverage === "number"
-      ? item.ratingAverage
-      : 4.8;
+  // Authentic rating normalization (no fabricated defaults)
+  const hasRating =
+    (typeof item.ratings?.average === "number" && item.ratings.average > 0) ||
+    (typeof item.ratingAverage === "number" && item.ratingAverage > 0);
 
-  const ratingCount =
-    typeof item.ratings?.count === "number"
-      ? item.ratings.count
-      : typeof item.ratingCount === "number"
-      ? item.ratingCount
-      : 48;
+  const ratingAvg = hasRating
+    ? (typeof item.ratings?.average === "number" ? item.ratings.average : item.ratingAverage)
+    : null;
+
+  const ratingCount = hasRating
+    ? (typeof item.ratings?.count === "number"
+        ? item.ratings.count
+        : typeof item.ratingCount === "number"
+        ? item.ratingCount
+        : 0)
+    : 0;
 
   // Images list
   const rawImages = Array.isArray(item.images) ? item.images : [];
@@ -291,13 +300,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {item.brand || item?.seller?.businessDetails?.businessName || "Zosh"}
             </span>
 
-            <div className="flex items-center gap-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded-md font-bold text-[10px] shrink-0">
-              <Star sx={{ fontSize: 10, color: "inherit" }} />
-              <span>{ratingAvg.toFixed(1)}</span>
-              <span className="text-muted-foreground font-normal ml-0.5 text-[9px]">
-                ({ratingCount})
+            {hasRating && ratingAvg !== null ? (
+              <div className="flex items-center gap-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.2 rounded-md font-bold text-[10px] shrink-0">
+                <Star sx={{ fontSize: 10, color: "inherit" }} />
+                <span>{ratingAvg.toFixed(1)}</span>
+                {ratingCount > 0 && (
+                  <span className="text-muted-foreground font-normal ml-0.5 text-[9px]">
+                    ({ratingCount})
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="text-muted-foreground text-[10px] font-medium px-1">
+                No reviews yet
               </span>
-            </div>
+            )}
           </div>
 
           {/* Product Title (2-Line Clamp for baseline alignment) */}
@@ -370,10 +387,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Trust & Stock Micro-Badges */}
           <div className="flex items-center justify-between text-[10px] sm:text-[11px] pt-1 text-muted-foreground border-t border-border/40">
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              Free Delivery
-            </span>
+            {item.shippingDetails?.freeShipping === true ? (
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                Free Delivery
+              </span>
+            ) : (
+              <span className="text-muted-foreground font-medium flex items-center gap-1">
+                Standard Delivery
+              </span>
+            )}
 
             {isOutOfStock ? (
               <span className="text-destructive font-bold text-[9px] sm:text-[10px] bg-destructive/10 px-1.5 py-0.2 rounded">
@@ -382,6 +405,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             ) : isLowStock ? (
               <span className="text-amber-600 dark:text-amber-400 font-bold text-[9px] sm:text-[10px] bg-amber-500/10 px-1.5 py-0.2 rounded">
                 Only {item.countInStock} left
+              </span>
+            ) : item.inStock === false ? (
+              <span className="text-destructive font-bold text-[9px] sm:text-[10px] bg-destructive/10 px-1.5 py-0.2 rounded">
+                Out of Stock
+              </span>
+            ) : item.inStock === undefined && item.countInStock === undefined ? (
+              <span className="text-muted-foreground font-medium text-[9px] sm:text-[10px]">
+                Availability check at checkout
               </span>
             ) : hasVariants ? (
               <span className="text-muted-foreground font-medium text-[9px] sm:text-[10px]">

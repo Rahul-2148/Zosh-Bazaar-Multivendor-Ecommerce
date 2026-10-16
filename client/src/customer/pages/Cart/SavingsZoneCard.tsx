@@ -65,34 +65,7 @@ export const SavingsZoneCard: React.FC = () => {
     dispatch(fetchUserCart(jwt));
   };
 
-  const couponsList = coupon.availableCoupons && coupon.availableCoupons.length > 0
-    ? coupon.availableCoupons
-    : [
-        {
-          _id: "1",
-          code: "WELCOME50",
-          discountPercentage: 10,
-          minimumOrderValue: 499,
-          validityStartDate: "",
-          validityEndDate: "",
-        },
-        {
-          _id: "2",
-          code: "FESTIVE15",
-          discountPercentage: 15,
-          minimumOrderValue: 999,
-          validityStartDate: "",
-          validityEndDate: "",
-        },
-        {
-          _id: "3",
-          code: "ZOSH100",
-          discountPercentage: 20,
-          minimumOrderValue: 1499,
-          validityStartDate: "",
-          validityEndDate: "",
-        },
-      ];
+  const couponsList = Array.isArray(coupon.availableCoupons) ? coupon.availableCoupons : [];
 
   return (
     <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-gradient-to-b from-blue-50/70 via-card to-card p-4 sm:p-5 shadow-xs flex flex-col gap-4">
@@ -165,58 +138,64 @@ export const SavingsZoneCard: React.FC = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {couponsList.map((c) => {
-            const isThisApplied = activeCouponCode === c.code;
+        {couponsList.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {couponsList.map((c) => {
+              const isThisApplied = activeCouponCode === c.code;
 
-            return (
-              <div
-                key={c._id || c.code}
-                className={`p-2.5 rounded-xl border flex flex-col justify-between gap-1.5 transition-all ${
-                  isThisApplied
-                    ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
-                    : "border-border bg-card hover:border-primary/40"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black font-mono tracking-wider text-primary">
-                      {c.code}
-                    </span>
-                    {isThisApplied && (
-                      <span className="text-[10px] font-extrabold text-emerald-600 flex items-center gap-0.5">
-                        <CheckCircle sx={{ fontSize: 12 }} /> Active
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs font-bold text-foreground mt-0.5">
-                    {c.discountPercentage}% OFF
-                  </div>
-                  <p className="text-[10px] text-muted-foreground line-clamp-1">
-                    On orders above ₹{c.minimumOrderValue.toLocaleString("en-IN")}
-                  </p>
-                </div>
-
-                <Button
-                  size="small"
-                  variant={isThisApplied ? "contained" : "outlined"}
-                  color={isThisApplied ? "success" : "primary"}
-                  onClick={() => handleApply(c.code)}
-                  disabled={coupon.loading || isThisApplied}
-                  sx={{
-                    textTransform: "none",
-                    fontSize: "11px",
-                    fontWeight: 800,
-                    py: 0.3,
-                    borderRadius: "0.5rem",
-                  }}
+              return (
+                <div
+                  key={c._id || c.code}
+                  className={`p-2.5 rounded-xl border flex flex-col justify-between gap-1.5 transition-all ${
+                    isThisApplied
+                      ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
                 >
-                  {isThisApplied ? "Applied" : "Apply"}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black font-mono tracking-wider text-primary">
+                        {c.code}
+                      </span>
+                      {isThisApplied && (
+                        <span className="text-[10px] font-extrabold text-emerald-600 flex items-center gap-0.5">
+                          <CheckCircle sx={{ fontSize: 12 }} /> Active
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs font-bold text-foreground mt-0.5">
+                      {c.discountPercentage}% OFF
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">
+                      On orders above ₹{c.minimumOrderValue.toLocaleString("en-IN")}
+                    </p>
+                  </div>
+
+                  <Button
+                    size="small"
+                    variant={isThisApplied ? "contained" : "outlined"}
+                    color={isThisApplied ? "success" : "primary"}
+                    onClick={() => handleApply(c.code)}
+                    disabled={coupon.loading || isThisApplied}
+                    sx={{
+                      textTransform: "none",
+                      fontSize: "11px",
+                      fontWeight: 800,
+                      py: 0.3,
+                      borderRadius: "0.5rem",
+                    }}
+                  >
+                    {isThisApplied ? "Applied" : "Apply"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-3 rounded-xl border border-border/60 bg-muted/20 text-center text-xs text-muted-foreground font-medium">
+            No public promotional coupons currently active. If you have a coupon code, enter it below.
+          </div>
+        )}
       </div>
 
       {/* Manual Input Promo Code Form */}

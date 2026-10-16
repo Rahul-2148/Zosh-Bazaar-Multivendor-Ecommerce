@@ -576,9 +576,9 @@ class AiService {
       images: Array.isArray(product.images)
         ? product.images.map((img) => (typeof img === "string" ? img : img?.url || ""))
         : [],
-      ratingAverage: product.ratings?.average || 4.5,
-      ratingCount: product.ratings?.count || 10,
-      inStock: product.inStock ?? true,
+      ratingAverage: product.ratings?.average != null ? product.ratings.average : null,
+      ratingCount: product.ratings?.count != null ? product.ratings.count : 0,
+      inStock: product.inStock ?? (product.countInStock !== undefined ? product.countInStock > 0 : null),
       sellerName: product.seller?.businessDetails?.businessName || "Zosh Certified Seller",
       score: 0.85,
       explanationReason: reason,

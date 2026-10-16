@@ -40,16 +40,8 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
 
   const prod = item.product || ({} as any);
 
-  // Delivery estimation: 3 business days
-  const deliveryDateStr = React.useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 3);
-    return d.toLocaleDateString("en-IN", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
-  }, []);
+  // Delivery estimation: derived from authoritative item / seller metadata if provided
+  const deliveryDateStr = item.estimatedDeliveryDate || null;
 
   // Variant resolution
   const variantTitle =
@@ -76,8 +68,9 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
       ? Math.round(((unitMrpPrice - unitSellingPrice) / unitMrpPrice) * 100)
       : 0;
 
-  const ratingVal = prod.ratings?.average || 4.4;
-  const ratingCount = prod.ratings?.count || 428;
+  const hasRating = typeof prod.ratings?.average === "number" && prod.ratings.average > 0;
+  const ratingVal = hasRating ? (prod.ratings?.average as number) : null;
+  const ratingCount = typeof prod.ratings?.count === "number" ? prod.ratings.count : 0;
 
   // Stock Intelligence
   const isOutOfStock =
@@ -203,13 +196,23 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
 
           {/* Rating Pill + Zosh Assured Badge + Seller */}
           <div className="flex items-center gap-2 flex-wrap pt-0.5">
-            <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
-              <span>{ratingVal.toFixed(1)}</span>
-              <Star sx={{ fontSize: 11 }} />
-            </div>
-            <span className="text-[11px] text-muted-foreground font-medium">
-              {ratingCount > 1000 ? `${(ratingCount / 1000).toFixed(1)}K+` : ratingCount}
-            </span>
+            {hasRating && ratingVal !== null ? (
+              <>
+                <div className="inline-flex items-center gap-0.5 bg-emerald-600 text-white text-[11px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
+                  <span>{ratingVal.toFixed(1)}</span>
+                  <Star sx={{ fontSize: 11 }} />
+                </div>
+                {ratingCount > 0 && (
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    {ratingCount > 1000 ? `${(ratingCount / 1000).toFixed(1)}K+` : ratingCount}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                No reviews yet
+              </span>
+            )}
 
             {/* Zosh Assured Verification Badge */}
             <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60">
@@ -285,15 +288,11 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
             <div className="mt-2 p-2.5 rounded-xl bg-muted/40 border border-border text-[11px] flex flex-col gap-1.5 animate-fadeIn">
               <div className="flex items-start gap-1.5 text-foreground font-medium">
                 <Tag sx={{ fontSize: 14 }} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Bank Offer:</strong> 5% Unlimited Cashback on Zosh Axis Bank Card.</span>
+                <span><strong>Payment Offers:</strong> Applicable bank discounts and instant promotions are evaluated at checkout.</span>
               </div>
               <div className="flex items-start gap-1.5 text-foreground font-medium">
                 <Tag sx={{ fontSize: 14 }} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Special Price:</strong> Extra marketplace savings already reflected in cart.</span>
-              </div>
-              <div className="flex items-start gap-1.5 text-foreground font-medium">
-                <Tag sx={{ fontSize: 14 }} className="text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Partner Offer:</strong> Sign up for Zosh Pay Later & get free fast delivery.</span>
+                <span><strong>Marketplace Savings:</strong> Direct discounts and coupon savings are reflected in your final order total.</span>
               </div>
             </div>
           )}
@@ -301,8 +300,14 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
           {/* Delivery Row */}
           <div className="flex items-center gap-1.5 text-xs text-foreground font-semibold pt-1">
             <LocalShippingOutlined sx={{ fontSize: 16 }} className="text-muted-foreground" />
-            <span>Delivery by <strong className="text-foreground">{deliveryDateStr}</strong></span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-extrabold ml-1">FREE</span>
+            {deliveryDateStr ? (
+              <span>Delivery by <strong className="text-foreground">{deliveryDateStr}</strong></span>
+            ) : (
+              <span>Standard delivery • Timeline confirmed at checkout</span>
+            )}
+            {item.product?.shippingDetails?.freeShipping && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold ml-1">FREE</span>
+            )}
           </div>
         </div>
       </div>
@@ -317,7 +322,7 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
             Protected with Zosh Trust Shield
           </div>
           <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
-            ₹999 <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold">FREE</strong> • 30 Days Quality & Damage Coverage
+            Included with order • 30 Days Quality & Replacement Coverage
           </p>
         </div>
       </div>

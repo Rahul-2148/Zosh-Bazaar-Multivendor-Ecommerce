@@ -40,6 +40,16 @@ router.get(
 );
 
 /**
+ * 3a. Authoritative Payment Offers API
+ * Publicly query verified bank offers and payment discounts.
+ * GET /api/v1/payment/offers
+ */
+router.get(
+  "/offers",
+  (req, res, next) => paymentPlatformController.getActiveOffers(req, res, next)
+);
+
+/**
  * 3b. Payment Method Availability API (Phase 12)
  * Server-authoritative rail availability, supported providers, apps, and banks.
  * GET /api/v1/payment/methods
