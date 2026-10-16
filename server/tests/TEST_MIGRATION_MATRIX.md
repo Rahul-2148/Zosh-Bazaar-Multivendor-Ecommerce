@@ -37,6 +37,13 @@ Execution command: `npm --prefix server test` (executed in root/server with envi
 | 19 | `phase30FullMarketplaceExperience.test.js` | **68** | Multi-seller buy box, multi-product comparison, price history & alerts, community Q&A moderation, crash-safe guest cart merge with atomic concurrency and frontend retry contract, optimistic concurrency versioning. |
 | **Total** | **19 Suites** | **715** | **Complete Green Baseline (0 Failures)** |
 
+### Baseline Audit & Verification Evidence
+* **Arithmetic Sum of Per-Suite Counts:** Exactly **715** tests (30 + 82 + 36 + 66 + 86 + 48 + 66 + 11 + 27 + 16 + 35 + 19 + 22 + 27 + 21 + 21 + 10 + 24 + 68 = 715).
+* **Confirmed Full-Suite Execution Output:** Conclusively verified in raw runner log (`task-4878.log` from `npm --prefix server test`): exactly **715 passed, 0 failed** across all 19 suites.
+* **Resolution of Prior 709 vs 715 Discrepancy:** The earlier figure of 709 was a legacy total prior to adding 6 tests to Phase 30 (which expanded from 62 to 68 tests for Buy Box dimension matching, CAS retry recovery, and timeout replay). While the per-suite table was updated to 68, the summary text temporarily retained 709. The arithmetic sum and the complete execution evidence both confirm exactly 715 passing assertions.
+* **Database Verification Scope:** Real multi-document MongoDB replica-set transaction integration remains **UNVERIFIED**. Local MongoDB on `127.0.0.1:27017` is a standalone instance (`setName: none`), and connecting to production or shared Atlas is forbidden. Multi-document transactional integrity is verified via service integration mocks and optimistic concurrency; single-document atomic operations align with MongoDB standalone semantics.
+* **Browser E2E Verification Scope:** Browser E2E coverage remains **UNVERIFIED**. Live browser automation was not executed; all flows are verified through service, controller, and integration test suites.
+
 ---
 
 ## 2. Test Classification Taxonomy
