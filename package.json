@@ -43,10 +43,10 @@
     "docs:generate": "npm --prefix server run docs:generate",
     "docs:validate": "npm --prefix server run docs:validate",
     "test:docs": "npm --prefix server run test:docs",
+    "test:marketplace": "npm --prefix server run test:marketplace",
+    "test:payment": "npm --prefix server run test:payment",
+    "test:orders": "npm --prefix server run test:orders",
     "test:email": "npm --prefix server run test:email",
-    "test:media": "npm --prefix server run test:media",
-    "test:hardening": "npm --prefix server run test:hardening",
-    "test:audit": "npm --prefix server run test:audit",
     "test:all": "npm --prefix server run test && npm run test:email"
   }
 }

@@ -3,6 +3,11 @@ import mongoose from "mongoose";
 import ProductService from "../src/modules/customer/services/product.service.js";
 import CartService from "../src/modules/customer/services/cart.service.js";
 import AdminService from "../src/modules/admin/services/admin.service.js";
+import TaxService from "../src/modules/customer/services/tax.service.js";
+import AccountStatus from "../src/domain/AccountStatus.js";
+import uploadController from "../src/modules/customer/controllers/upload.controller.js";
+import { mediaFileFilter } from "../src/middlewares/upload.middleware.js";
+import { resolveMediaHierarchy } from "../src/models/product.model.js";
 import { Product } from "../src/models/product.model.js";
 import { PriceHistory } from "../src/models/priceHistory.model.js";
 import { SavedItem } from "../src/models/savedItem.model.js";
@@ -17,7 +22,7 @@ import { PlatformSettings } from "../src/models/settings.model.js";
 import { CartMergeRecord } from "../src/models/cartMergeRecord.model.js";
 
 console.log("\n================================================================");
-console.log("🧪 ZOSH BAZAAR — PHASE 30 FULL MARKETPLACE EXPERIENCE TEST SUITE");
+console.log("🏪 ZOSH BAZAAR — MARKETPLACE, CATALOG & CART DOMAIN SUITE");
 console.log("================================================================\n");
 
 let passed = 0;
@@ -3243,6 +3248,240 @@ async function main() {
 
       // Assert that DB price remains Worker 1's 1200 and was not overwritten by Worker 2's 1100
       assert.strictEqual(dbDoc.sellingPrice, 1200, "Price must remain 1200; stale update must never overwrite committed price");
+    });
+
+    // ============================================================================
+    // [DOMAIN 6] Public Seller Profile Sanitization & Statutory GST Invoices
+    // ============================================================================
+    console.log("\n▶ [Domain 6] Public Seller Profile Sanitization & Statutory GST Invoices");
+
+    runTest("Public seller DTO strictly excludes private KYC, bank details, and passwords", () => {
+      const sellerId = new mongoose.Types.ObjectId();
+      const rawSellerDoc = {
+        _id: sellerId,
+        sellerName: "Supertron Electronics",
+        email: "partner@supertron.in",
+        mobile: 9876543210,
+        password: "hashed_secret_password_123",
+        GSTIN: "27AABCS1234F1Z8",
+        accountStatus: AccountStatus.ACTIVE,
+        isEmailVerified: true,
+        bankDetails: {
+          accountNumber: "919293949596",
+          accountHolderName: "Supertron India Pvt Ltd",
+          bankName: "HDFC Bank",
+          ifscCode: "HDFC0001234",
+        },
+        businessDetails: {
+          businessName: "Supertron Official Store",
+          businessPan: "AABCS1234F",
+          businessLogo: "https://cdn.zoshbazaar.com/logos/supertron.png",
+        },
+        pickupAddress: {
+          city: "Mumbai",
+          state: "Maharashtra",
+          pincode: 400001,
+        },
+        createdAt: new Date("2023-01-15T10:00:00Z"),
+      };
+
+      const sellerCode = `ZB-SLR-${rawSellerDoc._id.toString().slice(-6).toUpperCase()}`;
+      const rawGstin = rawSellerDoc.GSTIN || "";
+      const maskedGstin = `${rawGstin.slice(0, 2)}••••••••${rawGstin.slice(-3)}`;
+
+      const publicDto = {
+        sellerId: rawSellerDoc._id,
+        sellerCode,
+        businessName: rawSellerDoc.businessDetails.businessName,
+        sellerName: rawSellerDoc.sellerName,
+        businessLogo: rawSellerDoc.businessDetails.businessLogo,
+        isVerified: rawSellerDoc.accountStatus === AccountStatus.ACTIVE && rawSellerDoc.isEmailVerified,
+        rating: null,
+        ratingCount: 0,
+        shipsFrom: {
+          city: rawSellerDoc.pickupAddress.city,
+          state: rawSellerDoc.pickupAddress.state,
+        },
+        maskedGstin,
+        fulfillmentMethod: "Zosh Express Logistics (Direct / Hub)",
+      };
+
+      assert.strictEqual(publicDto.sellerCode, `ZB-SLR-${sellerId.toString().slice(-6).toUpperCase()}`);
+      assert.strictEqual(publicDto.businessName, "Supertron Official Store");
+      assert.strictEqual(publicDto.isVerified, true);
+      assert.strictEqual(publicDto.maskedGstin, "27••••••••1Z8");
+      assert.strictEqual(publicDto.bankDetails, undefined);
+      assert.strictEqual(publicDto.password, undefined);
+      assert.strictEqual(publicDto.businessPan, undefined);
+    });
+
+    runTest("GSTIN validator accepts valid 15-character Indian GSTINs and rejects invalid formats", () => {
+      assert.strictEqual(TaxService.isValidGstin("27AABCS1234F1Z8"), true);
+      assert.strictEqual(TaxService.isValidGstin("29AAACH7409R1ZZ"), true);
+      assert.strictEqual(TaxService.isValidGstin("07AAAAA0000A1Z5"), true);
+      assert.strictEqual(TaxService.isValidGstin(""), false);
+      assert.strictEqual(TaxService.isValidGstin("INVALID_GSTIN"), false);
+      assert.strictEqual(TaxService.isValidGstin("27AABCS1234F1Z"), false);
+    });
+
+    runTest("Seller Tax Regimes (Regular vs Composition vs Unregistered)", () => {
+      const regular = TaxService.determineSellerTaxRegime({ GSTIN: "27AABCS1234F1Z8", businessDetails: { isCompositionScheme: false } });
+      assert.strictEqual(regular.regime, "REGULAR");
+      assert.strictEqual(regular.canCollectTax, true);
+      assert.strictEqual(regular.documentTitle, "TAX INVOICE");
+
+      const composition = TaxService.determineSellerTaxRegime({ GSTIN: "27AABCS1234F1Z8", businessDetails: { isCompositionScheme: true } });
+      assert.strictEqual(composition.regime, "COMPOSITION");
+      assert.strictEqual(composition.canCollectTax, false);
+      assert.strictEqual(composition.documentTitle, "BILL OF SUPPLY");
+
+      const unregistered = TaxService.determineSellerTaxRegime({ GSTIN: "" });
+      assert.strictEqual(unregistered.regime, "UNREGISTERED");
+      assert.strictEqual(unregistered.canCollectTax, false);
+    });
+
+    runTest("Product Valuation Thresholds (Apparel/Footwear thresholds 5% vs 12% vs 18%)", () => {
+      const apparelProduct = { title: "T-Shirt", category: { name: "Men Apparel" } };
+      assert.strictEqual(TaxService.classifyProductTax(apparelProduct, 799).gstRatePercent, 5);
+      assert.strictEqual(TaxService.classifyProductTax(apparelProduct, 1899).gstRatePercent, 12);
+
+      const shoeProduct = { title: "Shoes", category: { name: "Footwear" } };
+      assert.strictEqual(TaxService.classifyProductTax(shoeProduct, 650).gstRatePercent, 5);
+      assert.strictEqual(TaxService.classifyProductTax(shoeProduct, 2499).gstRatePercent, 18);
+    });
+
+    runTest("Place of Supply: Intra-state vs Inter-state and exact paise conservation", () => {
+      const sellerRegime = { canCollectTax: true };
+      const taxClassification = { hsnCode: "851713", gstRatePercent: 18, gstRateFraction: 0.18 };
+
+      const intra = TaxService.computeItemTax({
+        unitSellingPrice: 1180,
+        quantity: 1,
+        discount: 0,
+        taxClassification,
+        sellerRegime,
+        isIntraState: true,
+      });
+      assert.strictEqual(intra.cgstAmount, 90);
+      assert.strictEqual(intra.sgstAmount, 90);
+      assert.strictEqual(intra.igstAmount, 0);
+      assert.strictEqual(intra.taxableAmount + intra.cgstAmount + intra.sgstAmount, 1180);
+
+      const inter = TaxService.computeItemTax({
+        unitSellingPrice: 1180,
+        quantity: 1,
+        discount: 0,
+        taxClassification,
+        sellerRegime,
+        isIntraState: false,
+      });
+      assert.strictEqual(inter.cgstAmount, 0);
+      assert.strictEqual(inter.sgstAmount, 0);
+      assert.strictEqual(inter.igstAmount, 180);
+      assert.strictEqual(inter.taxableAmount + inter.igstAmount, 1180);
+    });
+
+    // ============================================================================
+    // [DOMAIN 7] Cloudinary Media Architecture & Hierarchy Resolution
+    // ============================================================================
+    console.log("\n▶ [Domain 7] Cloudinary Media Architecture & Hierarchy Resolution");
+
+    await runAsyncTest("uploadController rejects unauthenticated callers with 401", async () => {
+      let statusCode = null;
+      let jsonBody = null;
+      const mockRes = {
+        status: (code) => {
+          statusCode = code;
+          return {
+            json: (body) => {
+              jsonBody = body;
+              return body;
+            },
+          };
+        },
+      };
+
+      await uploadController.uploadToCloudinary({ user: null, seller: null, agent: null }, mockRes);
+      assert.strictEqual(statusCode, 401);
+      assert.ok(jsonBody?.error === true && jsonBody?.message?.includes("Authentication required"));
+
+      await uploadController.getUploadSignature({ user: null, seller: null, agent: null }, mockRes);
+      assert.strictEqual(statusCode, 401);
+
+      await uploadController.deleteProductImage({ user: null, seller: null, agent: null }, mockRes);
+      assert.strictEqual(statusCode, 401);
+    });
+
+    runTest("mediaFileFilter accepts whitelisted image/video MIME types and rejects executables", () => {
+      const allowed = [
+        { mimetype: "image/jpeg", originalname: "item.jpg" },
+        { mimetype: "image/png", originalname: "item.png" },
+        { mimetype: "image/webp", originalname: "item.webp" },
+        { mimetype: "video/mp4", originalname: "item.mp4" },
+      ];
+
+      for (const f of allowed) {
+        let accepted = false;
+        mediaFileFilter({}, f, (err, pass) => {
+          accepted = pass === true && !err;
+        });
+        assert.strictEqual(accepted, true, `MIME ${f.mimetype} should be accepted`);
+      }
+
+      const disallowed = [
+        { mimetype: "application/x-msdownload", originalname: "virus.exe" },
+        { mimetype: "application/x-sh", originalname: "hack.sh" },
+        { mimetype: "application/pdf", originalname: "doc.pdf" },
+      ];
+
+      for (const f of disallowed) {
+        let rejected = false;
+        mediaFileFilter({}, f, (err, pass) => {
+          rejected = !pass && err != null;
+        });
+        assert.strictEqual(rejected, true, `MIME ${f.mimetype} should be rejected`);
+      }
+    });
+
+    runTest("resolveMediaHierarchy selects variant exact media -> option group -> product default", () => {
+      const sampleProduct = {
+        title: "Embroidered Kurta",
+        images: ["https://res.cloudinary.com/demo/image/upload/product_default.jpg"],
+        mediaGroups: [
+          {
+            optionKey: "color",
+            optionValue: "Blue",
+            images: ["https://res.cloudinary.com/demo/image/upload/blue_gallery_1.jpg"],
+          },
+        ],
+      };
+
+      const variantExact = {
+        sku: "KURTA-BLU-M",
+        attributes: [{ key: "color", value: "Blue" }, { key: "size", value: "M" }],
+        images: ["https://res.cloudinary.com/demo/image/upload/exact_blue_m.jpg"],
+      };
+
+      const variantFallbackGroup = {
+        sku: "KURTA-BLU-L",
+        attributes: [{ key: "color", value: "Blue" }, { key: "size", value: "L" }],
+        images: [],
+      };
+
+      const variantFallbackDefault = {
+        sku: "KURTA-GRN-S",
+        attributes: [{ key: "color", value: "Green" }, { key: "size", value: "S" }],
+        images: [],
+      };
+
+      const mediaA = resolveMediaHierarchy(sampleProduct, variantExact);
+      assert.ok(mediaA[0].includes("exact_blue_m.jpg"));
+
+      const mediaB = resolveMediaHierarchy(sampleProduct, variantFallbackGroup);
+      assert.ok(mediaB[0].includes("blue_gallery_1.jpg"));
+
+      const mediaC = resolveMediaHierarchy(sampleProduct, variantFallbackDefault);
+      assert.ok(mediaC[0].includes("product_default.jpg"));
     });
 
   } finally {
