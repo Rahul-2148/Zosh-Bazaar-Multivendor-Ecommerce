@@ -369,7 +369,14 @@ const Cart: React.FC = () => {
           <FreeDeliveryProgressBar
             currentAmount={totalSelling}
             threshold={pricingSummary?.freeDeliveryThreshold ?? 999}
-            isFreeDelivery={isDeliveryFeeKnown ? (pricingSummary?.isFreeDelivery ?? deliveryFee === 0) : undefined}
+            isFreeDelivery={
+              pricingSummary?.isFreeDelivery !== undefined
+                ? pricingSummary.isFreeDelivery
+                : isDeliveryFeeKnown
+                ? deliveryFee === 0
+                : undefined
+            }
+            deliveryFee={deliveryFee}
           />
         </div>
 
@@ -542,7 +549,9 @@ const Cart: React.FC = () => {
               ? "🎉 Free Delivery Unlocked!"
               : totalSelling < (pricingSummary?.freeDeliveryThreshold ?? 999)
               ? `Add ₹${(pricingSummary?.freeDeliveryThreshold ?? 999) - totalSelling} more for FREE delivery`
-              : "Delivery charges will be confirmed at checkout"}
+              : typeof deliveryFee === "number" && deliveryFee > 0
+              ? `Standard delivery fee: ₹${deliveryFee}`
+              : "Standard delivery charges apply"}
           </span>
           {totalSavings > 0 && (
             <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">

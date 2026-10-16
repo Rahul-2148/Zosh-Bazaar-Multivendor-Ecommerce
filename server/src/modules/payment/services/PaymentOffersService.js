@@ -14,11 +14,15 @@ export const KNOWN_DEFAULT_DEMO_CODES = [
 class PaymentOffersService {
   /**
    * Explicit development/test-only seeding utility.
-   * Hard production guard prevents synthetic bank/UPI offers in production environments.
+   * Hard environment guard: permits synthetic bank/UPI offer seeding ONLY when NODE_ENV
+   * is explicitly 'development' or 'test'. Rejects unset, staging, production, and all other environments.
    */
   async seedDevelopmentDemoOffers() {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Synthetic payment offer seeding is strictly prohibited in production.");
+    const env = process.env.NODE_ENV;
+    if (env !== "development" && env !== "test") {
+      throw new Error(
+        `Synthetic payment offer seeding is strictly prohibited in environment: '${env || "unset"}'. Only 'development' and 'test' environments are permitted.`
+      );
     }
     const count = await PaymentOffer.countDocuments();
     if (count > 0) return;
@@ -130,9 +134,10 @@ class PaymentOffersService {
     cardNetwork = null,
     includeDemo = false,
   } = {}) {
-    // In production, demo offers are never permitted under any circumstances
-    const safeIncludeDemo =
-      process.env.NODE_ENV === "production" ? false : Boolean(includeDemo);
+    // Demo offers are only permitted if explicitly requested AND running in development or test
+    const env = process.env.NODE_ENV;
+    const isDevOrTest = env === "development" || env === "test";
+    const safeIncludeDemo = isDevOrTest ? Boolean(includeDemo) : false;
 
     const now = new Date();
     const query = {
@@ -192,9 +197,10 @@ class PaymentOffersService {
 
     const normalizedCode = offerCode.trim().toUpperCase();
 
-    // In production, demo offer redemption is strictly forbidden under any circumstances
-    const safeAllowDemo =
-      process.env.NODE_ENV === "production" ? false : Boolean(allowDemo);
+    // Demo offer redemption is only permitted if explicitly requested AND running in development or test
+    const env = process.env.NODE_ENV;
+    const isDevOrTest = env === "development" || env === "test";
+    const safeAllowDemo = isDevOrTest ? Boolean(allowDemo) : false;
 
     // Reject demo codes immediately if demo redemption is not permitted
     if (!safeAllowDemo && KNOWN_DEFAULT_DEMO_CODES.includes(normalizedCode)) {
