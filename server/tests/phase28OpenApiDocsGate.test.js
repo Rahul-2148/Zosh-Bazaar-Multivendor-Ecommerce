@@ -1,9 +1,3 @@
-/**
- * ZOSH BAZAAR — OPENAPI 3.1 & DEVELOPER PORTAL QUALITY GATE
- * Validates spec existence, JSON/YAML parity, unique operationIds, $ref integrity,
- * security schemes, and developer portal documentation router.
- */
-
 import assert from "assert";
 import fs from "fs";
 import path from "path";
@@ -18,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 console.log("\n================================================================");
-console.log("🧪 ZOSH BAZAAR — API DOCUMENTATION & DEVELOPER PORTAL QUALITY GATE");
+console.log("🧪 ZOSH BAZAAR — PHASE 28 OPENAPI 3.1 & DEVELOPER PORTAL QUALITY GATE");
 console.log("================================================================\n");
 
 let passed = 0;
@@ -238,7 +232,7 @@ await runAsyncTest("Express docs router correctly serves OpenAPI JSON, YAML, and
 });
 
 console.log("\n----------------------------------------------------------------");
-console.log(`Docs Quality Gate Finished: ${passed} Passed, ${failed} Failed`);
+console.log(`Phase 28 Quality Gate Finished: ${passed} Passed, ${failed} Failed`);
 console.log("----------------------------------------------------------------\n");
 
 if (failed > 0) {
