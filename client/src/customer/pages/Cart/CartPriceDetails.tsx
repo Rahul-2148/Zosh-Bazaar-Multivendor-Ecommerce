@@ -13,7 +13,7 @@ export interface CartPriceDetailsProps {
   totalMrpPrice?: number;
   totalSellingPrice?: number;
   couponSavings?: number;
-  deliveryFee?: number;
+  deliveryFee?: number | null;
   onProceedToCheckout?: () => void;
 }
 
@@ -23,7 +23,7 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
   totalMrpPrice = 0,
   totalSellingPrice = 0,
   couponSavings = 0,
-  deliveryFee = 0,
+  deliveryFee,
   onProceedToCheckout,
 }) => {
   const navigate = useNavigate();
@@ -32,8 +32,15 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
   const mrp = pricingSummary?.totalMrpPrice ?? totalMrpPrice;
   const selling = pricingSummary?.itemSellingPrice ?? totalSellingPrice;
   const couponDisc = pricingSummary?.couponDiscount ?? couponSavings;
-  const shipping = pricingSummary?.deliveryFee ?? deliveryFee;
-  const payable = pricingSummary?.totalPayable ?? Math.max(0, selling - couponDisc + shipping);
+  const rawShipping =
+    pricingSummary?.deliveryFee !== undefined
+      ? pricingSummary.deliveryFee
+      : deliveryFee;
+  const isShippingKnown = typeof rawShipping === "number";
+  const shipping = isShippingKnown ? rawShipping : null;
+  const payable =
+    pricingSummary?.totalPayable ??
+    Math.max(0, selling - couponDisc + (isShippingKnown && shipping !== null ? shipping : 0));
   const savings = pricingSummary?.totalSavings ?? Math.max(0, mrp - (selling - couponDisc));
   const productDiscount = Math.max(0, mrp - selling);
 
@@ -99,15 +106,21 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
           <span className="text-muted-foreground font-medium">
             Delivery Charges
           </span>
-          {shipping === 0 ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs">
-                FREE
+          {isShippingKnown && shipping !== null ? (
+            shipping === 0 ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-xs">
+                  FREE
+                </span>
+              </div>
+            ) : (
+              <span className="font-semibold text-foreground">
+                ₹{shipping.toLocaleString("en-IN")}
               </span>
-            </div>
+            )
           ) : (
-            <span className="font-semibold text-foreground">
-              ₹{shipping.toLocaleString("en-IN")}
+            <span className="text-xs text-muted-foreground italic font-medium">
+              Confirmed at checkout
             </span>
           )}
         </div>
@@ -116,9 +129,16 @@ export const CartPriceDetails: React.FC<CartPriceDetailsProps> = ({
 
         {/* Total Amount */}
         <div className="flex justify-between items-baseline pt-1">
-          <span className="font-extrabold text-sm sm:text-base text-foreground">
-            Total Amount
-          </span>
+          <div className="flex flex-col">
+            <span className="font-extrabold text-sm sm:text-base text-foreground">
+              Total Amount
+            </span>
+            {!isShippingKnown && (
+              <span className="text-[10px] text-muted-foreground italic font-medium">
+                + Delivery charges confirmed at checkout
+              </span>
+            )}
+          </div>
           <span className="text-lg sm:text-2xl font-black text-foreground tracking-tight">
             ₹{payable.toLocaleString("en-IN")}
           </span>

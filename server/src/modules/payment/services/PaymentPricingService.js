@@ -135,8 +135,8 @@ class PaymentPricingService {
     }
 
     // 3. Delivery & Handling Fees
-    // Free delivery above ₹499
-    const deliveryFee = sellingPriceTotal >= 499 || sellingPriceTotal === 0 ? 0 : 40;
+    // Free delivery threshold defaults to ₹500 across platform pricing engines
+    const deliveryFee = sellingPriceTotal >= 500 || sellingPriceTotal === 0 ? 0 : 40;
     const packagingFee = sellingPriceTotal > 0 ? 9 : 0;
 
     const finalPayable = Math.max(

@@ -52,6 +52,39 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
   const [removing, setRemoving] = useState(false);
 
   const prod = item.product || {};
+
+  // Resolve authentic stock status: distinguish IN_STOCK, OUT_OF_STOCK, LOW_STOCK, and UNKNOWN
+  const resolveStockStatus = (): "IN_STOCK" | "OUT_OF_STOCK" | "LOW_STOCK" | "UNKNOWN" => {
+    if (item.smartState?.stockStatus) {
+      if (item.smartState.stockStatus === "OUT_OF_STOCK" || item.smartState.stockStatus === "UNAVAILABLE") {
+        return "OUT_OF_STOCK";
+      }
+      if (item.smartState.stockStatus === "LOW_STOCK") {
+        return "LOW_STOCK";
+      }
+      if (item.smartState.stockStatus === "IN_STOCK") {
+        return "IN_STOCK";
+      }
+      if (item.smartState.stockStatus === "UNKNOWN") {
+        return "UNKNOWN";
+      }
+    }
+    if (typeof prod.countInStock === "number") {
+      if (prod.countInStock <= 0) return "OUT_OF_STOCK";
+      if (prod.countInStock <= 5) return "LOW_STOCK";
+      return "IN_STOCK";
+    }
+    if (typeof prod.inStock === "boolean") {
+      return prod.inStock ? "IN_STOCK" : "OUT_OF_STOCK";
+    }
+    return "UNKNOWN";
+  };
+
+  const currentStockStatus = resolveStockStatus();
+  const isOutOfStock = currentStockStatus === "OUT_OF_STOCK";
+  const isLowStock = currentStockStatus === "LOW_STOCK";
+  const isStockUnknown = currentStockStatus === "UNKNOWN";
+
   const smartState = item.smartState || {
     currentPrice: item.savedPrice,
     currentMrp: item.savedMrp,
@@ -62,15 +95,13 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
     priceIncrease: 0,
     isPriceIncreased: false,
     discountPercent: 0,
-    stockStatus: prod.countInStock === 0 || prod.inStock === false ? "OUT_OF_STOCK" : "IN_STOCK",
+    stockStatus: currentStockStatus,
     countInStock: typeof prod.countInStock === "number" ? prod.countInStock : undefined,
-    isAvailable: true,
+    isAvailable: !isOutOfStock,
     isArchived: false,
   };
 
   const isArchived = smartState.isArchived || !prod._id;
-  const isOutOfStock = smartState.stockStatus === "OUT_OF_STOCK" || smartState.stockStatus === "UNAVAILABLE";
-  const isLowStock = smartState.stockStatus === "LOW_STOCK";
 
   const productTitle = prod.title || item.snapshot?.title || "Product";
   const productBrand = prod.brand || item.snapshot?.brand || "Brand";
@@ -233,6 +264,10 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
                 <WarningAmber sx={{ fontSize: 10 }} />
                 Only {smartState.countInStock} left
               </span>
+            ) : isStockUnknown ? (
+              <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded" title="Availability verified during checkout">
+                Check Availability
+              </span>
             ) : (
               <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                 In Stock
@@ -311,7 +346,13 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
               ) : (
                 <>
                   <AddShoppingCart sx={{ fontSize: 15 }} />
-                  <span>{isOutOfStock ? "Currently Out of Stock" : "Move to Cart"}</span>
+                  <span>
+                    {isOutOfStock
+                      ? "Currently Out of Stock"
+                      : isStockUnknown
+                      ? "Check & Move to Bag"
+                      : "Move to Cart"}
+                  </span>
                 </>
               )}
             </button>

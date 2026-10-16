@@ -190,7 +190,7 @@ export class ZoshNativeProvider extends BaseAIProvider {
         "1. **Intelligent Discovery**: Tell me your budget, preferred brand, or occasion (in English or Hinglish), and I'll find verified in-stock items.\n" +
         "2. **Side-by-Side Comparisons**: Ask me to compare any products to see spec breakdowns and clear recommendations.\n" +
         "3. **Live Order Tracking**: Get real-time status and delivery dates for your purchases.\n" +
-        "4. **Verified Policy Answers**: Instant guidance on 7-day returns, doorstep pickup, refunds, and payment modes.\n" +
+        "4. **Verified Policy Answers**: Guidance on category-specific returns, order cancellation, and accepted payment modes.\n" +
         "5. **1-Click Cart Management**: Review your cart items and add deals seamlessly.";
 
       suggestedActions = [
@@ -222,7 +222,7 @@ export class ZoshNativeProvider extends BaseAIProvider {
         reply =
           "### Live Order Tracking 📦\n\n" +
           "To check real-time updates on your delivery, please **Log In** to your Zosh Bazaar account so I can look up your orders automatically.\n\n" +
-          "If you have an **Order ID** or **Tracking Number** from your SMS/Email confirmation, reply directly with:  \n" +
+          "If you have an **Order ID** or **Tracking Number** from your order confirmation email or receipt, reply directly with:  \n" +
           "👉 *'Track Order #[Your-Order-ID]'* or *'Track [Tracking Number]'*";
 
         suggestedActions = ["Log In to Account", "Customer Support FAQ", "Shop Today's Deals"];
@@ -254,9 +254,9 @@ export class ZoshNativeProvider extends BaseAIProvider {
           `• **Current Milestone**: **${delivery.status || order.orderStatus}**\n` +
           `• **Items Ordered**:\n${itemsList}\n` +
           `• **Total Paid**: ₹${order.totalAmount?.toLocaleString('en-IN')}\n` +
-          `• **Courier / Carrier**: ${delivery.carrier || 'Zosh Express Delivery'}\n` +
+          `• **Courier / Carrier**: ${delivery.carrier || 'Pending Assignment'}\n` +
           `• **Tracking ID**: \`${delivery.trackingNumber || 'Pending Assignment'}\`\n` +
-          `• **Estimated Arrival**: **${delivery.estimatedDelivery || 'Within 2–3 business days'}**\n\n` +
+          `• **Estimated Arrival**: **${delivery.estimatedDelivery || 'To be confirmed upon dispatch'}**\n\n` +
           "Need to change address, cancel, or speak with support?";
 
         suggestedActions = ["View Order Details", "Return or Exchange", "Help Center"];
@@ -289,32 +289,31 @@ export class ZoshNativeProvider extends BaseAIProvider {
 
       if (intent === 'POLICY_RETURN') {
         reply =
-          "### Zosh Bazaar 7-Day Return & Refund Policy 🔄\n\n" +
-          "• **7-Day Window**: You can request a return or exchange on eligible products within **7 days** of delivery.\n" +
-          "• **Condition**: Products must be unused with original price tags, brand packaging, and invoice intact.\n" +
-          "• **Free Doorstep Pickup**: Once initiated, our logistics partner will pick up the package from your doorstep within **24 to 48 hours**.\n" +
-          "• **Fast Refund**: Refunds are initiated immediately upon pickup verification. UPI and Bank transfers reflect within **2–4 business days**; Wallet refunds are instantaneous.\n\n" +
-          "**How to initiate a return:**\n" +
+          "### Marketplace Return & Refund Guidelines 🔄\n\n" +
+          "• **Category & Seller Eligibility**: Return eligibility and time windows vary by product category and seller terms. Please check the Policy section on the product page or in your order details for item-specific policies.\n" +
+          "• **Condition**: Returned items must be unused, unwashed, and in original packaging with tags and invoices intact.\n" +
+          "• **Pickup & Inspection**: Authorized return pickups are scheduled based on location and courier partner availability following return approval.\n" +
+          "• **Refund Processing**: Once the returned item is inspected and verified, refunds are initiated to the original payment method or wallet per standard banking processing cycles.\n\n" +
+          "**How to request a return or replacement:**\n" +
           "1. Go to **My Account → Orders**\n" +
           "2. Tap **Return / Exchange** next to the delivered item\n" +
-          "3. Select reason and confirm pickup time!";
+          "3. Select the reason and follow the guided instructions.";
         suggestedActions = ["Go to My Orders", "Check Order Status", "Help Center"];
       } else if (intent === 'POLICY_CANCEL') {
         reply =
-          "### 1-Click Order Cancellation Policy ❌\n\n" +
-          "• You can cancel any order **with 1 click** before it is dispatched for delivery.\n" +
-          "• Navigate to **My Account → Orders**, choose the order, and tap **Cancel Order**.\n" +
-          "• If prepaid via UPI/Card, 100% refund is initiated automatically within **24 hours**.\n" +
-          "• If the item has already shipped, you can simply decline delivery at your doorstep for a full refund.";
+          "### Order Cancellation Policy ❌\n\n" +
+          "• Orders can be cancelled through your account before the package has been dispatched by the seller.\n" +
+          "• Navigate to **My Account → Orders**, select the order, and tap **Cancel Order**.\n" +
+          "• For prepaid orders, cancellation initiates an automatic refund to your original payment method.\n" +
+          "• If the order is already in transit, please contact Customer Care or check delivery status for return options upon arrival.";
         suggestedActions = ["Go to My Orders", "Track Order", "Customer Care"];
       } else if (intent === 'POLICY_SHIPPING') {
         reply =
           "### Shipping & Delivery Guidelines 🚚\n\n" +
-          "• **Free Shipping**: Enjoy 100% free delivery on all orders above **₹499**!\n" +
-          "• **Nominal Fee**: Orders under ₹499 carry a flat ₹40 delivery charge.\n" +
-          "• **Delivery Speed**: Major metro cities receive orders within **1–3 business days**. Rest of India within **3–5 business days**.\n" +
-          "• **Live Updates**: You'll receive real-time SMS tracking updates from dispatch to doorstep.";
-        suggestedActions = ["Track My Order", "Shop Free Delivery Deals", "Help Center"];
+          "• **Delivery Charges**: Shipping charges and free-delivery eligibility depend on your total cart value and delivery pincode, and are authoritatively confirmed at checkout.\n" +
+          "• **Delivery Timelines**: Delivery schedules depend on seller dispatch times, courier routes, and destination distance.\n" +
+          "• **Tracking**: You can view real-time delivery milestones and carrier updates under **My Account → Orders**.";
+        suggestedActions = ["Track My Order", "View Cart", "Help Center"];
       } else if (intent === 'POLICY_PAYMENT') {
         reply =
           "### Accepted Payment Methods 💳\n\n" +
@@ -502,7 +501,7 @@ export class ZoshNativeProvider extends BaseAIProvider {
       const bullets = products.map((p, idx) =>
         `${idx + 1}. **${p.title}** (${p.brand})\n` +
         `   • **₹${p.sellingPrice.toLocaleString('en-IN')}** (${p.discountPercent}% OFF MRP ~~₹${p.mrpPrice.toLocaleString('en-IN')}~~)\n` +
-        `   • Rating: **${p.ratings}★** (${p.ratingCount} reviews) • ${p.inStock ? '✅ In Stock' : '⚠️ Limited Stock'}`
+        `   • Rating: **${p.ratings}★** (${p.ratingCount} reviews) • ${p.inStock === true ? '✅ In Stock' : p.inStock === false ? '❌ Out of Stock' : 'ℹ️ Availability checked at checkout'}`
       ).join('\n\n');
 
       reply =
@@ -547,7 +546,12 @@ export class ZoshNativeProvider extends BaseAIProvider {
       ratingCount: p.ratingCount,
       inStock: p.inStock,
       explanationReason: 'grounded_catalog_match',
-      explanationText: 'Verified in-stock catalog match',
+      explanationText:
+        p.inStock === true
+          ? 'Verified in-stock catalog match'
+          : p.inStock === false
+          ? 'Catalog match (currently out of stock)'
+          : 'Catalog match (availability verified at checkout)',
     };
   }
 

@@ -72,11 +72,35 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
   const ratingVal = hasRating ? (prod.ratings?.average as number) : null;
   const ratingCount = typeof prod.ratings?.count === "number" ? prod.ratings.count : 0;
 
-  // Stock Intelligence
-  const isOutOfStock =
+  // Stock Intelligence: Distinguish confirmed in-stock, confirmed out-of-stock, and unknown stock
+  let stockState: "CONFIRMED_IN_STOCK" | "CONFIRMED_OUT_OF_STOCK" | "UNKNOWN" = "UNKNOWN";
+
+  if (
     item.stockStatus === "OUT_OF_STOCK" ||
-    (prod.countInStock !== undefined && prod.countInStock <= 0);
-  const maxStock = item.availableStock ?? prod.countInStock ?? 99;
+    (typeof prod.countInStock === "number" && prod.countInStock <= 0) ||
+    prod.inStock === false
+  ) {
+    stockState = "CONFIRMED_OUT_OF_STOCK";
+  } else if (
+    item.stockStatus === "IN_STOCK" ||
+    (typeof prod.countInStock === "number" && prod.countInStock > 0) ||
+    prod.inStock === true
+  ) {
+    stockState = "CONFIRMED_IN_STOCK";
+  } else {
+    stockState = "UNKNOWN";
+  }
+
+  const isOutOfStock = stockState === "CONFIRMED_OUT_OF_STOCK";
+  const isStockUnknown = stockState === "UNKNOWN";
+
+  // Authoritative available stock if known. NEVER arbitrarily default to 99 when unknown.
+  const knownStockLimit: number | null =
+    typeof item.availableStock === "number"
+      ? item.availableStock
+      : typeof prod.countInStock === "number"
+      ? prod.countInStock
+      : null;
 
   const sellerName =
     prod.seller?.businessDetails?.businessName ||
@@ -132,11 +156,15 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
               </span>
             )}
 
-            {isOutOfStock && (
+            {isOutOfStock ? (
               <span className="absolute inset-x-1 bottom-1 bg-destructive text-destructive-foreground text-[9px] font-black uppercase text-center py-0.5 rounded shadow-xs">
                 Out of Stock
               </span>
-            )}
+            ) : isStockUnknown ? (
+              <span className="absolute inset-x-1 bottom-1 bg-amber-600/90 text-white text-[8px] font-bold uppercase text-center py-0.5 rounded shadow-xs">
+                Check Stock
+              </span>
+            ) : null}
           </div>
 
           {/* Stepper directly beneath image */}
@@ -156,7 +184,7 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
             <IconButton
               size="small"
               onClick={() => onQuantityChange(item._id, item.quantity + 1)}
-              disabled={isOutOfStock || item.quantity >= maxStock}
+              disabled={isOutOfStock || (knownStockLimit !== null && item.quantity >= knownStockLimit)}
               sx={{ p: 0.5, color: "text.primary" }}
               aria-label="Increase quantity"
             >
@@ -229,12 +257,22 @@ export const CartItemCard: React.FC<CartItemCardProps> = ({
             </span>
 
             {/* Live Stock Alert */}
-            {item.stockWarning && !isOutOfStock && (
+            {isOutOfStock ? (
+              <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                <WarningAmberOutlined sx={{ fontSize: 11 }} />
+                Currently Out of Stock
+              </span>
+            ) : isStockUnknown ? (
+              <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Availability verified during checkout">
+                <WarningAmberOutlined sx={{ fontSize: 11 }} />
+                Availability checked at checkout
+              </span>
+            ) : item.stockWarning ? (
               <span className="text-[10px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5">
                 <WarningAmberOutlined sx={{ fontSize: 11 }} />
                 {item.stockWarning}
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* Price Block: Line Price, Unit Breakdown, Discount Arrow, MRP */}

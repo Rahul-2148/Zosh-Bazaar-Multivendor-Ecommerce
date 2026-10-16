@@ -294,9 +294,19 @@ const Cart: React.FC = () => {
   const totalMrp = pricingSummary?.totalMrpPrice ?? cartData.totalMrpPrice ?? 0;
   const totalSelling = pricingSummary?.itemSellingPrice ?? cartData.totalSellingPrice ?? 0;
   const couponDiscount = pricingSummary?.couponDiscount ?? cartData.couponPrice ?? 0;
-  const deliveryFee = pricingSummary?.deliveryFee ?? 0;
-  const totalPayable = pricingSummary?.totalPayable ?? Math.max(0, totalSelling - couponDiscount + deliveryFee);
-  const totalSavings = pricingSummary?.totalSavings ?? Math.max(0, totalMrp - (totalSelling - couponDiscount) + (deliveryFee === 0 ? 40 : 0));
+  const rawDeliveryFee =
+    pricingSummary?.deliveryFee !== undefined
+      ? pricingSummary.deliveryFee
+      : (cartData as any)?.deliveryFee !== undefined
+      ? (cartData as any).deliveryFee
+      : null;
+  const isDeliveryFeeKnown = typeof rawDeliveryFee === "number";
+  const deliveryFee = isDeliveryFeeKnown ? rawDeliveryFee : null;
+  const totalPayable =
+    pricingSummary?.totalPayable ??
+    Math.max(0, totalSelling - couponDiscount + (isDeliveryFeeKnown && deliveryFee !== null ? deliveryFee : 0));
+  const totalSavings =
+    pricingSummary?.totalSavings ?? Math.max(0, totalMrp - (totalSelling - couponDiscount));
 
   const savedCount = (wishlist.items || []).filter(
     (i: any) =>
@@ -522,8 +532,10 @@ const Cart: React.FC = () => {
           <span>
             {couponDiscount > 0
               ? `🎉 Coupon applied: You saved ₹${couponDiscount} extra!`
-              : totalSelling < 500
-              ? `Add ₹${500 - totalSelling} more for FREE delivery`
+              : !isDeliveryFeeKnown
+              ? "Delivery charges will be calculated at checkout"
+              : totalSelling < (pricingSummary?.freeDeliveryThreshold ?? 500)
+              ? `Add ₹${(pricingSummary?.freeDeliveryThreshold ?? 500) - totalSelling} more for FREE delivery`
               : "🎉 Free Express Delivery Unlocked!"}
           </span>
           {totalSavings > 0 && (

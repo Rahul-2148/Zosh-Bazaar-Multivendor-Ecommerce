@@ -108,29 +108,45 @@ export const ContextualPDPAskAI: React.FC<ContextualPDPAskAIProps> = ({
         "Summarize customer reviews",
       ];
 
-  // Grounded local fallback answer generator
+  // Grounded local fallback answer generator based strictly on authentic product data
   const generateLocalAnswer = (prompt: string): string => {
     const pLower = prompt.toLowerCase();
 
     if (pLower.includes("return") || pLower.includes("exchange") || pLower.includes("policy")) {
-      const windowDays = product.returnPolicy?.windowDays || 7;
-      const returnable = product.returnPolicy?.returnable !== false;
-      return returnable
-        ? `✅ **Return & Exchange Policy**:\n• Covered under a **${windowDays}-Day Easy Return / Exchange Guarantee**.\n• Doorstep pickup is completely free.\n• Full refund is credited within 24-48 hours after quality check.`
-        : `⚠️ **Non-Returnable Policy**:\n• This item is non-returnable due to hygiene/customization guidelines.\n• However, it is **100% eligible for free replacement** if delivered damaged or defective.`;
+      if (!product.returnPolicy) {
+        return `ℹ️ **Return Policy**:\n• Return policy information is not configured for this item.\n• Please check the return conditions in the Policy section on this page or contact customer support for clarification.`;
+      }
+      const { returnable, windowDays } = product.returnPolicy;
+      if (returnable === false) {
+        return `⚠️ **Non-Returnable Item**:\n• This item is marked as non-returnable by the seller.\n• If delivered damaged, defective, or incorrect, please raise a replacement request via My Orders within the verification window.`;
+      }
+      const daysText = typeof windowDays === "number" && windowDays > 0 ? `${windowDays}-day` : "eligible";
+      return `✅ **Return & Exchange Policy**:\n• Covered under a **${daysText} return / replacement window** subject to seller conditions.\n• Review the specific return conditions listed in the Policy section of this page.`;
     }
 
     if (pLower.includes("worth") || pLower.includes("price") || pLower.includes("deal")) {
-      const selling = product.sellingPrice || 0;
-      const mrp = product.mrpPrice || (selling ? Math.round(selling * 1.3) : 0);
-      const discount = mrp > selling ? Math.round(((mrp - selling) / mrp) * 100) : 0;
-      const rating = product.ratings?.average ? `${product.ratings.average.toFixed(1)}★` : "4.7★";
-      return `💰 **Value Assessment**:\n• **Price**: ₹${selling.toLocaleString("en-IN")} ${discount > 0 ? `(${discount}% OFF MRP ₹${mrp.toLocaleString("en-IN")})` : ""}\n• **Customer Rating**: ${rating} with positive praise for build and reliability.\n• **Recommendation**: Highly competitive in the ${categoryName || "store"} category.`;
+      const selling = typeof product.sellingPrice === "number" ? product.sellingPrice : null;
+      const mrp = typeof product.mrpPrice === "number" ? product.mrpPrice : null;
+      const discount = mrp && selling && mrp > selling ? Math.round(((mrp - selling) / mrp) * 100) : 0;
+      const hasRating = typeof product.ratings?.average === "number" && product.ratings.average > 0;
+      const ratingText = hasRating ? `${product.ratings!.average.toFixed(1)}★` : "Not yet rated";
+
+      let priceInfo = "";
+      if (selling !== null) {
+        priceInfo = `• **Selling Price**: ₹${selling.toLocaleString("en-IN")}${discount > 0 && mrp ? ` (${discount}% off MRP ₹${mrp.toLocaleString("en-IN")})` : ""}\n`;
+      } else {
+        priceInfo = `• **Price**: Please refer to the current listing price above.\n`;
+      }
+
+      return `💰 **Price & Rating Information**:\n${priceInfo}• **Rating**: ${ratingText}\n• Review product specifications and verified customer ratings on this page to assess value.`;
     }
 
     if (pLower.includes("warranty") || pLower.includes("guarantee")) {
-      const wSummary = product.warranty?.summary || "1 Year Manufacturer Warranty Pan-India";
-      return `🛡️ **Warranty Details**:\n• **Coverage**: ${wSummary}.\n• Covers all technical and manufacturing defects.\n• Service available through authorized brand centers nationwide.`;
+      const wSummary = product.warranty?.summary;
+      if (wSummary && typeof wSummary === "string" && wSummary.trim().length > 0) {
+        return `🛡️ **Warranty Details**:\n• **Coverage**: ${wSummary.trim()}.\n• Please refer to the warranty card or packaging included with the product for claim procedures.`;
+      }
+      return `🛡️ **Warranty Details**:\n• Specific warranty terms are not provided by the seller for this listing.\n• Please review the seller details or product description for available warranty information.`;
     }
 
     if (
@@ -139,22 +155,33 @@ export const ContextualPDPAskAI: React.FC<ContextualPDPAskAIProps> = ({
       pLower.includes("fabric") ||
       pLower.includes("gaming")
     ) {
-      const specsList =
-        product.specifications && product.specifications.length > 0
-          ? product.specifications.slice(0, 4).map((s) => `• **${s.name || s.key}**: ${s.value}`).join("\n")
-          : product.highlights && product.highlights.length > 0
-          ? product.highlights.slice(0, 3).map((h) => `• ${h}`).join("\n")
-          : `• Genuine marketplace verified item with standard specifications.`;
-      return `✨ **Key Specifications & Features**:\n${specsList}\n\n*Quality inspected and certified for daily performance.*`;
+      if (product.specifications && product.specifications.length > 0) {
+        const specsList = product.specifications
+          .slice(0, 5)
+          .map((s) => `• **${s.name || s.key}**: ${s.value}`)
+          .join("\n");
+        return `✨ **Key Specifications**:\n${specsList}\n\n*Refer to the full specifications section below for complete details.*`;
+      }
+      if (product.highlights && product.highlights.length > 0) {
+        const highlightsList = product.highlights
+          .slice(0, 4)
+          .map((h) => `• ${h}`)
+          .join("\n");
+        return `✨ **Product Highlights**:\n${highlightsList}\n\n*Refer to the product description for full details.*`;
+      }
+      return `✨ **Product Details**:\n• Detailed specifications are not specified for this item.\n• Please refer to the product description above for details.`;
     }
 
     if (pLower.includes("review")) {
-      const avg = product.ratings?.average ? product.ratings.average.toFixed(1) : "4.6";
-      const cnt = product.ratings?.count || 64;
-      return `⭐ **Customer Sentiment Summary**:\n• **Overall Score**: ${avg} / 5 (${cnt} verified reviews).\n• Buyers praise the value for money and packaging.\n• 94% of buyers recommend this product.`;
+      const count = typeof product.ratings?.count === "number" ? product.ratings.count : 0;
+      const avg = typeof product.ratings?.average === "number" ? product.ratings.average : null;
+      if (count > 0 && avg !== null) {
+        return `⭐ **Customer Reviews Summary**:\n• **Average Rating**: ${avg.toFixed(1)} / 5 based on ${count} customer rating${count === 1 ? "" : "s"}.\n• Read individual verified customer reviews in the Ratings & Reviews section below.`;
+      }
+      return `⭐ **Customer Reviews Summary**:\n• No customer ratings or reviews have been submitted for this product yet.`;
     }
 
-    return `Zosh Assured AI: **${product.title}** is genuine and backed by verified seller standards. Fast dispatch and free delivery are available.`;
+    return `Zosh Assistant: Product information for **${product.title || "this item"}** is sourced from the seller catalog listing. Delivery fees and shipping timelines are calculated based on your delivery pincode at checkout.`;
   };
 
   // Ask question and keep conversation in-page

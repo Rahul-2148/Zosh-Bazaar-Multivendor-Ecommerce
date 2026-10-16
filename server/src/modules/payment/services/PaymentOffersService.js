@@ -1,5 +1,12 @@
 import { PaymentOffer } from "../models/paymentOffer.model.js";
 
+export const KNOWN_DEFAULT_DEMO_CODES = [
+  "HDFC_INSTANT_10",
+  "ICICI_NETBANK_100",
+  "UPI_CASHBACK_50",
+  "RUPAY_FESTIVE_15",
+];
+
 /**
  * Payment Offers & Instant Discount Engine
  * Evaluates payment-method specific promotions, bank discounts, and cashback rules.
@@ -73,8 +80,33 @@ class PaymentOffersService {
   }
 
   /**
+   * Safe migration helper for tagging existing legacy unflagged demo offers.
+   * Can be executed via an admin/migration script; never called automatically on read paths.
+   */
+  async tagLegacyDemoOffers() {
+    return await PaymentOffer.updateMany(
+      {
+        code: { $in: KNOWN_DEFAULT_DEMO_CODES },
+        $or: [
+          { isDevelopmentOnly: { $exists: false } },
+          { isDemo: { $exists: false } },
+          { isDevelopmentOnly: false },
+          { isDemo: false },
+        ],
+      },
+      {
+        $set: {
+          isDevelopmentOnly: true,
+          isDemo: true,
+        },
+      }
+    );
+  }
+
+  /**
    * Get all active offers applicable to a checkout cart total and rail.
    * Public GET / read operations do not seed or mutate promotional data.
+   * Excludes known demo offers even if legacy documents lack isDevelopmentOnly/isDemo.
    */
   async getActiveOffers({
     cartTotal = 0,
@@ -83,13 +115,16 @@ class PaymentOffersService {
     cardNetwork = null,
     includeDemo = false,
   } = {}) {
+    const now = new Date();
     const query = {
       isActive: true,
-      startDate: { $lte: new Date() },
-      endDate: { $gte: new Date() },
+      startDate: { $lte: now },
+      endDate: { $gte: now },
     };
 
     if (!includeDemo) {
+      // Explicitly exclude known default demo codes to protect legacy documents missing flags
+      query.code = { $nin: KNOWN_DEFAULT_DEMO_CODES };
       query.isDevelopmentOnly = { $ne: true };
       query.isDemo = { $ne: true };
     }
@@ -105,6 +140,10 @@ class PaymentOffersService {
     const offers = await PaymentOffer.find(query).lean();
 
     return offers.filter((offer) => {
+      if (!includeDemo) {
+        if (KNOWN_DEFAULT_DEMO_CODES.includes(offer.code)) return false;
+        if (offer.isDevelopmentOnly === true || offer.isDemo === true) return false;
+      }
       if (bankCode && offer.applicableBanks?.length > 0) {
         if (!offer.applicableBanks.includes(bankCode.toUpperCase())) return false;
       }
@@ -117,6 +156,8 @@ class PaymentOffersService {
 
   /**
    * Authoritatively validate and compute offer discount.
+   * Enforces isActive, date validity (startDate <= now <= endDate), minOrderValue,
+   * payment rail, bank, card network, and demo protection.
    */
   async evaluateOffer({
     offerCode,
@@ -126,22 +167,33 @@ class PaymentOffersService {
     cardNetwork,
     allowDemo = false,
   }) {
-    if (!offerCode) return { valid: false, discount: 0, offer: null };
-
-    const offerQuery = {
-      code: offerCode.toUpperCase(),
-      isActive: true,
-    };
-
-    if (!allowDemo) {
-      offerQuery.isDevelopmentOnly = { $ne: true };
-      offerQuery.isDemo = { $ne: true };
+    if (!offerCode || typeof offerCode !== "string") {
+      return { valid: false, discount: 0, reason: "Payment offer code is required" };
     }
 
-    const offer = await PaymentOffer.findOne(offerQuery);
+    const normalizedCode = offerCode.trim().toUpperCase();
 
-    if (!offer) {
-      return { valid: false, discount: 0, reason: "Invalid or expired payment offer code" };
+    // Reject demo codes immediately if demo redemption is not permitted
+    if (!allowDemo && KNOWN_DEFAULT_DEMO_CODES.includes(normalizedCode)) {
+      return { valid: false, discount: 0, reason: "Demo payment offer cannot be redeemed" };
+    }
+
+    const offer = await PaymentOffer.findOne({ code: normalizedCode });
+
+    if (!offer || !offer.isActive) {
+      return { valid: false, discount: 0, reason: "Invalid or inactive payment offer code" };
+    }
+
+    if (!allowDemo && (offer.isDevelopmentOnly === true || offer.isDemo === true || KNOWN_DEFAULT_DEMO_CODES.includes(offer.code))) {
+      return { valid: false, discount: 0, reason: "Demo payment offer cannot be redeemed" };
+    }
+
+    const now = new Date();
+    if (offer.startDate && new Date(offer.startDate) > now) {
+      return { valid: false, discount: 0, reason: "Payment offer has not started yet" };
+    }
+    if (offer.endDate && new Date(offer.endDate) < now) {
+      return { valid: false, discount: 0, reason: "Payment offer has expired" };
     }
 
     if (cartTotal < offer.minOrderValue) {
