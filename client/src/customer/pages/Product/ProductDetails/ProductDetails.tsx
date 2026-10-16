@@ -149,9 +149,11 @@ const ProductDetails: React.FC = () => {
   const [selectedSellerOffer, setSelectedSellerOffer] = useState<SellerOfferItem | null>(null);
 
   // Reset selected seller offer when route product changes
-  useEffect(() => {
+  const [prevProductId, setPrevProductId] = useState(productId);
+  if (productId !== prevProductId) {
+    setPrevProductId(productId);
     setSelectedSellerOffer(null);
-  }, [productId]);
+  }
 
   // Delivery Serviceability State
   const activePin = location?.activeLocation?.pincode;

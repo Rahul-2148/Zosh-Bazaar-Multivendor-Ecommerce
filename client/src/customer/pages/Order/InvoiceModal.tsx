@@ -101,13 +101,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ open, onClose, order
   const orderId = order?._id;
 
   useEffect(() => {
-    let isMounted = true;
     if (!open || !orderId) {
-      setInvoice(null);
-      setError(null);
       return;
     }
 
+    let isMounted = true;
     const fetchInvoice = async () => {
       setLoading(true);
       setError(null);

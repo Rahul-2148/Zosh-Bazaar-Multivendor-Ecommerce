@@ -2,14 +2,10 @@ import React, { useState, useEffect } from "react";
 import {
   CompareArrowsOutlined,
   CheckCircle,
-  LocalShippingOutlined,
-  AssignmentReturnOutlined,
-  ShieldOutlined,
-  Star,
   AddShoppingCartOutlined,
 } from "@mui/icons-material";
-import { Button, Chip, Skeleton } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Button, Chip } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import { Api } from "../../../../config/Api";
 import { useAppDispatch } from "../../../../Redux Toolkit/Store";
 import { addItemToCart } from "../../../../Redux Toolkit/features/customer/CartSlice";
@@ -24,6 +20,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
   similarProductIds = [],
 }) => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const [comparisonData, setComparisonData] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [addedItemMap, setAddedItemMap] = useState<Record<string, boolean>>({});
@@ -71,7 +68,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
   const handleAddToCart = async (prod: any) => {
     const jwt = localStorage.getItem("jwt");
     if (!jwt) {
-      window.location.href = "/login";
+      navigate("/login");
       return;
     }
 

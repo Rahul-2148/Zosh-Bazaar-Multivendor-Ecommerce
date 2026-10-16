@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   X,
   Store,
@@ -66,75 +66,67 @@ export const SellerDetailsModal: React.FC<SellerDetailsModalProps> = ({
   onNavigateToStorefront,
 }) => {
   const [profile, setProfile] = useState<SellerPublicProfile | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const resolvedId = sellerId || initialSeller?._id;
 
-  const fetchProfile = useCallback(async () => {
-    if (!resolvedId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await Api.get(`/sellers/${resolvedId}/public-profile`);
-      if (response.data?.seller) {
-        setProfile(response.data.seller);
-      } else {
-        throw new Error("No seller profile returned");
-      }
-    } catch (err: any) {
-      console.warn("[SellerDetailsModal] Error fetching public seller profile:", err?.message);
-      // Fallback to initialSeller if available
-      if (initialSeller) {
-        setProfile({
-          sellerId: initialSeller._id || resolvedId,
-          sellerCode: `ZB-SLR-${(initialSeller._id || resolvedId).slice(-6).toUpperCase()}`,
-          businessName:
-            initialSeller.businessDetails?.businessName ||
-            initialSeller.sellerName ||
-            "Zosh Marketplace Merchant",
-          sellerName: initialSeller.sellerName,
-          businessLogo: initialSeller.businessDetails?.businessLogo || null,
-          banner: null,
-          isVerified: initialSeller.accountStatus === "ACTIVE",
-          accountStatus: initialSeller.accountStatus || "ACTIVE",
-          rating: null,
-          ratingCount: 0,
-          activeProductsCount: 1,
-          shipsFrom: { city: "Regional Logistics Hub", state: "India" },
-          fulfillmentMethod: "Zosh Express Logistics (Direct / Hub)",
-          returnPolicy: "7 Days Replacement & Return Policy backed by Zosh Bazaar",
-          maskedGstin: null,
-          joinedDate: initialSeller.createdAt ? String(initialSeller.createdAt) : undefined,
-          tenureMonths: 6,
-        });
-      } else {
-        setError("Unable to load seller details at this moment.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [resolvedId, initialSeller]);
-
   useEffect(() => {
-    let isMounted = true;
-    if (!isOpen) {
+    if (!isOpen || !resolvedId) {
       document.body.style.overflow = "";
-      setProfile(null);
-      setError(null);
       return;
     }
 
+    let isMounted = true;
     document.body.style.overflow = "hidden";
-    if (resolvedId && isMounted) {
-      fetchProfile();
-    }
+
+    Api.get(`/sellers/${resolvedId}/public-profile`)
+      .then((response) => {
+        if (!isMounted) return;
+        if (response.data?.seller) {
+          setProfile(response.data.seller);
+        } else {
+          throw new Error("No seller profile returned");
+        }
+        setLoading(false);
+      })
+      .catch((err: any) => {
+        if (!isMounted) return;
+        console.warn("[SellerDetailsModal] Error fetching public seller profile:", err?.message);
+        if (initialSeller) {
+          setProfile({
+            sellerId: initialSeller._id || resolvedId,
+            sellerCode: `ZB-SLR-${(initialSeller._id || resolvedId).slice(-6).toUpperCase()}`,
+            businessName:
+              initialSeller.businessDetails?.businessName ||
+              initialSeller.sellerName ||
+              "Zosh Marketplace Merchant",
+            sellerName: initialSeller.sellerName,
+            businessLogo: initialSeller.businessDetails?.businessLogo || null,
+            banner: null,
+            isVerified: initialSeller.accountStatus === "ACTIVE",
+            accountStatus: initialSeller.accountStatus || "ACTIVE",
+            rating: null,
+            ratingCount: 0,
+            activeProductsCount: 1,
+            shipsFrom: { city: "Regional Logistics Hub", state: "India" },
+            fulfillmentMethod: "Zosh Express Logistics (Direct / Hub)",
+            returnPolicy: "7 Days Replacement & Return Policy backed by Zosh Bazaar",
+            maskedGstin: null,
+            joinedDate: initialSeller.createdAt ? String(initialSeller.createdAt) : undefined,
+            tenureMonths: 6,
+          });
+        } else {
+          setError("Unable to load seller details at this moment.");
+        }
+        setLoading(false);
+      });
 
     return () => {
       document.body.style.overflow = "";
       isMounted = false;
     };
-  }, [isOpen, resolvedId, fetchProfile]);
+  }, [isOpen, resolvedId, initialSeller]);
 
   // Handle escape key
   useEffect(() => {

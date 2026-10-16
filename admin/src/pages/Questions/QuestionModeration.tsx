@@ -19,7 +19,6 @@ import {
 import {
   CheckCircleOutline,
   HighlightOffOutlined,
-  HelpOutline,
   PersonOutline,
   ShoppingBagOutlined,
 } from "@mui/icons-material";
@@ -42,9 +41,8 @@ export const QuestionModeration: React.FC = () => {
   const [approveTarget, setApproveTarget] = useState<QuestionItem | null>(null);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
 
-  const loadQuestions = useCallback((pageNum: number, status: string) => {
+  const fetchQuestions = useCallback((pageNum: number, status: string) => {
     let ignore = false;
-    setLoading(true);
     adminApi
       .getQuestionModerationQueue(pageNum, status)
       .then((data) => {
@@ -65,8 +63,13 @@ export const QuestionModeration: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    return loadQuestions(page, statusFilter);
-  }, [page, statusFilter, loadQuestions]);
+    return fetchQuestions(page, statusFilter);
+  }, [page, statusFilter, fetchQuestions]);
+
+  const reloadData = () => {
+    setLoading(true);
+    fetchQuestions(page, statusFilter);
+  };
 
   const handleConfirmApprove = async () => {
     if (!approveTarget) return;
@@ -75,7 +78,7 @@ export const QuestionModeration: React.FC = () => {
       await adminApi.moderateQuestion(approveTarget._id, "APPROVE");
       setApproveModalOpen(false);
       setApproveTarget(null);
-      loadQuestions(page, statusFilter);
+      reloadData();
     } catch (err: any) {
       alert(err.response?.data?.message || err.message || "Failed to approve question");
     } finally {
@@ -95,7 +98,7 @@ export const QuestionModeration: React.FC = () => {
       setRejectModalOpen(false);
       setRejectTarget(null);
       setRejectionReason("");
-      loadQuestions(page, statusFilter);
+      reloadData();
     } catch (err: any) {
       alert(err.response?.data?.message || err.message || "Failed to reject question");
     } finally {

@@ -33,42 +33,40 @@ const Cart: React.FC = () => {
 
   // Dual Tab State: "bazaar" vs "saved"
   const [activeTab, setActiveTab] = useState<"bazaar" | "saved">("bazaar");
-  const [mergeWarnings, setMergeWarnings] = useState<any[]>([]);
-  const [isRetryingMerge, setIsRetryingMerge] = useState(false);
-
-  useEffect(() => {
+  const [mergeWarnings, setMergeWarnings] = useState<any[]>(() => {
     try {
       const stored = sessionStorage.getItem("zosh_cart_merge_warnings");
       const guestRaw = localStorage.getItem("zosh_guest_cart");
+      const activeJwt = localStorage.getItem("jwt");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMergeWarnings(
-            parsed.map((item: any) => ({
-              type: "GUEST_MERGE_FAILED",
-              isMergeWarning: true,
-              canRetry: true,
-              message: `Guest item "${item.title || item.item?.title || "Product"}" could not be merged: ${item.reason}`,
-            }))
-          );
+          return parsed.map((item: any) => ({
+            type: "GUEST_MERGE_FAILED",
+            isMergeWarning: true,
+            canRetry: true,
+            message: `Guest item "${item.title || item.item?.title || "Product"}" could not be merged: ${item.reason}`,
+          }));
         }
-      } else if (guestRaw && jwt) {
+      } else if (guestRaw && activeJwt) {
         const guestItems = JSON.parse(guestRaw);
         if (Array.isArray(guestItems) && guestItems.length > 0) {
-          setMergeWarnings([
+          return [
             {
               type: "GUEST_MERGE_FAILED",
               isMergeWarning: true,
               canRetry: true,
               message: `${guestItems.length} unmerged item${guestItems.length > 1 ? "s" : ""} from your guest session waiting to be added.`,
             },
-          ]);
+          ];
         }
       }
     } catch {
       // ignore
     }
-  }, [jwt]);
+    return [];
+  });
+  const [isRetryingMerge, setIsRetryingMerge] = useState(false);
 
   const handleRetryMerge = async () => {
     if (!jwt || isRetryingMerge) return;

@@ -8,7 +8,7 @@ import {
   SwapHorizOutlined,
   ShieldOutlined,
 } from "@mui/icons-material";
-import { Button, Chip, CircularProgress } from "@mui/material";
+import { Button, Chip } from "@mui/material";
 import { Api } from "../../../../config/Api";
 
 export interface SellerOfferItem {
@@ -67,14 +67,13 @@ interface SellerOffersSectionProps {
 
 export const SellerOffersSection: React.FC<SellerOffersSectionProps> = ({
   productId,
-  currentSellerId,
+  currentSellerId: _currentSellerId,
   currentPrice,
   onSelectOffer,
   selectedOfferProductId,
 }) => {
   const [offers, setOffers] = useState<SellerOfferItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,7 +81,6 @@ export const SellerOffersSection: React.FC<SellerOffersSectionProps> = ({
 
     const fetchOffers = async () => {
       setLoading(true);
-      setError(null);
       try {
         const res = await Api.get(`/products/${productId}/seller-offers`);
         if (isMounted) {
