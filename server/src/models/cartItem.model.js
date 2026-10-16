@@ -69,11 +69,12 @@ const cartItemSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    optimisticConcurrency: true,
   }
 );
 
-// Fast cart item lookups
-cartItemSchema.index({ cart: 1, product: 1, variantId: 1 });
+// Unique cart line item per product variant to guarantee no duplicate cart rows
+cartItemSchema.index({ cart: 1, product: 1, variantId: 1 }, { unique: true });
 cartItemSchema.index({ userId: 1 });
 cartItemSchema.index({ cart: 1, appliedGuestItemIds: 1 });
 cartItemSchema.index({ cart: 1, "appliedGuestItems.signature": 1, "appliedGuestItems.clientItemId": 1 });

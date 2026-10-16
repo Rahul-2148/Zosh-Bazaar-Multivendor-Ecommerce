@@ -248,11 +248,23 @@ export const retryFailedGuestCart = createAsyncThunk<
       if (remainingGuestItems.length === 0) {
         localStorage.removeItem("zosh_guest_cart");
         sessionStorage.removeItem("zosh_cart_merge_warnings");
+        sessionStorage.removeItem("zosh_cart_merge_idempotency_key");
+        sessionStorage.removeItem("zosh_cart_merge_attempt");
       } else {
         localStorage.setItem("zosh_guest_cart", JSON.stringify(remainingGuestItems));
         if (failedList.length > 0) {
           sessionStorage.setItem("zosh_cart_merge_warnings", JSON.stringify(failedList));
+        } else {
+          sessionStorage.removeItem("zosh_cart_merge_warnings");
         }
+        // Advance per-payload idempotency key only after confirmed response
+        const nextAttempt = attempt + 1;
+        sessionStorage.setItem("zosh_cart_merge_attempt", String(nextAttempt));
+        const baseKey = (storedKey || `merge_${Date.now()}`).split("_rem_")[0];
+        sessionStorage.setItem(
+          "zosh_cart_merge_idempotency_key",
+          `${baseKey}_rem_${nextAttempt}_${Math.random().toString(36).substring(2, 7)}`
+        );
       }
 
       await dispatch(fetchUserCart(jwt));

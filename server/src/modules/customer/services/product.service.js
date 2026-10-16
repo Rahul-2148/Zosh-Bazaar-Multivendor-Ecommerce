@@ -178,14 +178,33 @@ class ProductService {
         capacity: data.capacity || "",
       });
 
+      let session = null;
+      let isTransactionActive = false;
+      try {
+        if (typeof mongoose.startSession === "function" && mongoose.connection?.readyState === 1) {
+          session = await mongoose.startSession();
+          if (session && typeof session.startTransaction === "function") {
+            try {
+              session.startTransaction();
+              isTransactionActive = true;
+            } catch {
+              isTransactionActive = false;
+            }
+          }
+        }
+      } catch {
+        session = null;
+        isTransactionActive = false;
+      }
+
       let savedProduct = null;
       const createdHistoryIds = [];
 
       try {
-        savedProduct = await product.save();
+        savedProduct = await product.save(isTransactionActive ? { session } : {});
 
         // Persist authentic initial price history event
-        const baseSnapshot = await PriceHistory.create({
+        const basePayload = {
           product: savedProduct._id,
           variantId: null,
           variantSku: null,
@@ -194,12 +213,15 @@ class ProductService {
           discountPercent: savedProduct.discountPercent,
           source: "INITIAL_SNAPSHOT",
           timestamp: new Date(),
-        });
+        };
+        const baseSnapshot = isTransactionActive
+          ? (await PriceHistory.create([basePayload], { session }))[0]
+          : await PriceHistory.create(basePayload);
         if (baseSnapshot && baseSnapshot._id) createdHistoryIds.push(baseSnapshot._id);
 
         if (savedProduct.hasVariants && Array.isArray(savedProduct.variants)) {
           for (const v of savedProduct.variants) {
-            const varSnapshot = await PriceHistory.create({
+            const varPayload = {
               product: savedProduct._id,
               variantId: v._id || null,
               variantSku: v.sku || null,
@@ -208,11 +230,25 @@ class ProductService {
               discountPercent: v.discountPercent,
               source: "INITIAL_SNAPSHOT",
               timestamp: new Date(),
-            });
+            };
+            const varSnapshot = isTransactionActive
+              ? (await PriceHistory.create([varPayload], { session }))[0]
+              : await PriceHistory.create(varPayload);
             if (varSnapshot && varSnapshot._id) createdHistoryIds.push(varSnapshot._id);
           }
         }
+
+        if (isTransactionActive) {
+          await session.commitTransaction();
+        }
       } catch (mutationErr) {
+        if (isTransactionActive) {
+          try {
+            await session.abortTransaction();
+          } catch {}
+          throw mutationErr;
+        }
+
         let cleanupProductErr = null;
         let cleanupHistoryErr = null;
 
@@ -243,6 +279,12 @@ class ProductService {
           );
         }
         throw new Error(`Failed to create product with initial price snapshot: ${mutationErr.message}`);
+      } finally {
+        if (session) {
+          try {
+            await session.endSession();
+          } catch {}
+        }
       }
 
       emitProductCreated(savedProduct);
@@ -253,8 +295,31 @@ class ProductService {
   }
 
   async updateProduct(productId, data, sellerId = null) {
+    let session = null;
+    let isTransactionActive = false;
     try {
-      const product = await Product.findById(productId);
+      if (typeof mongoose.startSession === "function" && mongoose.connection?.readyState === 1) {
+        session = await mongoose.startSession();
+        if (session && typeof session.startTransaction === "function") {
+          try {
+            session.startTransaction();
+            isTransactionActive = true;
+          } catch {
+            isTransactionActive = false;
+          }
+        }
+      }
+    } catch {
+      session = null;
+      isTransactionActive = false;
+    }
+
+    try {
+      const product = await Product.findById(
+        productId,
+        null,
+        isTransactionActive ? { session } : {}
+      );
       if (!product) throw new Error("Product not found");
 
       if (sellerId && product.seller.toString() !== sellerId.toString()) {
@@ -385,16 +450,17 @@ class ProductService {
       }
 
       product.inStock = product.countInStock > 0;
-      const saved = await product.save();
+      const saved = await product.save(isTransactionActive ? { session } : {});
 
       // Record authentic PriceHistory change event if selling price or MRP changed
       const createdHistoryIds = [];
       try {
+        const snapPayloads = [];
         if (
           oldProductData.sellingPrice !== saved.sellingPrice ||
           oldProductData.mrpPrice !== saved.mrpPrice
         ) {
-          const snap = await PriceHistory.create({
+          snapPayloads.push({
             product: saved._id,
             variantId: null,
             variantSku: null,
@@ -404,7 +470,6 @@ class ProductService {
             source: sellerId ? "SELLER_UPDATE" : "ADMIN_OVERRIDE",
             timestamp: new Date(),
           });
-          if (snap && snap._id) createdHistoryIds.push(snap._id);
         }
 
         if (saved.hasVariants && Array.isArray(saved.variants)) {
@@ -413,7 +478,7 @@ class ProductService {
               (ov) => (ov._id && v._id && ov._id === v._id.toString()) || (ov.sku && ov.sku === v.sku)
             );
             if (!oldV || oldV.sellingPrice !== v.sellingPrice || oldV.mrpPrice !== v.mrpPrice) {
-              const varSnap = await PriceHistory.create({
+              snapPayloads.push({
                 product: saved._id,
                 variantId: v._id || null,
                 variantSku: v.sku || null,
@@ -423,11 +488,27 @@ class ProductService {
                 source: sellerId ? "SELLER_UPDATE" : "ADMIN_OVERRIDE",
                 timestamp: new Date(),
               });
-              if (varSnap && varSnap._id) createdHistoryIds.push(varSnap._id);
             }
           }
         }
+
+        for (const sp of snapPayloads) {
+          const snap = isTransactionActive
+            ? (await PriceHistory.create([sp], { session }))[0]
+            : await PriceHistory.create(sp);
+          if (snap && snap._id) createdHistoryIds.push(snap._id);
+        }
+
+        if (isTransactionActive) {
+          await session.commitTransaction();
+        }
       } catch (histErr) {
+        if (isTransactionActive) {
+          try {
+            await session.abortTransaction();
+          } catch {}
+          throw histErr;
+        }
         // Rollback product mutation to restore consistency completely
         // Prevent stale rollback from overwriting concurrent legitimate product updates via atomic conditional write
         const rollbackPayload = {
@@ -547,6 +628,12 @@ class ProductService {
 
     } catch (error) {
       throw new Error(error.message);
+    } finally {
+      if (session) {
+        try {
+          await session.endSession();
+        } catch {}
+      }
     }
   }
 

@@ -194,8 +194,59 @@ function resetInMemoryCartItems() {
     }
     return createChainableQuery(filtered);
   };
+  CartItem.findOneAndUpdate = async function (filter, update, options = {}) {
+    let item = null;
+    if (filter._id) {
+      item = Array.from(inMemoryCartItems.values()).find(
+        (i) => (i._id ? i._id.toString() : null) === filter._id.toString()
+      );
+    } else {
+      const key = getCartItemKey(filter.cart, filter.product, filter.variantId);
+      item = inMemoryCartItems.get(key) || null;
+    }
+    if (!item) return null;
+    if (filter.quantity !== undefined && item.quantity !== filter.quantity) {
+      return null; // CAS condition failed
+    }
+    if (update.$inc) {
+      for (const [k, val] of Object.entries(update.$inc)) {
+        item[k] = (item[k] || 0) + val;
+      }
+    }
+    if (update.$push) {
+      for (const [k, val] of Object.entries(update.$push)) {
+        item[k] = item[k] || [];
+        if (val && val.$each && Array.isArray(val.$each)) {
+          item[k].push(...val.$each);
+        } else {
+          item[k].push(val);
+        }
+      }
+    }
+    if (update.$set) {
+      Object.assign(item, update.$set);
+    }
+    const key = getCartItemKey(item.cart, item.product, item.variantId);
+    inMemoryCartItems.set(key, item);
+    return item;
+  };
   CartItem.prototype.save = async function () {
+    this._id = this._id || new mongoose.Types.ObjectId();
     const key = getCartItemKey(this.cart, this.product, this.variantId);
+    const existing = inMemoryCartItems.get(key);
+    if (
+      existing &&
+      existing !== this &&
+      existing._id &&
+      this._id &&
+      existing._id.toString() !== this._id.toString()
+    ) {
+      const err = new Error(
+        "E11000 duplicate key error collection: zosh_bazaar.cartitems index: cart_1_product_1_variantId_1 dup key"
+      );
+      err.code = 11000;
+      throw err;
+    }
     inMemoryCartItems.set(key, this);
     return this;
   };
@@ -1004,6 +1055,7 @@ async function main() {
         return { _id: id };
       };
 
+      const origPHCreate = PriceHistory.create;
       PriceHistory.create = async () => {
         throw new Error("Simulated PriceHistory failure during product creation");
       };
@@ -1024,6 +1076,8 @@ async function main() {
         assert.fail("createProduct should have thrown on price history failure");
       } catch (err) {
         assert.ok(err.message.includes("Failed to create product with initial price snapshot"));
+      } finally {
+        PriceHistory.create = origPHCreate;
       }
     });
 
@@ -1543,6 +1597,7 @@ async function main() {
     });
 
     await runAsyncTest("CartService.mergeGuestCart() maintains distinct line items with distinct clientItemId for same product", async () => {
+      resetInMemoryCartItems();
       const user = { _id: new mongoose.Types.ObjectId() };
       const prodId = new mongoose.Types.ObjectId();
       const cartId = new mongoose.Types.ObjectId();
@@ -1564,15 +1619,6 @@ async function main() {
         mrpPrice: 500,
       };
       Product.findById = async () => product;
-
-      const createdItems = [];
-      CartItem.findOne = async () => null; // Neither exists yet in DB
-      CartItem.create = async (doc) => {
-        const newItem = { ...doc, _id: new mongoose.Types.ObjectId(), save: async function () { return this; } };
-        createdItems.push(newItem);
-        return newItem;
-      };
-      CartItem.find = () => createChainableQuery(createdItems);
 
       const guestItems = [
         { clientItemId: "client-line-1", productId: prodId.toString(), quantity: 2 },
@@ -2587,6 +2633,72 @@ async function main() {
       assert.strictEqual(conflictCount, 1, "The competing retry attempt must receive 409 Conflict");
     });
 
+    await runAsyncTest("CartService.mergeGuestCart() partial-stock retry with actual frontend contract preserves remaining units and merges to 5", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const clientItemId = "item_contract_1";
+      const idempotencyKey = "frontend_idempotency_key_1";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      let stock = 2; // Initial stock is 2
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Test Item",
+        status: "PUBLISHED",
+        get countInStock() { return stock; },
+        sellingPrice: 100,
+        mrpPrice: 200,
+      });
+
+      // 1. Initial request: user requested 5 units
+      const initialGuestItems = [{ clientItemId, productId: prodId.toString(), quantity: 5 }];
+      const initialRun = await CartService.mergeGuestCart(user, initialGuestItems, { idempotencyKey });
+
+      assert.strictEqual(initialRun.mergedItems.length, 1);
+      assert.strictEqual(initialRun.mergedItems[0].quantityMerged, 2);
+      assert.strictEqual(initialRun.mergedItems[0].remainingQuantity, 3);
+      assert.strictEqual(initialRun.mergedItems[0].partialStockApplied, true);
+
+      const cartItemAfterInitial = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(cartItemAfterInitial.quantity, 2);
+
+      // 2. Frontend contract simulation:
+      // Client updates guest items in localStorage: changes quantity to unmerged remainder (3)
+      // and retains partialStockApplied: true
+      const retryGuestPayload = [
+        {
+          clientItemId,
+          productId: prodId.toString(),
+          quantity: 3, // unmerged remainder
+          partialStockApplied: true,
+        },
+      ];
+
+      // 3. Stock increases to 10
+      stock = 10;
+
+      // 4. Client retries with the persisted idempotencyKey, isRetry: true, retryMode: "FAILED_ITEMS"
+      const retryRun = await CartService.mergeGuestCart(user, retryGuestPayload, {
+        idempotencyKey,
+        isRetry: true,
+        retryMode: "FAILED_ITEMS",
+      });
+
+      // Assert that remaining 3 units are merged and final quantity is 5!
+      const finalCartItem = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(finalCartItem.quantity, 5, `Expected final cart quantity to be 5, but got ${finalCartItem.quantity}`);
+      assert.strictEqual(retryRun.mergedItems[0].remainingQuantity, 0, "No remaining units unmerged");
+    });
+
     await runAsyncTest("ProductService.updateProduct() concurrent update prevents stale rollback from overwriting newer version", async () => {
       const prodId = new mongoose.Types.ObjectId();
       const sellerId = new mongoose.Types.ObjectId();
@@ -2967,6 +3079,170 @@ async function main() {
       assert.strictEqual(capturedQuery.moderationStatus, "APPROVED", "Public questions query must strictly filter by moderationStatus: APPROVED");
       assert.strictEqual(capturedQuery.isApproved, true);
       assert.strictEqual(res.questions.length, 1);
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() concurrent merges with distinct idempotency keys targeting same product merge atomically without duplicates or lost updates", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Concurrent Target Product",
+        status: "PUBLISHED",
+        countInStock: 20,
+        sellingPrice: 500,
+        mrpPrice: 800,
+      });
+
+      const guestItemsA = [{ clientItemId: "client-worker-A", productId: prodId.toString(), quantity: 2 }];
+      const guestItemsB = [{ clientItemId: "client-worker-B", productId: prodId.toString(), quantity: 3 }];
+
+      // Run concurrent merges with two distinct idempotency keys
+      const [resA, resB] = await Promise.all([
+        CartService.mergeGuestCart(user, guestItemsA, { idempotencyKey: "concurrent_merge_key_A" }),
+        CartService.mergeGuestCart(user, guestItemsB, { idempotencyKey: "concurrent_merge_key_B" }),
+      ]);
+
+      assert.strictEqual(resA.mergedItems[0].quantityMerged, 2);
+      assert.strictEqual(resB.mergedItems[0].quantityMerged, 3);
+
+      // Verify that in the CartItem store:
+      // Exactly ONE item exists for (cart, product, variantId: null)
+      const allCartItems = Array.from(inMemoryCartItems.values());
+      assert.strictEqual(allCartItems.length, 1, "Must never create duplicate CartItem rows for same product variant");
+
+      const finalItem = allCartItems[0];
+      assert.strictEqual(finalItem.quantity, 5, "Final cart item quantity must be 2 + 3 = 5 (no lost updates)");
+
+      // Check per-attempt ledger: both client signatures must be recorded
+      const hasSigA = finalItem.appliedGuestItems.some((e) => e.clientItemId === "client-worker-A");
+      const hasSigB = finalItem.appliedGuestItems.some((e) => e.clientItemId === "client-worker-B");
+      assert.ok(hasSigA, "Ledger must record Worker A attempt");
+      assert.ok(hasSigB, "Ledger must record Worker B attempt");
+    });
+
+    await runAsyncTest("CartService.mergeGuestCart() retry of exact same payload after simulated lost response reuses key and does not double-add", async () => {
+      resetInMemoryCartItems();
+      const user = { _id: new mongoose.Types.ObjectId() };
+      const prodId = new mongoose.Types.ObjectId();
+      const cartId = new mongoose.Types.ObjectId();
+      const idempotencyKey = "lost_response_simulation_key";
+
+      const mockCart = {
+        _id: cartId,
+        recentMergeSignatures: [],
+        toObject() { return { ...this }; },
+        save: async function () { return this; },
+      };
+      Cart.findOne = async () => mockCart;
+
+      Product.findById = async () => ({
+        _id: prodId,
+        title: "Lost Response Item",
+        status: "PUBLISHED",
+        countInStock: 10,
+        sellingPrice: 150,
+        mrpPrice: 200,
+      });
+
+      const guestItems = [{ clientItemId: "item-lost-resp-1", productId: prodId.toString(), quantity: 5 }];
+
+      // Step 1: Initial request succeeds on server, but client drops connection before receiving response
+      const firstServerResult = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+      assert.strictEqual(firstServerResult.mergedItems[0].quantityMerged, 5);
+
+      const cartItemAfterFirst = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(cartItemAfterFirst.quantity, 5);
+
+      // Step 2: Client retries with identical payload and identical idempotency key
+      const retryResult = await CartService.mergeGuestCart(user, guestItems, { idempotencyKey });
+      assert.strictEqual(retryResult.isIdempotentReplay, true, "Must recognize idempotent replay of completed request");
+
+      // Verify cart quantity was NOT double-added to 10
+      const cartItemAfterRetry = await CartItem.findOne({ cart: cartId, product: prodId });
+      assert.strictEqual(cartItemAfterRetry.quantity, 5, "Quantity must strictly remain 5, never double-added to 10");
+    });
+
+    await runAsyncTest("ProductService.updateProduct() concurrent scalar price updates reject stale worker via optimistic concurrency", async () => {
+      const prodId = new mongoose.Types.ObjectId();
+      const sellerId = new mongoose.Types.ObjectId();
+
+      let dbDoc = {
+        _id: prodId,
+        seller: sellerId,
+        title: "Optimistic Concurrency Target",
+        sellingPrice: 1000,
+        mrpPrice: 1500,
+        countInStock: 10,
+        inStock: true,
+        __v: 1,
+        variants: [],
+        toObject() { return { ...this }; },
+        save: async function () {
+          if (this.__v !== dbDoc.__v) {
+            const err = new Error("No matching document found for id " + this._id + " version " + this.__v);
+            err.name = "VersionError";
+            throw err;
+          }
+          this.__v++;
+          dbDoc = { ...this };
+          return this;
+        },
+      };
+
+      PriceHistory.create = async (doc) => ({
+        _id: new mongoose.Types.ObjectId(),
+        ...(Array.isArray(doc) ? doc[0] : doc),
+      });
+
+      Product.findById = async () => ({
+        ...dbDoc,
+        toObject() { return { ...this }; },
+        save: dbDoc.save,
+      });
+
+      // Worker 1 executes update to 1200
+      await ProductService.updateProduct(prodId, { sellingPrice: 1200 }, sellerId);
+      assert.strictEqual(dbDoc.sellingPrice, 1200);
+      assert.strictEqual(dbDoc.__v, 2);
+
+      // Worker 2 (which loaded product at __v: 1) attempts to update sellingPrice to 1100
+      Product.findById = async () => ({
+        _id: prodId,
+        seller: sellerId,
+        title: "Optimistic Concurrency Target",
+        sellingPrice: 1000,
+        mrpPrice: 1500,
+        countInStock: 10,
+        inStock: true,
+        __v: 1, // Stale version!
+        variants: [],
+        toObject() { return { ...this }; },
+        save: dbDoc.save,
+      });
+
+      try {
+        await ProductService.updateProduct(prodId, { sellingPrice: 1100 }, sellerId);
+        assert.fail("Worker 2 with stale version 1 must be rejected by optimistic concurrency");
+      } catch (err) {
+        assert.ok(
+          err.message.includes("VersionError") || err.message.includes("version 1") || err.name === "VersionError",
+          `Expected version conflict rejection, got: ${err.message}`
+        );
+      }
+
+      // Assert that DB price remains Worker 1's 1200 and was not overwritten by Worker 2's 1100
+      assert.strictEqual(dbDoc.sellingPrice, 1200, "Price must remain 1200; stale update must never overwrite committed price");
     });
 
   } finally {

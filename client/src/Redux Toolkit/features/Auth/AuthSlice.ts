@@ -154,6 +154,8 @@ export const syncAndMergeGuestCart = async (
     if (remainingGuestItems.length === 0) {
       localStorage.removeItem("zosh_guest_cart");
       sessionStorage.removeItem("zosh_cart_merge_warnings");
+      sessionStorage.removeItem("zosh_cart_merge_idempotency_key");
+      sessionStorage.removeItem("zosh_cart_merge_attempt");
     } else {
       localStorage.setItem(
         "zosh_guest_cart",
@@ -164,7 +166,19 @@ export const syncAndMergeGuestCart = async (
           "zosh_cart_merge_warnings",
           JSON.stringify(failedList)
         );
+      } else {
+        sessionStorage.removeItem("zosh_cart_merge_warnings");
       }
+      // Once a confirmed partial response changes the stored guest payload from the original quantity to the remaining quantity,
+      // the retry must use an appropriate new per-payload idempotency key.
+      const currentAttempt = Number(sessionStorage.getItem("zosh_cart_merge_attempt") || "1");
+      const nextAttempt = currentAttempt + 1;
+      sessionStorage.setItem("zosh_cart_merge_attempt", String(nextAttempt));
+      const baseKey = (idempotencyKey || `merge_${Date.now()}`).split("_rem_")[0];
+      sessionStorage.setItem(
+        "zosh_cart_merge_idempotency_key",
+        `${baseKey}_rem_${nextAttempt}_${Math.random().toString(36).substring(2, 7)}`
+      );
     }
   } catch (mergeErr) {
     // Network or server error: NEVER wipe user's local guest cart!

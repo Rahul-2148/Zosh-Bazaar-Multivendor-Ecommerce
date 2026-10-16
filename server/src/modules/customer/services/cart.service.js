@@ -812,12 +812,25 @@ class CartService {
             : null;
         const priorMergedQty = prior ? Number(prior.quantityMerged) || 0 : 0;
 
-        if (priorMergedQty >= requestedQty) {
-          mergedItems.push(prior);
-          continue;
-        }
+        // A retry item is a remainder retry when it was stock-capped in a prior attempt and requests unmerged units
+        const isRemainderRetry = Boolean(
+          item.partialStockApplied ||
+          (prior &&
+            prior.remainingQuantity > 0 &&
+            (requestedQty === prior.remainingQuantity || requestedQty <= prior.remainingQuantity) &&
+            (options.isRetry || options.retryFailed || options.retryMode === "FAILED_ITEMS"))
+        );
 
-        const neededQty = requestedQty - priorMergedQty;
+        let neededQty = 0;
+        if (isRemainderRetry) {
+          neededQty = requestedQty;
+        } else {
+          if (priorMergedQty >= requestedQty) {
+            mergedItems.push(prior);
+            continue;
+          }
+          neededQty = requestedQty - priorMergedQty;
+        }
 
         if (!prodId) {
           failedItems.push({
@@ -972,131 +985,156 @@ class CartService {
           variantId: resolvedVariant ? resolvedVariant._id : null,
         };
 
-        let existingItem = await CartItem.findOne(query);
+        let itemPersisted = false;
+        let mutationAttempts = 0;
+        const maxMutationAttempts = 5;
 
-        if (existingItem) {
-          const currentQty = existingItem.quantity || 0;
-          const combinedQty = currentQty + neededQty;
-          const safeQty = Math.min(combinedQty, availableStock);
+        while (!itemPersisted && mutationAttempts < maxMutationAttempts) {
+          mutationAttempts++;
+          let existingItem = await CartItem.findOne(query);
 
-          if (safeQty <= currentQty) {
-            if (prior && prior.recoveredFromInterruptedRun) {
-              mergedItems.push(prior);
-            } else {
-              failedItems.push({
-                item,
+          if (existingItem) {
+            const currentQty = existingItem.quantity || 0;
+            const combinedQty = currentQty + neededQty;
+            const safeQty = Math.min(combinedQty, availableStock);
+
+            if (safeQty <= currentQty) {
+              if (prior && prior.recoveredFromInterruptedRun) {
+                mergedItems.push(prior);
+              } else {
+                failedItems.push({
+                  item,
+                  productId: prodId,
+                  title: product.title,
+                  reason: `Maximum available inventory (${availableStock}) is already in your cart`,
+                  clientItemId,
+                  requestedQuantity: requestedQty,
+                  remainingQuantity: neededQty,
+                });
+              }
+              itemPersisted = true;
+              break;
+            }
+
+            const quantityNewlyMerged = safeQty - currentQty;
+            const totalMergedForThisItem = priorMergedQty + quantityNewlyMerged;
+            const unmergedRemainder = isRemainderRetry
+              ? Math.max(0, requestedQty - quantityNewlyMerged)
+              : Math.max(0, requestedQty - totalMergedForThisItem);
+
+            const scopedKey = `${signature}:${clientItemId}`;
+            const detailedKey = `${signature}:${clientItemId}:${totalMergedForThisItem}:${unmergedRemainder}`;
+            const guestItemEntry = {
+              signature,
+              clientItemId: String(clientItemId),
+              quantityApplied: totalMergedForThisItem,
+              remainingQuantity: unmergedRemainder,
+              appliedAt: new Date(),
+            };
+
+            existingItem.quantity = safeQty;
+            existingItem.mrpPrice = safeQty * unitMrp;
+            existingItem.sellingPrice = safeQty * unitSelling;
+
+            existingItem.appliedGuestItems = existingItem.appliedGuestItems || [];
+            if (clientItemId) {
+              const entryIdx = existingItem.appliedGuestItems.findIndex(
+                (e) => e.signature === signature && e.clientItemId === String(clientItemId)
+              );
+              if (entryIdx >= 0) {
+                existingItem.appliedGuestItems[entryIdx].quantityApplied = totalMergedForThisItem;
+                existingItem.appliedGuestItems[entryIdx].remainingQuantity = unmergedRemainder;
+              } else {
+                existingItem.appliedGuestItems.push(guestItemEntry);
+              }
+            }
+
+            existingItem.appliedGuestItemIds = existingItem.appliedGuestItemIds || [];
+            if (clientItemId && !existingItem.appliedGuestItemIds.includes(scopedKey)) {
+              existingItem.appliedGuestItemIds.push(scopedKey);
+            }
+            if (clientItemId && !existingItem.appliedGuestItemIds.includes(detailedKey)) {
+              existingItem.appliedGuestItemIds.push(detailedKey);
+            }
+
+            try {
+              await existingItem.save();
+              itemPersisted = true;
+              mergedItems.push({
                 productId: prodId,
-                title: product.title,
-                reason: `Maximum available inventory (${availableStock}) is already in your cart`,
-                clientItemId,
-                requestedQuantity: requestedQty,
-                remainingQuantity: neededQty,
-              });
-            }
-            continue;
-          }
-
-          const quantityNewlyMerged = safeQty - currentQty;
-          const totalMergedForThisItem = priorMergedQty + quantityNewlyMerged;
-          const unmergedRemainder = Math.max(0, requestedQty - totalMergedForThisItem);
-
-          existingItem.quantity = safeQty;
-          existingItem.mrpPrice = safeQty * unitMrp;
-          existingItem.sellingPrice = safeQty * unitSelling;
-
-          existingItem.appliedGuestItems = existingItem.appliedGuestItems || [];
-          if (clientItemId) {
-            const entryIdx = existingItem.appliedGuestItems.findIndex(
-              (e) => e.signature === signature && e.clientItemId === String(clientItemId)
-            );
-            if (entryIdx >= 0) {
-              existingItem.appliedGuestItems[entryIdx].quantityApplied = totalMergedForThisItem;
-              existingItem.appliedGuestItems[entryIdx].remainingQuantity = unmergedRemainder;
-            } else {
-              existingItem.appliedGuestItems.push({
-                signature,
-                clientItemId: String(clientItemId),
-                quantityApplied: totalMergedForThisItem,
+                variantId: resolvedVariant ? resolvedVariant._id : null,
+                quantityMerged: totalMergedForThisItem,
                 remainingQuantity: unmergedRemainder,
-                appliedAt: new Date(),
+                finalQuantity: safeQty,
+                clientItemId,
+                partialStockApplied: unmergedRemainder > 0,
               });
+            } catch (saveErr) {
+              if (saveErr.name === "VersionError" || saveErr.code === 11000) {
+                continue;
+              }
+              throw saveErr;
+            }
+          } else {
+            const safeQty = Math.min(neededQty, availableStock);
+            const totalMergedForThisItem = priorMergedQty + safeQty;
+            const unmergedRemainder = isRemainderRetry
+              ? Math.max(0, requestedQty - safeQty)
+              : Math.max(0, requestedQty - totalMergedForThisItem);
+
+            const newCartItem = new CartItem({
+              cart: cart._id,
+              product: product._id,
+              variantId: resolvedVariant ? resolvedVariant._id : null,
+              selectedVariant: selectedVariantSnapshot,
+              quantity: safeQty,
+              mrpPrice: safeQty * unitMrp,
+              sellingPrice: safeQty * unitSelling,
+              userId: userId.toString(),
+              appliedGuestItems: clientItemId
+                ? [
+                    {
+                      signature,
+                      clientItemId: String(clientItemId),
+                      quantityApplied: totalMergedForThisItem,
+                      remainingQuantity: unmergedRemainder,
+                      appliedAt: new Date(),
+                    },
+                  ]
+                : [],
+              appliedGuestItemIds: clientItemId
+                ? [
+                    `${signature}:${clientItemId}`,
+                    `${signature}:${clientItemId}:${totalMergedForThisItem}:${unmergedRemainder}`,
+                  ]
+                : [],
+              size: item.size || "",
+              ram: item.ram || "",
+              weight: item.weight || "",
+              capacity: item.capacity || "",
+            });
+
+            try {
+              await newCartItem.save();
+              itemPersisted = true;
+              mergedItems.push({
+                productId: prodId,
+                variantId: resolvedVariant ? resolvedVariant._id : null,
+                quantityMerged: totalMergedForThisItem,
+                remainingQuantity: unmergedRemainder,
+                finalQuantity: safeQty,
+                clientItemId,
+                partialStockApplied: unmergedRemainder > 0,
+              });
+            } catch (insertErr) {
+              if (insertErr.code === 11000 || (insertErr.message && insertErr.message.includes("E11000"))) {
+                // A concurrent worker inserted the CartItem row first!
+                // Loop to update the existing item atomically instead of creating a duplicate row.
+                continue;
+              }
+              throw insertErr;
             }
           }
-
-          existingItem.appliedGuestItemIds = existingItem.appliedGuestItemIds || [];
-          const scopedKey = `${signature}:${clientItemId}`;
-          const detailedKey = `${signature}:${clientItemId}:${totalMergedForThisItem}:${unmergedRemainder}`;
-          if (
-            clientItemId &&
-            !existingItem.appliedGuestItemIds.includes(scopedKey)
-          ) {
-            existingItem.appliedGuestItemIds.push(scopedKey);
-          }
-          if (
-            clientItemId &&
-            !existingItem.appliedGuestItemIds.includes(detailedKey)
-          ) {
-            existingItem.appliedGuestItemIds.push(detailedKey);
-          }
-          await existingItem.save();
-
-          mergedItems.push({
-            productId: prodId,
-            variantId: resolvedVariant ? resolvedVariant._id : null,
-            quantityMerged: totalMergedForThisItem,
-            remainingQuantity: unmergedRemainder,
-            finalQuantity: safeQty,
-            clientItemId,
-            partialStockApplied: totalMergedForThisItem < requestedQty,
-          });
-        } else {
-          const safeQty = Math.min(neededQty, availableStock);
-          const totalMergedForThisItem = priorMergedQty + safeQty;
-          const unmergedRemainder = Math.max(0, requestedQty - totalMergedForThisItem);
-
-          const newCartItem = new CartItem({
-            cart: cart._id,
-            product: product._id,
-            variantId: resolvedVariant ? resolvedVariant._id : null,
-            selectedVariant: selectedVariantSnapshot,
-            quantity: safeQty,
-            mrpPrice: safeQty * unitMrp,
-            sellingPrice: safeQty * unitSelling,
-            userId: userId.toString(),
-            appliedGuestItems: clientItemId
-              ? [
-                  {
-                    signature,
-                    clientItemId: String(clientItemId),
-                    quantityApplied: totalMergedForThisItem,
-                    remainingQuantity: unmergedRemainder,
-                    appliedAt: new Date(),
-                  },
-                ]
-              : [],
-            appliedGuestItemIds: clientItemId
-              ? [
-                  `${signature}:${clientItemId}`,
-                  `${signature}:${clientItemId}:${totalMergedForThisItem}:${unmergedRemainder}`,
-                ]
-              : [],
-            size: item.size || "",
-            ram: item.ram || "",
-            weight: item.weight || "",
-            capacity: item.capacity || "",
-          });
-
-          await newCartItem.save();
-
-          mergedItems.push({
-            productId: prodId,
-            variantId: resolvedVariant ? resolvedVariant._id : null,
-            quantityMerged: totalMergedForThisItem,
-            remainingQuantity: unmergedRemainder,
-            finalQuantity: safeQty,
-            clientItemId,
-            partialStockApplied: totalMergedForThisItem < requestedQty,
-          });
         }
       }
     } catch (processError) {
