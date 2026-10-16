@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary & Restored Baseline
 
-Following the audit directive, the premature test consolidation (which compressed 709 test assertions into 133 tests without a formal migration matrix) was cleanly reverted in commit `fc46e31`. The obsolete scratch script `server/test_delivery_partner_flow.mjs` containing hardcoded credentials was removed.
+Following the audit directive, the premature test consolidation (which compressed 715 test assertions into 133 tests without a formal migration matrix) was cleanly reverted in commit `fc46e31`. The obsolete scratch script `server/test_delivery_partner_flow.mjs` containing hardcoded credentials was removed.
 
 ### Restored Baseline Test Execution (All 19 Files Passing)
 Execution command: `npm --prefix server test` (executed in root/server with environment variables active).
@@ -35,7 +35,7 @@ Execution command: `npm --prefix server test` (executed in root/server with envi
 | 17 | `phase28OpenApiDocsGate.test.js` | **10** | OpenAPI 3.1 specification validation (JSON/YAML parity, unique operationIds, zero broken `$ref`s, security schemes, Developer Portal UI). |
 | 18 | `phase29SellerDetailsAndTaxInvoice.test.js` | **24** | Public seller profile DTO sanitization, authentic rating aggregation, GSTIN validation, HSN/SAC classification, seller tax regimes (Regular/Composition/Unregistered), statutory tax thresholds (Apparel/Footwear/Electronics/Books), place of supply (CGST+SGST vs IGST), invoice tenant isolation. |
 | 19 | `phase30FullMarketplaceExperience.test.js` | **68** | Multi-seller buy box, multi-product comparison, price history & alerts, community Q&A moderation, crash-safe guest cart merge with atomic concurrency and frontend retry contract, optimistic concurrency versioning. |
-| **Total** | **19 Suites** | **709** | **Complete Green Baseline (0 Failures)** |
+| **Total** | **19 Suites** | **715** | **Complete Green Baseline (0 Failures)** |
 
 ---
 
