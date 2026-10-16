@@ -5,16 +5,18 @@ import { useNavigate } from "react-router-dom";
 export interface FreeDeliveryProgressBarProps {
   currentAmount: number;
   threshold?: number;
+  isFreeDelivery?: boolean;
 }
 
 export const FreeDeliveryProgressBar: React.FC<FreeDeliveryProgressBarProps> = ({
   currentAmount,
-  threshold = 500,
+  threshold = 999,
+  isFreeDelivery,
 }) => {
   const navigate = useNavigate();
   const progressPercent = Math.min(100, Math.round((currentAmount / threshold) * 100));
   const amountNeeded = Math.max(0, threshold - currentAmount);
-  const isUnlocked = currentAmount >= threshold;
+  const isUnlocked = isFreeDelivery !== undefined ? isFreeDelivery : currentAmount >= threshold;
 
   return (
     <div className="w-full bg-card border border-border rounded-xl p-3 sm:px-4 sm:py-3 shadow-xs flex flex-col gap-2">

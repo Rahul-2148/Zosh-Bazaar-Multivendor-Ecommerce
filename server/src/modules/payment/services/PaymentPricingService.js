@@ -1,5 +1,9 @@
 import { Coupon } from "../../../models/coupon.model.js";
+import { PlatformSettings } from "../../../models/settings.model.js";
 import paymentOffersService from "./PaymentOffersService.js";
+
+const DEFAULT_FREE_SHIPPING_THRESHOLD = 999;
+const DEFAULT_SHIPPING_FEE = 79;
 
 /**
  * Server-Authoritative Pricing Engine
@@ -17,6 +21,8 @@ class PaymentPricingService {
     paymentOfferDiscount = 0,
     deliveryFee = null,
     packagingFee = 19,
+    freeShippingThreshold = DEFAULT_FREE_SHIPPING_THRESHOLD,
+    standardDeliveryFee = DEFAULT_SHIPPING_FEE,
   }) {
     const itemList = items.length ? items : cartItems;
     let totalMrp = 0;
@@ -35,9 +41,9 @@ class PaymentPricingService {
     const resolvedDeliveryFee =
       deliveryFee !== null
         ? deliveryFee
-        : totalItemSellingPrice >= 500 || totalItemSellingPrice === 0
+        : totalItemSellingPrice >= freeShippingThreshold || totalItemSellingPrice === 0
         ? 0
-        : 40;
+        : standardDeliveryFee;
     const resolvedPackagingFee = totalItemSellingPrice > 0 ? packagingFee : 0;
 
     const payableAmount = Math.max(
@@ -71,6 +77,8 @@ class PaymentPricingService {
    * @param {string} [params.rail] - Selected payment rail (UPI, CARD, etc.)
    * @param {string} [params.bankCode] - Selected bank code
    * @param {string} [params.cardNetwork] - Selected card network
+   * @param {number|null} [params.deliveryFee] - Explicit delivery fee override if determined
+   * @param {number} [params.packagingFee] - Explicit packaging fee (defaults to 0 matching cart)
    */
   async computePricing({
     cartItems = [],
@@ -79,6 +87,8 @@ class PaymentPricingService {
     rail = null,
     bankCode = null,
     cardNetwork = null,
+    deliveryFee = null,
+    packagingFee = 0,
   }) {
     let mrpTotal = 0;
     let sellingPriceTotal = 0;
@@ -134,14 +144,38 @@ class PaymentPricingService {
       }
     }
 
-    // 3. Delivery & Handling Fees
-    // Free delivery threshold defaults to ₹500 across platform pricing engines
-    const deliveryFee = sellingPriceTotal >= 500 || sellingPriceTotal === 0 ? 0 : 40;
-    const packagingFee = sellingPriceTotal > 0 ? 9 : 0;
+    // 3. Delivery Fee from Authoritative PlatformSettings
+    let freeShippingThreshold = DEFAULT_FREE_SHIPPING_THRESHOLD;
+    let standardDeliveryFee = DEFAULT_SHIPPING_FEE;
+    try {
+      if (PlatformSettings && typeof PlatformSettings.findOne === "function") {
+        const platformSettings = await PlatformSettings.findOne().lean();
+        if (platformSettings) {
+          if (typeof platformSettings.freeShippingThreshold === "number") {
+            freeShippingThreshold = platformSettings.freeShippingThreshold;
+          }
+          if (typeof platformSettings.shippingFee === "number") {
+            standardDeliveryFee = platformSettings.shippingFee;
+          }
+        }
+      }
+    } catch {
+      // Fallback safely to declared defaults if settings store is unavailable
+    }
+
+    const resolvedDeliveryFee =
+      deliveryFee !== null
+        ? deliveryFee
+        : sellingPriceTotal >= freeShippingThreshold || sellingPriceTotal === 0
+        ? 0
+        : standardDeliveryFee;
+
+    // Align with authoritative cart rules: omit packaging fee unless explicitly configured
+    const resolvedPackagingFee = Number(packagingFee) || 0;
 
     const finalPayable = Math.max(
       0,
-      sellingPriceTotal - couponDiscount - offerDiscount + deliveryFee + packagingFee
+      sellingPriceTotal - couponDiscount - offerDiscount + resolvedDeliveryFee + resolvedPackagingFee
     );
 
     return {
@@ -152,10 +186,10 @@ class PaymentPricingService {
       couponDiscount,
       offerCode: validOfferCode,
       offerDiscount,
-      deliveryFee,
-      packagingFee,
+      deliveryFee: resolvedDeliveryFee,
+      packagingFee: resolvedPackagingFee,
       finalPayable,
-      totalSavings: mrpTotal - (finalPayable - deliveryFee - packagingFee),
+      totalSavings: mrpTotal - (finalPayable - resolvedDeliveryFee - resolvedPackagingFee),
     };
   }
 }

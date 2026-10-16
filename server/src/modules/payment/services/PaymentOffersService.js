@@ -12,7 +12,14 @@ export const KNOWN_DEFAULT_DEMO_CODES = [
  * Evaluates payment-method specific promotions, bank discounts, and cashback rules.
  */
 class PaymentOffersService {
-  async seedDefaultOffersIfEmpty() {
+  /**
+   * Explicit development/test-only seeding utility.
+   * Hard production guard prevents synthetic bank/UPI offers in production environments.
+   */
+  async seedDevelopmentDemoOffers() {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Synthetic payment offer seeding is strictly prohibited in production.");
+    }
     const count = await PaymentOffer.countDocuments();
     if (count > 0) return;
 
@@ -29,6 +36,8 @@ class PaymentOffersService {
         applicableRail: "CARD",
         applicableBanks: ["HDFC"],
         applicableCardNetworks: ["VISA", "MASTERCARD"],
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isActive: true,
         isDevelopmentOnly: true,
         isDemo: true,
@@ -43,6 +52,8 @@ class PaymentOffersService {
         minOrderValue: 999,
         applicableRail: "NETBANKING",
         applicableBanks: ["ICICI"],
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isActive: true,
         isDevelopmentOnly: true,
         isDemo: true,
@@ -56,6 +67,8 @@ class PaymentOffersService {
         maxDiscount: 50,
         minOrderValue: 499,
         applicableRail: "UPI",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isActive: true,
         isDevelopmentOnly: true,
         isDemo: true,
@@ -70,6 +83,8 @@ class PaymentOffersService {
         minOrderValue: 1499,
         applicableRail: "CARD",
         applicableCardNetworks: ["RUPAY"],
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isActive: true,
         isDevelopmentOnly: true,
         isDemo: true,
@@ -115,6 +130,10 @@ class PaymentOffersService {
     cardNetwork = null,
     includeDemo = false,
   } = {}) {
+    // In production, demo offers are never permitted under any circumstances
+    const safeIncludeDemo =
+      process.env.NODE_ENV === "production" ? false : Boolean(includeDemo);
+
     const now = new Date();
     const query = {
       isActive: true,
@@ -122,7 +141,7 @@ class PaymentOffersService {
       endDate: { $gte: now },
     };
 
-    if (!includeDemo) {
+    if (!safeIncludeDemo) {
       // Explicitly exclude known default demo codes to protect legacy documents missing flags
       query.code = { $nin: KNOWN_DEFAULT_DEMO_CODES };
       query.isDevelopmentOnly = { $ne: true };
@@ -140,7 +159,7 @@ class PaymentOffersService {
     const offers = await PaymentOffer.find(query).lean();
 
     return offers.filter((offer) => {
-      if (!includeDemo) {
+      if (!safeIncludeDemo) {
         if (KNOWN_DEFAULT_DEMO_CODES.includes(offer.code)) return false;
         if (offer.isDevelopmentOnly === true || offer.isDemo === true) return false;
       }
@@ -173,8 +192,12 @@ class PaymentOffersService {
 
     const normalizedCode = offerCode.trim().toUpperCase();
 
+    // In production, demo offer redemption is strictly forbidden under any circumstances
+    const safeAllowDemo =
+      process.env.NODE_ENV === "production" ? false : Boolean(allowDemo);
+
     // Reject demo codes immediately if demo redemption is not permitted
-    if (!allowDemo && KNOWN_DEFAULT_DEMO_CODES.includes(normalizedCode)) {
+    if (!safeAllowDemo && KNOWN_DEFAULT_DEMO_CODES.includes(normalizedCode)) {
       return { valid: false, discount: 0, reason: "Demo payment offer cannot be redeemed" };
     }
 
@@ -184,15 +207,30 @@ class PaymentOffersService {
       return { valid: false, discount: 0, reason: "Invalid or inactive payment offer code" };
     }
 
-    if (!allowDemo && (offer.isDevelopmentOnly === true || offer.isDemo === true || KNOWN_DEFAULT_DEMO_CODES.includes(offer.code))) {
+    if (!safeAllowDemo && (offer.isDevelopmentOnly === true || offer.isDemo === true || KNOWN_DEFAULT_DEMO_CODES.includes(offer.code))) {
       return { valid: false, discount: 0, reason: "Demo payment offer cannot be redeemed" };
     }
 
+    // Require valid, present start and end dates and enforce startDate <= now <= endDate
+    if (!offer.startDate) {
+      return { valid: false, discount: 0, reason: "Payment offer start date is missing" };
+    }
+    if (!offer.endDate) {
+      return { valid: false, discount: 0, reason: "Payment offer end date is missing" };
+    }
+
+    const startDate = new Date(offer.startDate);
+    const endDate = new Date(offer.endDate);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return { valid: false, discount: 0, reason: "Payment offer has invalid validity dates" };
+    }
+
     const now = new Date();
-    if (offer.startDate && new Date(offer.startDate) > now) {
+    if (startDate > now) {
       return { valid: false, discount: 0, reason: "Payment offer has not started yet" };
     }
-    if (offer.endDate && new Date(offer.endDate) < now) {
+    if (endDate < now) {
       return { valid: false, discount: 0, reason: "Payment offer has expired" };
     }
 

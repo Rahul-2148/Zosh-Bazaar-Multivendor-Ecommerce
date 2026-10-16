@@ -366,7 +366,11 @@ const Cart: React.FC = () => {
 
         {/* Free Delivery Progress Bar */}
         <div className="mb-4">
-          <FreeDeliveryProgressBar currentAmount={totalSelling} threshold={pricingSummary?.freeDeliveryThreshold || 500} />
+          <FreeDeliveryProgressBar
+            currentAmount={totalSelling}
+            threshold={pricingSummary?.freeDeliveryThreshold ?? 999}
+            isFreeDelivery={isDeliveryFeeKnown ? (pricingSummary?.isFreeDelivery ?? deliveryFee === 0) : undefined}
+          />
         </div>
 
         {/* 2-Column Responsive Layout */}
@@ -534,9 +538,11 @@ const Cart: React.FC = () => {
               ? `🎉 Coupon applied: You saved ₹${couponDiscount} extra!`
               : !isDeliveryFeeKnown
               ? "Delivery charges will be calculated at checkout"
-              : totalSelling < (pricingSummary?.freeDeliveryThreshold ?? 500)
-              ? `Add ₹${(pricingSummary?.freeDeliveryThreshold ?? 500) - totalSelling} more for FREE delivery`
-              : "🎉 Free Express Delivery Unlocked!"}
+              : isDeliveryFeeKnown && (pricingSummary?.isFreeDelivery === true || deliveryFee === 0)
+              ? "🎉 Free Delivery Unlocked!"
+              : totalSelling < (pricingSummary?.freeDeliveryThreshold ?? 999)
+              ? `Add ₹${(pricingSummary?.freeDeliveryThreshold ?? 999) - totalSelling} more for FREE delivery`
+              : "Delivery charges will be confirmed at checkout"}
           </span>
           {totalSavings > 0 && (
             <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">
@@ -557,6 +563,11 @@ const Cart: React.FC = () => {
             <span className="text-base sm:text-lg font-black text-foreground tracking-tight">
               ₹{totalPayable.toLocaleString("en-IN")}
             </span>
+            {!isDeliveryFeeKnown && (
+              <span className="text-[9px] text-muted-foreground font-medium">
+                + Delivery confirmed at checkout
+              </span>
+            )}
           </div>
 
           {/* Yellow CTA Button */}

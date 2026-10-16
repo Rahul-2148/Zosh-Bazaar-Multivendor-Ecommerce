@@ -209,9 +209,9 @@ class CartService {
     const sellerPackages = Array.from(vendorMap.values());
 
     // 4. Delivery Fee & Free Delivery Threshold Intelligence
-    // Query platform settings for dynamic threshold and delivery fee
-    let freeShippingThreshold = 500;
-    let standardDeliveryFee = 40;
+    // Query platform settings for dynamic threshold and delivery fee (defaults: ₹999 threshold, ₹79 fee)
+    let freeShippingThreshold = 999;
+    let standardDeliveryFee = 79;
     try {
       if (canQueryModel(PlatformSettings, "findOne")) {
         const platformSettings = await PlatformSettings.findOne();
@@ -225,7 +225,7 @@ class CartService {
         }
       }
     } catch {
-      // Fallback safely to defaults if settings store is unavailable
+      // Fallback safely to declared defaults if settings store is unavailable
     }
 
     const isFreeShipping = totalDiscountedPrice >= freeShippingThreshold || totalItems === 0;
